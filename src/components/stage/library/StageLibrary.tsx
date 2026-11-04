@@ -10,6 +10,7 @@ import { Button } from '../../ui/Button'
 import { DangerConfirm } from '../../ui/DangerConfirm'
 import { Menu, type MenuGroupSpec } from '../../ui/Menu'
 import { Notice } from '../../ui/Notice'
+import { toast } from '../../ui/Toast'
 import { InkDialog } from '../InkDialog'
 import ModelMissingNotice from '../ModelMissingNotice'
 import { LibraryUpdateCard } from '../StageUpdate'
@@ -122,11 +123,18 @@ export default function StageLibrary() {
     else if (book.id !== shelf.selectedId) book.onPreview()
   }
 
+  const copyBookPath = (book: Book) => {
+    void navigator.clipboard.writeText(book.path)
+      .then(() => toast.success(text('已复制路径', 'Path copied')))
+      .catch(() => toast.error(text('无法复制路径', 'Could not copy the path')))
+  }
+
   const bookMenu = (book: Book): MenuGroupSpec[] => [
     { id: 'book', items: [
       book.current
         ? { id: 'continue', label: text('回到作品', 'Back to the book'), onSelect: () => navigate({ kind: 'stage' }) }
         : { id: 'open', label: text('打开作品', 'Open book'), onSelect: book.onOpen },
+      { id: 'copy-path', label: text('复制路径', 'Copy path'), onSelect: () => copyBookPath(book) },
       { id: 'remove', label: text('从最近项目移除…', 'Remove from recent…'), onSelect: () => setRemoving(book) },
     ] },
     { id: 'danger', tone: 'danger', items: [book.current && currentProject

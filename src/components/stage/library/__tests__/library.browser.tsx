@@ -240,6 +240,16 @@ describe('书房', () => {
     expect(useProjectStore.getState().deleteProject).not.toHaveBeenCalled()
   })
 
+  it('复制路径把这部作品的工作区路径放进剪贴板', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    useProjectStore.setState({ recentProjects: [LIGHTHOUSE, ISLAND] })
+    await mount()
+    await click(await chooseFromBookMenu('雾岛', '复制路径'))
+    expect(writeText).toHaveBeenCalledWith(ISLAND.path)
+    await vi.waitFor(() => expect(document.body.textContent).toContain('已复制路径'))
+  })
+
   it('窗口最窄 1024×640 时书房不横向溢出，书架菜单与确认框照常可用', async () => {
     // 真实应用的最小窗口（electron/main.ts 的 minWidth、minHeight）。
     await page.viewport(1024, 640)
