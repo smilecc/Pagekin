@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, Plus, RotateCw, Search } from 'lucide-react'
 import { getCharacterRoleLabels } from '../../../shared/character-role'
 import { characterSelectionKey, useCharacterStore } from '../../../stores/character-store'
@@ -7,7 +8,7 @@ import { useCharacterList } from '../../characters/use-character-list'
 import { Button } from '../../ui/Button'
 
 /** 角色名单左栏：搜索、新建、导入角色卡、按页列出角色、刷新。列表逻辑沿用旧侧栏的 useCharacterList。 */
-export default function CharacterRoster({ projectKey }: { projectKey: string }) {
+export default function CharacterRoster({ projectKey, generationAction }: { projectKey: string; generationAction?: ReactNode }) {
   const text = useLocaleStore(s => s.text)
   const list = useCharacterList()
   const selectedId = useCharacterStore(s => s.selectedId)
@@ -39,6 +40,7 @@ export default function CharacterRoster({ projectKey }: { projectKey: string }) 
           </Button>
           <CharacterCardImportButton projectKey={projectKey} disabled={identityBusy || !list.dataReady} />
         </div>
+        {generationAction}
       </div>
       <ul className="cast-list">
         {pageCharacters.map(character => {

@@ -14,8 +14,8 @@ export const CONFIG_LABELS: Record<string, readonly [string, string]> = {
   genre: ['类型', 'Genre'], subGenre: ['子类型', 'Subgenre'], targetAudience: ['目标读者', 'Target audience'],
   totalChapters: ['总章节数', 'Total chapters'], wordsPerChapter: ['每章字数', 'Words per chapter'],
   plotStructure: ['情节结构', 'Plot structure'], narrativePOV: ['叙事视角', 'Narrative POV'],
-  coreOutline: ['核心大纲', 'Core outline'], worldSetting: ['世界设定', 'World setting'],
-  goldenFinger: ['金手指', 'Special advantage'], protagonistProfile: ['主角设定', 'Protagonist profile'],
+  coreOutline: ['大纲', 'Outline'],
+
   globalGuidance: ['全局指导', 'Global guidance'], writingStyle: ['写作风格', 'Writing style'],
   referenceWorks: ['参考作品', 'Reference works'], writingLanguage: ['写作语言', 'Writing language'],
 }
@@ -80,7 +80,7 @@ export function useDomainProposalPreview(toolCall: ToolCallInfo): DomainProposal
         return
       }
       if (!blueprint) {
-        setBlueprintPreview({ kind: 'invalid', diffs: [], error: `第 ${chapterNumber} 章蓝图不存在` })
+        setBlueprintPreview({ kind: 'invalid', diffs: [], error: `第 ${chapterNumber} 章故事规划不存在` })
         return
       }
       const proposal = buildChapterBlueprintProposal(toolCall.arguments, blueprint)
@@ -88,7 +88,7 @@ export function useDomainProposalPreview(toolCall: ToolCallInfo): DomainProposal
         ? { kind: 'valid', diffs: proposal.diffs }
         : { kind: 'invalid', diffs: [], error: proposal.error })
     }).catch(() => {
-      if (!disposed) setBlueprintPreview({ kind: 'invalid', diffs: [], error: '无法读取章节蓝图' })
+      if (!disposed) setBlueprintPreview({ kind: 'invalid', diffs: [], error: '无法读取故事规划' })
     })
     return () => { disposed = true }
   }, [blueprintImmediate, currentProject, toolCall.arguments, toolCall.projectSession])

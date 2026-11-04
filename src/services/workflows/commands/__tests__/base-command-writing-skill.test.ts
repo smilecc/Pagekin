@@ -116,7 +116,7 @@ describe('BaseWorkflowCommand writing skill injection', () => {
     })
 
     const task = complete.mock.calls[0]?.[0]
-    expect(task.messages[1].content).toMatch(/^\[Supplemental writing skill: Scene craft\]/)
+    expect(task.messages[1].content).toMatch(/^【补充写作 Skill：Scene craft】/)
     expect(task.messages[1].content.indexOf('Prefer concrete action'))
       .toBeLessThan(task.messages[1].content.indexOf('AUTHOR FACTS'))
     expect(task.promptBudget?.sections[0]).toMatchObject({

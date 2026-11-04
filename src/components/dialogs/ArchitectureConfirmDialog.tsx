@@ -12,12 +12,10 @@ import { PLANNING_ACTION_CHAPTER_LIMIT, PLANNING_TARGET_UNITS_LIMIT } from '../.
 import { useArchitectureConfirmForm, type ArchitectureConfirmFormOptions } from './use-architecture-confirm-form'
 import { pluralEn } from '../../shared/plural-en'
 
-/** 四节的说明；名字取 ARCH_STEP_NAMES。 */
+/** 当前可生成内容的说明；名字取 ARCH_STEP_NAMES。 */
 const ARCH_FILES: Array<{ key: ArchStepKey; desc: string; descEn: string }> = [
-  { key: 'premise', desc: 'Logline、核心冲突、金手指定位', descEn: 'Logline, core conflict, and protagonist advantage' },
   { key: 'characters', desc: '角色弧光、关系网、矛盾交织', descEn: 'Character arcs, relationships, and conflicts' },
   { key: 'worldbuilding', desc: '核心规则、阶层断层、深层危机', descEn: 'Core rules, social fault lines, and hidden crises' },
-  { key: 'synopsis', desc: '三幕式情节骨架', descEn: 'Three-act plot structure' },
 ]
 
 /** 生成架构确认弹框（含步骤勾选） */
@@ -265,7 +263,7 @@ export default function ArchitectureConfirmDialog(props: ArchitectureConfirmForm
           <Button variant="outline" onClick={onClose} disabled={isConfirming}>{text('取消', 'Cancel')}</Button>
           <Button variant="default" onClick={handleConfirm} disabled={noneSelected || isConfirming || form.synopsisRangeIssue !== null || (checked.synopsis && preferenceLoading)}>
             <Wand2 size={13} />
-            {isConfirming ? text('校验中...', 'Validating...') : text(`确认生成（${selectedSteps.length}/4）`, `Generate (${selectedSteps.length}/4)`)}
+            {isConfirming ? text('校验中...', 'Validating...') : text(`确认生成（${selectedSteps.length}/${ARCH_FILES.length}）`, `Generate (${selectedSteps.length}/${ARCH_FILES.length})`)}
           </Button>
         </DialogFooter>
       </DialogContent>

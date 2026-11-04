@@ -18,8 +18,8 @@ import { useWorkflowStore } from '../stores/workflow-store'
 const CHAT_WORDS = /Agent|助手|聊天|对话|assistant|chat/i
 const session = { projectId: '灯塔', projectPath: 'C:/novels/lighthouse', leaseId: '本次打开' }
 const project = { id: session.projectId, name: '灯塔', path: session.projectPath, sessionLease: session.leaseId, novelConfig: {
-  coreOutline: '', genre: '', subGenre: '', targetAudience: '', totalChapters: 24, wordsPerChapter: 3000, worldSetting: '', goldenFinger: '',
-  protagonistProfile: '', globalGuidance: '', writingStyle: '', referenceWorks: '', narrativePOV: 'third_limited', plotStructure: 'three_act', writingLanguage: 'zh-CN',
+  coreOutline: '', genre: '', subGenre: '', targetAudience: '', totalChapters: 24, wordsPerChapter: 3000,
+   globalGuidance: '', writingStyle: '', referenceWorks: '', narrativePOV: 'third_limited', plotStructure: 'three_act', writingLanguage: 'zh-CN',
 } } as unknown as ProjectData
 
 const restores = [useLayoutStore, useLocaleStore, useProjectStore, useWorkflowStore].map(store => {

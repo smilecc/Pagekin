@@ -19,12 +19,12 @@ let projectRoot = ''
 const source = {
   chapterNumber: 3,
   title: '失控列车',
-  role: '发展',
-  purpose: '揭示追踪者',
+  role: '',
+  purpose: '',
   keyEvents: '林岚发现列车没有司机',
   characters: ['林岚'],
-  suspenseHook: '隧道尽头出现第二辆列车',
-  userGuidance: '保持封闭空间压迫感',
+  suspenseHook: '',
+  userGuidance: '',
 }
 
 beforeEach(() => {

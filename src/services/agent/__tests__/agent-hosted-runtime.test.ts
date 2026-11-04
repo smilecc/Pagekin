@@ -12,7 +12,7 @@ const session = { projectId: 'hosted-project', leaseId: 'hosted-lease', projectP
 const project = { id: session.projectId, sessionLease: session.leaseId, path: session.projectPath, name: 'Synthetic',
   characterStates: '', createdAt: '', updatedAt: '', novelConfig: { writingLanguage: 'en-US' as const, genre: '', subGenre: '',
     targetAudience: '', totalChapters: 10, wordsPerChapter: 3000, plotStructure: 'three_act' as const, narrativePOV: 'third_limited' as const,
-    coreOutline: '', worldSetting: '', goldenFinger: '', protagonistProfile: '', globalGuidance: '' } }
+    coreOutline: '',    globalGuidance: '' } }
 const toolText = (name = 'hosted_probe', args: Record<string, unknown> = {}) => `<tool_call>${JSON.stringify({ name, arguments: args })}</tool_call>`
 let fixture: AgentHostFixture
 let registered: AgentTool[]
@@ -270,7 +270,7 @@ describe('Agent hosted consumer control boundary (synthetic transport)', () => {
     const result = await startWorkflowTool.execute({ workflow: 'generate_draft', chapter_number: 1, agentToolAction: { toolCallId: 'forged' } },
       { projectSession: session, writingLanguage: 'en-US', uiLocale: 'en-US', selectedModelId: 'model' })
     expect(result.success).toBe(false)
-    expect(result.error).toContain('main-issued tool action is missing')
+    expect(result.error).toContain('缺少主进程签发的工具动作')
     expect(fixture.invoke).not.toHaveBeenCalled()
   })
 

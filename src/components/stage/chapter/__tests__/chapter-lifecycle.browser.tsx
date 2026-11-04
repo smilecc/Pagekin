@@ -104,10 +104,10 @@ afterEach(async () => {
 })
 
 describe('单章视图的主按钮随五种状态变化', () => {
-  it('待写：主按钮是写作此章，按本章蓝图启动写作工作流', async () => {
+  it('待写：主按钮是写作此章，按本章故事规划启动写作工作流', async () => {
     await mount()
     await act(async () => openChapterPlan(3, BLUEPRINT.title, SESSION))
-    await expect.element(page.getByRole('heading', { name: '本章蓝图' })).toBeVisible()
+    await expect.element(page.getByRole('heading', { name: '本章故事规划' })).toBeVisible()
     await click('写作此章')
     await vi.waitFor(() => expect(startWorkflow).toHaveBeenCalledOnce())
     const [chapterInfo] = workflows.createChapterWorkflow.mock.calls[0]

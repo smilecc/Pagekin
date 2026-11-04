@@ -51,6 +51,7 @@ import {
  * 1. 中文标准格式："第X章 标题" / "第X章：标题"
  * 2. 英文标准格式："Chapter X: Title"
  * 3. Markdown 标题格式："# 第X章 标题"
+ * 4. 括号编号格式："（三）" / "(3) 标题"，也支持 Markdown 标题。
  * 如果所有正则均不命中，则将整个文件视为单章。
  */
 
@@ -66,7 +67,9 @@ const RE_EN_CHAPTER = /^Chapter\s+(\d+)[\s：:·—-]*(.*)/i
 const RE_MD_HEADING = /^#{1,3}\s+(?:第[一二三四五六七八九十百千零\d]+章|Chapter\s+\d+)[\s：:·—-]*(.*)/i
 
 /** 所有候选正则 */
-const CHAPTER_PATTERNS = [RE_CN_CHAPTER, RE_EN_CHAPTER, RE_MD_HEADING]
+const RE_PAREN_CHAPTER = /^(?:#{1,3}\s+)?(?:（([一二三四五六七八九十百千零\d]+)）|\(([一二三四五六七八九十百千零\d]+)\))(?:[\s：:·—-]+(.*))?$/
+
+const CHAPTER_PATTERNS = [RE_CN_CHAPTER, RE_EN_CHAPTER, RE_MD_HEADING, RE_PAREN_CHAPTER]
 
 const IMPORT_GRANT_TTL_MS = 5 * 60 * 1000
 
@@ -182,6 +185,9 @@ function chineseNumToArabic(str: string): number {
 
 /** 从章节标题行提取章节号 */
 function extractChapterNumber(line: string): number {
+  const parenMatch = line.trim().match(RE_PAREN_CHAPTER)
+  if (parenMatch) return chineseNumToArabic(parenMatch[1] ?? parenMatch[2])
+
   // 尝试从"第X章"格式提取
   const cnMatch = line.match(/第([一二三四五六七八九十百千零\d]+)章/)
   if (cnMatch) return chineseNumToArabic(cnMatch[1])

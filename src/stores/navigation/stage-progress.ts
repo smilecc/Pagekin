@@ -6,7 +6,7 @@ import type { WorkflowRun } from '../workflow-store'
 import type { ResourcePage, WorkStage } from './navigation-intents'
 import type { StageWork } from './stage-store'
 
-/** 设定的必填项，与设定画板一致：一段核心大纲，加类型、篇幅、目标读者三项。 */
+/** 设定的必填项，与设定画板一致：一段大纲，加类型、篇幅、目标读者三项。 */
 export type SetupField = 'coreOutline' | 'genre' | 'length' | 'targetAudience'
 export const SETUP_FIELDS: readonly SetupField[] = ['coreOutline', 'genre', 'length', 'targetAudience']
 
@@ -15,7 +15,7 @@ export const SETUP_FIELDS: readonly SetupField[] = ['coreOutline', 'genre', 'len
  * ia.md 写的是「4 节均已确认」，但产品里各节没有确认状态（ArchitectureConfirmDialog 只是生成前勾选步骤），
  * 所以取架构页徽标同一个判定：前提、世界观有内容，角色名单已就绪，情节大纲按分批检查点全书写完且没有中断的批次（checkArchConfirmed）。
  */
-export const ARCHITECTURE_SECTIONS = ['premise', 'characters', 'worldbuilding', 'synopsis'] as const
+export const ARCHITECTURE_SECTIONS = ['characters', 'worldbuilding'] as const
 
 /** 完成为实心勾选圆，进行中为按比例填充的进度环，未开始为虚线圆。 */
 export type StageProgress =
@@ -24,9 +24,10 @@ export type StageProgress =
   | { state: 'todo' }
 
 export type StageStatus =
+  | { stage: 'outline' | 'world' | 'cast' | 'style' | 'guidance'; progress: StageProgress }
   | { stage: 'setup'; progress: StageProgress; missing: readonly SetupField[] }
   | { stage: 'architecture'; progress: StageProgress; filled: number; total: number }
-  /** total 是设定里的规划章数；至少 1 章蓝图即完成，planned / total 只作进度说明。 */
+  /** 已规划章数与计划总章数共同决定故事规划进度。 */
   | { stage: 'blueprint'; progress: StageProgress; planned: number; total: number }
   | { stage: 'manuscript'; progress: StageProgress; finalized: number; total: number }
 
@@ -74,7 +75,7 @@ export interface ChapterRow {
 }
 
 export interface WorkFacts {
-  config: Pick<NovelConfig, 'coreOutline' | 'genre' | 'targetAudience' | 'totalChapters' | 'wordsPerChapter'>
+  config: Pick<NovelConfig, 'coreOutline' | 'genre' | 'targetAudience' | 'totalChapters' | 'wordsPerChapter'> & Partial<Pick<NovelConfig, 'writingStyle' | 'globalGuidance'>>
   architecture: StageWork['architecture']
   blueprints: StageWork['blueprints']
   drafts: Readonly<Record<number, readonly DraftMeta[]>>
@@ -103,23 +104,24 @@ export function missingSetup(config: WorkFacts['config']): SetupField[] {
 /** 这一章动过笔：有定稿（之后又新建了空草稿也算），或当前稿有正文。只有空的当前稿不算；没记字数的旧稿按有正文算。 */
 const begun = (row: ChapterRow) => row.hasFinal || (row.phase !== 'todo' && row.draft?.wordCount !== 0)
 
-/**
- * 四个阶段的状态，顺序固定为设定、架构、蓝图、正文。完成判定按 ia.md：设定必填项齐全，架构四节都有内容，
- * 蓝图至少 1 章（分批规划的作品不会因为没规划完就一直停在蓝图），正文按章统计。
- * 定稿章数与章节列表同源：定稿之后又建了草稿的章按草稿算，不计入定稿。
- */
+/** 创作文档按内容判断，写作选项按基本信息判断；故事规划与正文按章数统计进度。 */
 export function deriveStages(facts: WorkFacts, chapters: readonly ChapterRow[] = deriveChapters(facts)): StageStatus[] {
   const missing = missingSetup(facts.config)
-  const filled = ARCHITECTURE_SECTIONS.filter(section => facts.architecture[section]).length
-  const total = Math.max(0, facts.config.totalChapters || 0)
-  const planned = facts.blueprints.length
-  const finalized = chapters.filter(row => row.phase === 'final').length
+  const basicMissing = missing.filter(field => field !== 'coreOutline').length
+  const plannedNumbers = new Set(facts.blueprints.map(item => item.chapterNumber).filter(number => Number.isSafeInteger(number) && number > 0))
+  const configuredTotal = Number.isSafeInteger(facts.config.totalChapters) && facts.config.totalChapters > 0 ? facts.config.totalChapters : 0
+  const total = Math.max(configuredTotal, plannedNumbers.size, chapters.filter(row => row.number > 0).length)
+  const planned = plannedNumbers.size
+  const finalized = chapters.filter(row => row.number > 0 && row.phase === 'final').length
   const started = chapters.some(begun)
   return [
-    { stage: 'setup', missing,
-      progress: missing.length === 0 ? DONE : { state: 'active', ratio: (SETUP_FIELDS.length - missing.length) / SETUP_FIELDS.length } },
-    { stage: 'architecture', filled, total: ARCHITECTURE_SECTIONS.length, progress: fraction(filled, ARCHITECTURE_SECTIONS.length) },
-    { stage: 'blueprint', planned, total, progress: planned > 0 ? DONE : TODO },
+    { stage: 'outline', progress: facts.config.coreOutline?.trim() ? DONE : TODO },
+    { stage: 'world', progress: facts.architecture.worldbuilding ? DONE : TODO },
+    { stage: 'cast', progress: facts.architecture.characters ? DONE : TODO },
+    { stage: 'style', progress: facts.config.writingStyle?.trim() ? DONE : TODO },
+    { stage: 'guidance', progress: facts.config.globalGuidance?.trim() ? DONE : TODO },
+    { stage: 'architecture', filled: 3 - basicMissing, total: 3, progress: fraction(3 - basicMissing, 3) },
+    { stage: 'blueprint', planned, total, progress: fraction(planned, total) },
     { stage: 'manuscript', finalized, total,
       progress: total > 0 && finalized >= total ? DONE : started ? { state: 'active', ratio: total > 0 ? finalized / total : 0 } : TODO },
   ]
@@ -139,7 +141,7 @@ function createdAfterFinal(draft: DraftMeta, final: DraftMeta): boolean {
   return draft.createdAt > finalizedAt
 }
 
-/** 正文阶段的章节列表：蓝图章与已有稿的章取并集，按章号排序。 */
+/** 正文阶段的章节列表：故事规划章与已有稿的章取并集，按章号排序。 */
 export function deriveChapters(facts: Pick<WorkFacts, 'blueprints' | 'drafts' | 'runningChapters' | 'chapterFacts'>): ChapterRow[] {
   const titles = new Map(facts.blueprints.map(blueprint => [blueprint.chapterNumber, blueprint.title]))
   const numbers = new Set([...titles.keys(), ...Object.keys(facts.drafts).map(Number)])
@@ -171,8 +173,8 @@ export function focusChapter(rows: readonly ChapterRow[]): ChapterRow | null {
 }
 
 /**
- * 打开作品时落在第一个未完成的阶段；四个阶段都完成时落在正文。设定齐了且已有蓝图或正文时落在当前写作位置（正文）：
- * 架构没写完（比如大纲分批只写了一部分）不把作者拉回架构，有正文没有蓝图也不落到空的蓝图页；流程脊与架构页照旧显示部分完成。
+ * 打开作品时落在第一个未完成的阶段；四个阶段都完成时落在正文。设定齐了且已有故事规划或正文时落在当前写作位置（正文）：
+ * 架构没写完（比如大纲分批只写了一部分）不把作者拉回架构，有正文没有故事规划也不落到空的故事规划页；流程脊与架构页照旧显示部分完成。
  */
 export function landingStage(stages: readonly StageStatus[]): WorkStage {
   const first = stages.find(status => status.progress.state !== 'done')?.stage ?? 'manuscript'
@@ -185,11 +187,11 @@ export type StageLocation =
   | { kind: 'resource'; page: ResourcePage }
 
 const TAB_LOCATION: Record<EditorTab['type'], StageLocation> = {
-  config: { kind: 'stage', stage: 'setup' },
+  config: { kind: 'stage', stage: 'architecture' },
   'world-building': { kind: 'stage', stage: 'architecture' },
   'arch-file': { kind: 'stage', stage: 'architecture' },
-  character: { kind: 'stage', stage: 'architecture' },
-  outline: { kind: 'stage', stage: 'architecture' },
+  character: { kind: 'stage', stage: 'cast' },
+  outline: { kind: 'stage', stage: 'outline' },
   'chapter-card': { kind: 'stage', stage: 'blueprint' },
   chapter: { kind: 'stage', stage: 'manuscript' },
   'review-report': { kind: 'stage', stage: 'manuscript' },
@@ -200,8 +202,11 @@ const TAB_LOCATION: Record<EditorTab['type'], StageLocation> = {
 }
 
 /** 当前标签属于哪个阶段或资料页；正文类标签带上章号。 */
-export function locate(tab: Pick<EditorTab, 'type' | 'chapterNumber'> | undefined): StageLocation | null {
+export function locate(tab: Pick<EditorTab, 'type' | 'chapterNumber' | 'configField' | 'filePath'> | undefined): StageLocation | null {
   if (!tab) return null
+  const configStages: Record<string, WorkStage> = { coreOutline: 'outline', writingStyle: 'style', globalGuidance: 'guidance' }
+  if (tab.configField && configStages[tab.configField]) return { kind: 'stage', stage: configStages[tab.configField] }
+  if (tab.type === 'arch-file' && tab.filePath?.endsWith('/worldbuilding')) return { kind: 'stage', stage: 'world' }
   const location = TAB_LOCATION[tab.type]
   return location.kind === 'stage' && location.stage === 'manuscript' && tab.chapterNumber !== undefined
     ? { ...location, chapter: tab.chapterNumber }

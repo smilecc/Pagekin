@@ -836,7 +836,8 @@ test('saved first-review continuation preserves old files, counts the exact hist
     const displacedManifest = write(path.join(directory, 'displaced-manifest.json'), controlManifest)
     assert.throws(() => continueControl({ savedReviewContinuationPath: displacedManifest }), /MANIFEST_PATH/)
     const aliasManifest = path.join(directory, 'alias-manifest.json')
-    fs.symlinkSync(controlManifestPath, aliasManifest, 'file')
+    if (process.platform === 'win32') fs.linkSync(controlManifestPath, aliasManifest)
+    else fs.symlinkSync(controlManifestPath, aliasManifest, 'file')
     assert.throws(() => continueControl({ savedReviewContinuationPath: aliasManifest }), /MANIFEST_PATH/)
     for (const file of [closedPath, controlClosurePath, failedPreparePath, reportPath, controlManifest.references.continuationProtocol.path]) {
       const bytes = fs.readFileSync(file)

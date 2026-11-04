@@ -415,6 +415,7 @@ export function createMainGenerationOwner(deps: MainGenerationOwnerDependencies)
       || Object.hasOwn(selection, 'parentRootActionId') && (typeof selection.parentRootActionId !== 'string' || !selection.parentRootActionId.trim())
       || typeof selection.uiActionNonce !== 'string' || !selection.uiActionNonce.trim() || selection.uiActionNonce.length > 256
       || Object.keys(selection).some(key => !['operation', 'uiActionNonce', 'modelId', 'chapterNumber', 'selectedDraftIds', 'selectedFinalizedDraftIds', 'selectedBlueprintChapterNumbers', 'promptKeys', 'skillStages', 'authorInputs', 'output', 'outputOverrides', 'parentRootActionId', 'continueDirectoryOperationId', 'batchId', 'batchIntent', 'preparationId', 'finalizedCharacterContextId', 'reviewRevisionContextId', 'agentWorkflowRegistrationId', 'materialDecision', 'importSlot', 'importExecution', ...(agentInitialization ? ['agentInput', 'agentSession'] : []), ...(editorInitialization ? ['editorInlineInput'] : []), ...(finalizationInitialization ? ['finalizationGenerationSlot'] : []), ...(graphInitialization ? ['graphGenerationInput', 'graphGenerationKey'] : []), ...(legacyInitialization ? ['legacyRosterKey'] : [])].includes(key))) throw new Error('GENERATION_BEGIN_INVALID')
+    if (['generate-core-seed', 'generate-plot-outline', 'generate-field:golden-finger', 'generate-field:protagonist-profile', 'generate-field:world-setting'].includes(selection.operation)) throw new Error('GENERATION_OPERATION_REMOVED')
     if (selection.operation === 'editor-inline' && !editorInitialization) throw new Error('GENERATION_EDITOR_ADMISSION_REQUIRED')
     if (['finalized-chapter-notes', 'finalized-character-state'].includes(selection.operation) && !finalizationInitialization) throw new Error('GENERATION_FINALIZATION_ADMISSION_REQUIRED')
     if (Object.values(graphOperations).includes(selection.operation as typeof graphOperations[keyof typeof graphOperations]) && !graphInitialization) throw new Error('GENERATION_GRAPH_ADMISSION_REQUIRED')
@@ -568,11 +569,10 @@ export function createMainGenerationOwner(deps: MainGenerationOwnerDependencies)
     if (run.binding.sourceManifest.operation === 'legacy-character-roster-repair' && !legacyExecution) throw new Error('GENERATION_LEGACY_ADMISSION_REQUIRED')
     assertSemanticGenerationTask(request.task)
     const task = structuredClone(request.task)
-    if (['generate-plot-outline', 'chapter-blueprint-directory'].includes(String(run.binding.sourceManifest.operation))
+    if (run.binding.sourceManifest.operation === 'chapter-blueprint-directory'
       && (run.binding.sourceManifest.authorInputs as GenerationAuthorInput[] | undefined)?.some(input => input.id === 'planning:target-units')) {
       const target = (run.binding.sourceManifest.authorInputs as GenerationAuthorInput[]).find(input => input.id === 'planning:target-units')!
-      const language = deps.database.prepare("SELECT writing_language FROM project_core WHERE id='main'").pluck().get() === 'en-US' ? 'en-US' : 'zh-CN'
-      const instruction = planningTargetInstruction(run.binding.sourceManifest.operation === 'generate-plot-outline' ? 'outline' : 'blueprint', parsePlanningTargetUnits(Number(target.text)), language)
+      const instruction = planningTargetInstruction('blueprint', parsePlanningTargetUnits(Number(target.text)), 'zh-CN')
       if (!task.messages.some(message => message.role === 'system' && message.content.includes(instruction)))
         task.messages = [...task.messages, { role: 'system', content: instruction }]
     }
@@ -796,7 +796,7 @@ export function createMainGenerationOwner(deps: MainGenerationOwnerDependencies)
           return JSON.parse(String(row)) as import('../repositories/blueprint-repository').BlueprintData[]
         })
         const stored = new Map(BlueprintRepository.getAll(deps.database).map(item => [item.chapterNumber, item]))
-        const fields = ['chapterNumber', 'title', 'role', 'purpose', 'keyEvents', 'characters', 'suspenseHook', 'userGuidance'] as const
+        const fields = ['chapterNumber', 'title', 'keyEvents', 'characters'] as const
         current = committed.every(item => fields.every(key => isDeepStrictEqual(item[key], stored.get(item.chapterNumber)?.[key])))
         const projection = (binding: RunBinding) => ({ manifest: binding.sourceManifest,
           fingerprint: Object.fromEntries(Object.entries(binding.fingerprint).filter(([key]) => !['contextSnapshotHash', 'chapterBriefHash'].includes(key))),
@@ -873,7 +873,7 @@ export function createMainGenerationOwner(deps: MainGenerationOwnerDependencies)
       || request.endChapter - request.startChapter >= 10000
       || Buffer.byteLength(JSON.stringify(request.blueprints), 'utf8') > 8 * 1024 * 1024) throw new Error('GENERATION_BLUEPRINT_AUTHOR_EDIT_INVALID')
     const chapters = Array.from({ length: request.endChapter - request.startChapter + 1 }, (_, index) => request.startChapter + index)
-    const blueprints = decodeBlueprintAuthorPayload(request.blueprints, chapters)
+    const blueprints = decodeBlueprintAuthorPayload(request.blueprints, chapters).map(item => ({ ...item, role: '', purpose: '', suspenseHook: '', userGuidance: '', notes: '', notesUpdatedAt: '' }))
     const saved = repository.readBlueprintAuthorEdit(run.runId)
     if (saved) {
       if (saved.operationId !== request.operationId || saved.committedRange.from !== request.startChapter || saved.committedRange.to !== request.endChapter)
@@ -1300,21 +1300,12 @@ export function createMainGenerationOwner(deps: MainGenerationOwnerDependencies)
       const repairTask = (invalidText: string | undefined, ordinal: number | string, error?: Error): GenerationTask => {
         const code = error?.message ?? ''
         const repairKind = code === 'FINALIZED_CHARACTER_EVIDENCE_MISSING' ? 'evidence-missing' : code.startsWith('FINALIZED_CHARACTER_EVIDENCE_') ? 'evidence-span' : 'generic'
-        const detail = error instanceof FinalizedCharacterEvidenceError ? context.writingLanguage === 'en-US'
-          ? ` updates[${error.updateIndex}].evidence.text: ${error.reason === 'no-exact-match' ? '0 exact matches' : error.reason === 'multiple-exact-matches' ? 'at least 2 exact matches' : error.reason === 'missing' ? 'evidence is missing' : 'start/end do not match the exact source span'}.`
-          : `updates[${error.updateIndex}].evidence.text：${error.reason === 'no-exact-match' ? '精确匹配 0 次' : error.reason === 'multiple-exact-matches' ? '精确匹配至少 2 次' : error.reason === 'missing' ? '缺少 evidence' : 'start/end 与精确原文片段不符'}。` : ''
-        const english = context.writingLanguage === 'en-US'
+        const detail = error instanceof FinalizedCharacterEvidenceError ? `updates[${error.updateIndex}].evidence.text：${error.reason === 'no-exact-match' ? '精确匹配 0 次' : error.reason === 'multiple-exact-matches' ? '精确匹配至少 2 次' : error.reason === 'missing' ? '缺少 evidence' : 'start/end 与精确原文片段不符'}。` : ''
         // Only our own error codes select fixed guidance; model text and error details never enter the message.
-        const guidance = repairKind === 'generic' ? '' : repairKind === 'evidence-missing' ? english
-          ? ' At least one update had no evidence object. Keep the supported updates from the preceding response instead of returning an empty list because evidence was missing. Give every update an evidence.text copied as one contiguous, verbatim span of the frozen chapter, and omit start/end so the program calculates them. For a person who has an existing character card, use that card\'s characterId rather than a name alone. Keep recentEvents in every update and only the other fields that actually changed, and remove newCharacters.'
-          : '上一份回答的更新项缺少 evidence。请保留上一份回答中有正文支持的更新，不要因缺少 evidence 而返回空列表：每项都必须填写逐字复制的单一连续原文 evidence.text，省略 start/end，由程序计算；现有角色卡中的人物必须填写其 characterId，不能只写 name；每项保留 recentEvents，其余只保留实际变化的字段；删除 newCharacters。'
-          : english
-            ? ' The evidence.text was not one contiguous, verbatim span of the frozen chapter that occurs exactly once, or its start/end did not match. Copy a single contiguous span verbatim; never join sentences across paragraphs or blank lines, and do not alter punctuation or whitespace. Quote only one sentence; do not rewrite recentEvents to fit a quote: it must still state the latest state of this character at the end of the chapter (when later prose corrects, withdraws, or postpones an earlier plan, follow the last correction), and the evidence must be the one sentence that directly supports that latest state; if that sentence appears more than once, extend it with adjacent text into a longer contiguous span that is unique, and omit start/end so the program calculates them.'
-            : '上一份回答的 evidence.text 不是冻结正文中单一连续、只出现一次的逐字片段，或 start/end 与正文不符。只能逐字复制一段连续原文；不得跨段落或空行拼接多句，不得删改标点或空白。请只引用一句；不要为了迁就引用而改写 recentEvents：它仍须写本章结束时该角色的最新状态（正文后文更正、撤回或推迟前文安排时，以最后的更正为准），evidence 选直接支持这一最新状态的那一句；若该句在正文中不唯一，扩展为包含相邻文字的更长连续片段。省略 start/end，由程序计算。'
+        const guidance = repairKind === 'generic' ? '' : repairKind === 'evidence-missing' ? '上一份回答的更新项缺少 evidence。请保留上一份回答中有正文支持的更新，不要因缺少 evidence 而返回空列表：每项都必须填写逐字复制的单一连续原文 evidence.text，省略 start/end，由程序计算；现有角色卡中的人物必须填写其 characterId，不能只写 name；每项保留 recentEvents，其余只保留实际变化的字段；删除 newCharacters。'
+          : '上一份回答的 evidence.text 不是冻结正文中单一连续、只出现一次的逐字片段，或 start/end 与正文不符。只能逐字复制一段连续原文；不得跨段落或空行拼接多句，不得删改标点或空白。请只引用一句；不要为了迁就引用而改写 recentEvents：它仍须写本章结束时该角色的最新状态（正文后文更正、撤回或推迟前文安排时，以最后的更正为准），evidence 选直接支持这一最新状态的那一句；若该句在正文中不唯一，扩展为包含相邻文字的更长连续片段。省略 start/end，由程序计算。'
         return invalidText === undefined ? initialTask : { ...initialTask, purpose: `${initialTask.purpose}:repair:${ordinal}`,
-          messages: [...initialTask.messages, { role: 'assistant', content: invalidText }, { role: 'user', content: english
-            ? `The preceding response does not satisfy the required ${repairKind === 'generic' ? 'JSON structure or exact source evidence' : 'exact source evidence'}.${guidance}${detail} Return a corrected JSON object using only the original frozen source and character IDs. Do not change or invent evidence. Return {"updates":[]} when there is no supported update.`
-            : `${repairKind === 'generic' ? '上一份回答未满足要求的 JSON 结构或原文证据校验。' : guidance}${detail}请仅依据原始冻结正文和角色 ID 返回修正后的 JSON 对象，不得改写或虚构证据。没有可靠更新时返回 {"updates":[]}。` }] }
+          messages: [...initialTask.messages, { role: 'assistant', content: invalidText }, { role: 'user', content: `${repairKind === 'generic' ? '上一份回答未满足要求的 JSON 结构或原文证据校验。' : guidance}${detail}请仅依据原始冻结正文和角色 ID 返回修正后的 JSON 对象，不得改写或虚构证据。没有可靠更新时返回 {"updates":[]}。` }] }
       }
       const assertRootIdle = () => {
         const budget = repository.budget(run.rootActionId)

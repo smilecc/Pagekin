@@ -486,7 +486,7 @@ test.for([
     db.transaction(() => initializeLegacyBaselineSchema(db))()
     migrateSchema(new SqliteSchemaAdapter(db), getDesktopMigrationRegistry(), CURRENT_DESKTOP_SCHEMA_VERSION)
     const prose = revisionBounds ? '林'.repeat(919) : '林岚走进北塔，灯火照亮了石阶。'.repeat(70)
-    db.exec("INSERT INTO project_core(id,project_name,words_per_chapter,world_setting) VALUES('main','原生合成',900,'【第1章必现】林岚携带一本账册'); INSERT INTO blueprints(chapter_number,title,key_events) VALUES(1,'北塔','当章归还借书');")
+    db.exec("INSERT INTO project_core(id,project_name,words_per_chapter,worldbuilding) VALUES('main','原生合成',900,'【第1章必现】林岚携带一本账册'); INSERT INTO blueprints(chapter_number,title,key_events) VALUES(1,'北塔','当章归还借书');")
     db.prepare('INSERT INTO contents(id,body) VALUES(1,?)').run(prose)
     db.prepare("INSERT INTO drafts(id,chapter_number,version,status,content_id,word_count) VALUES(1,1,1,'draft',1,?)").run(countDraftUnits(prose))
     const model = { id: 'synthetic', name: '合成模型', provider: 'openai', protocol: 'openai', modelName: 'gpt-4.1', apiKey: 'synthetic',

@@ -12,33 +12,33 @@ import { pluralEn } from '../../../shared/plural-en'
 
 const numberValue = (value: string): number | '' => value === '' ? '' : Number(value)
 
-/** AI 生成蓝图：范围、每章目标、已有蓝图的处理方式与节奏指导。表单逻辑在 useDirectoryConfigForm。 */
+/** AI 生成故事规划：范围、每章目标、已有故事规划的处理方式与节奏指导。表单逻辑在 useDirectoryConfigForm。 */
 export default function GenerateBlueprintsDialog(props: DirectoryConfigProps) {
   const form = useDirectoryConfigForm(props)
   const ids = { targetUnits: useId(), pacing: useId(), range: useId() }
   if (!form) return null
   const { text, total, appendStart, hasPriorAuthority } = form
   const busy = form.isConfirming || form.isRecovering
-  // 指定范围只从接着的那一章往后补，从不覆盖已有蓝图，所以这时不给覆盖选项。
+  // 指定范围只从接着的那一章往后补，从不覆盖已有故事规划，所以这时不给覆盖选项。
   const showExisting = (props.existingCount > 0 || hasPriorAuthority) && form.rangeMode !== 'range'
   const overwrite = showExisting && form.overwriteMode === 'full'
   const zh = resolveWritingLanguage(form.currentProject.novelConfig.writingLanguage) === 'zh-CN'
 
   const description = props.existingCount > 0
-    ? text(`按情节大纲为章节生成蓝图。已有 ${props.existingCount} 章蓝图，默认保留不动。`, `Generate chapter blueprints from the plot outline. ${props.existingCount} existing ${pluralEn(props.existingCount, 'blueprint')} ${pluralEn(props.existingCount, 'is', 'are')} kept by default.`)
+    ? text(`按情节大纲为章节生成故事规划。已有 ${props.existingCount} 章故事规划，默认保留不动。`, `Generate story plans from the plot outline. ${props.existingCount} existing ${pluralEn(props.existingCount, 'blueprint')} ${pluralEn(props.existingCount, 'is', 'are')} kept by default.`)
     : hasPriorAuthority
-      ? text(`正文已定稿到第 ${appendStart - 1} 章，蓝图从第 ${appendStart} 章开始。`, `The manuscript is finalized through chapter ${appendStart - 1}; blueprints start at chapter ${appendStart}.`)
-      : text(`按情节大纲为章节生成蓝图。作品共 ${total} 章。`, `Generate chapter blueprints from the plot outline. The book has ${total} ${pluralEn(total, 'chapter')}.`)
+      ? text(`正文已定稿到第 ${appendStart - 1} 章，故事规划从第 ${appendStart} 章开始。`, `The manuscript is finalized through chapter ${appendStart - 1}; blueprints start at chapter ${appendStart}.`)
+      : text(`按情节大纲为章节生成故事规划。作品共 ${total} 章。`, `Generate story plans from the plot outline. The book has ${total} ${pluralEn(total, 'chapter')}.`)
 
   return (
     <InkDialog
       open={props.isOpen}
       onOpenChange={open => { if (!open && !busy) props.onClose() }}
-      title={text('AI 生成蓝图', 'Generate blueprints')}
+      title={text('AI 生成故事规划', 'Generate blueprints')}
       description={description}
       footer={(
         <>
-          {overwrite && <span className="stage-bp-dialog-note">{text('已有蓝图会被覆盖，开始前再确认一次', 'Existing blueprints will be replaced; you will confirm once more')}</span>}
+          {overwrite && <span className="stage-bp-dialog-note">{text('已有故事规划会被覆盖，开始前再确认一次', 'Existing blueprints will be replaced; you will confirm once more')}</span>}
           <Button variant="secondary" disabled={busy} onClick={props.onClose}>{text('取消', 'Cancel')}</Button>
           <Button
             variant="primary"
@@ -58,18 +58,18 @@ export default function GenerateBlueprintsDialog(props: DirectoryConfigProps) {
           <Notice tone="warn" title={text('旧的生成记录不能续接', 'Previous generation runs cannot continue')}>
             {[...new Set(form.diagnostics.map(item => item.code))].map(code => <span key={code} className="stage-bp-dialog-line">
               {code === 'GENERATION_BLUEPRINTS_CLEARED'
-                ? text('蓝图已清空，旧生成记录不能续接。', 'Blueprints were cleared. Previous generation runs cannot continue.')
+                ? text('故事规划已清空，旧生成记录不能续接。', 'Blueprints were cleared. Previous generation runs cannot continue.')
                 : code === 'GENERATION_DIRECTORY_PROGRESS_INVALID'
-                  ? text('旧蓝图生成进度校验失败，不能续接。', 'Previous blueprint generation progress failed validation and cannot continue.')
-                  : text('旧蓝图作者保存记录校验失败，不能续接。', 'A previous author save record failed validation and cannot continue.')}
+                  ? text('旧故事规划生成进度校验失败，不能续接。', 'Previous blueprint generation progress failed validation and cannot continue.')
+                  : text('旧故事规划作者保存记录校验失败，不能续接。', 'A previous author save record failed validation and cannot continue.')}
             </span>)}
-            <span className="stage-bp-dialog-line">{text('旧恢复稿仍可编辑或复制，也可开始新的蓝图生成。', 'You can still edit or copy old recovery drafts, or start new blueprint generation.')}</span>
+            <span className="stage-bp-dialog-line">{text('旧恢复稿仍可编辑或复制，也可开始新的故事规划生成。', 'You can still edit or copy old recovery drafts, or start new blueprint generation.')}</span>
           </Notice>
         )}
         {form.progress.map(progress => (
           <Notice
             key={progress.operationId}
-            title={text(`已保存第 ${progress.committedRange.startChapter}～${progress.committedRange.endChapter} 章蓝图`,
+            title={text(`已保存第 ${progress.committedRange.startChapter}～${progress.committedRange.endChapter} 章故事规划`,
               `Blueprints for chapters ${progress.committedRange.startChapter}–${progress.committedRange.endChapter} are saved`)}
             actions={progress.remainingRange && (
               <Button variant="secondary" size="sm" disabled={busy} onClick={() => void form.continueOperation(progress.operationId)}>
@@ -91,7 +91,7 @@ export default function GenerateBlueprintsDialog(props: DirectoryConfigProps) {
             {text('接着生成', 'Next')}
             <input
               type="number" className="pi-input stage-bp-num" min={1} max={PLANNING_ACTION_CHAPTER_LIMIT} step={1}
-              aria-label={text('本次蓝图章数', 'Blueprint chapters in this action')}
+              aria-label={text('本次故事规划章数', 'Blueprint chapters in this action')}
               value={form.frontN} onChange={event => form.setFrontN(numberValue(event.target.value))}
               onFocus={() => form.setRangeMode('front')}
             />
@@ -102,14 +102,14 @@ export default function GenerateBlueprintsDialog(props: DirectoryConfigProps) {
             {text('第', 'Chapters')}
             <input
               type="number" className="pi-input stage-bp-num" min={1} max={total} step={1}
-              aria-label={text('蓝图起始章', 'First blueprint chapter')}
+              aria-label={text('故事规划起始章', 'First blueprint chapter')}
               value={form.rangeStart} onChange={event => form.setRangeStart(numberValue(event.target.value))}
               onFocus={() => form.setRangeMode('range')}
             />
             {text('章至第', 'to')}
             <input
               type="number" className="pi-input stage-bp-num" min={1} max={total} step={1}
-              aria-label={text('蓝图结束章', 'Last blueprint chapter')}
+              aria-label={text('故事规划结束章', 'Last blueprint chapter')}
               value={form.rangeEnd} onChange={event => form.setRangeEnd(numberValue(event.target.value))}
               onFocus={() => form.setRangeMode('range')}
             />
@@ -122,7 +122,7 @@ export default function GenerateBlueprintsDialog(props: DirectoryConfigProps) {
           <p className="stage-bp-dialog-hint">
             {text(getBlueprintBatchAdvice('zh-CN', form.previewCost.chapterCount), getBlueprintBatchAdvice('en-US', form.previewCost.chapterCount))}
             {form.previewCost.exceedsHardLimit && text(
-              ' 大范围可能耗尽本次预算；已验证的连续蓝图会保存，剩余范围保持未完成。',
+              ' 大范围可能耗尽本次预算；已验证的连续故事规划会保存，剩余范围保持未完成。',
               ' Large ranges may exhaust this action’s budget. Validated consecutive blueprints are saved; the rest remain incomplete.',
             )}
           </p>
@@ -130,7 +130,7 @@ export default function GenerateBlueprintsDialog(props: DirectoryConfigProps) {
 
         <div className="stage-bp-dialog-row">
           <div className="pi-field">
-            <label htmlFor={ids.targetUnits}>{zh ? text('每章蓝图目标字数', 'Blueprint target characters per chapter') : text('每章蓝图目标词数', 'Blueprint target words per chapter')}</label>
+            <label htmlFor={ids.targetUnits}>{zh ? text('每章故事规划目标字数', 'Blueprint target characters per chapter') : text('每章故事规划目标词数', 'Blueprint target words per chapter')}</label>
             <input
               id={ids.targetUnits} type="number" className="pi-input" min={1} max={PLANNING_TARGET_UNITS_LIMIT} step={1}
               value={form.targetUnits} disabled={form.preferenceLoading} onChange={event => form.setTargetUnits(event.target.value)}
@@ -138,9 +138,9 @@ export default function GenerateBlueprintsDialog(props: DirectoryConfigProps) {
           </div>
           {showExisting && (
             <div className="pi-field">
-              <span>{text('已有蓝图的章节', 'Existing blueprints')}</span>
+              <span>{text('已有故事规划的章节', 'Existing blueprints')}</span>
               <SegmentedControl
-                label={text('已有蓝图的章节', 'Existing blueprints')}
+                label={text('已有故事规划的章节', 'Existing blueprints')}
                 value={form.overwriteMode}
                 onChange={form.setOverwriteMode}
                 options={[
@@ -177,7 +177,7 @@ export default function GenerateBlueprintsDialog(props: DirectoryConfigProps) {
             )}
           >
             {form.pendingCharacterSyncs.length > 0
-              ? text('蓝图已安全保存，无需重新生成。', 'The blueprints are already saved; no need to regenerate.')
+              ? text('故事规划已安全保存，无需重新生成。', 'The blueprints are already saved; no need to regenerate.')
               : form.recoveryError}
           </Notice>
         )}

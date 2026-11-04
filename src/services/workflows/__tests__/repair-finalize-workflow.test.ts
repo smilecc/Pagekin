@@ -209,7 +209,7 @@ describe('createRepairFinalizeWorkflow', () => {
         novelConfig: {
           genre: '', subGenre: '', targetAudience: '', totalChapters: 3, wordsPerChapter: 2000,
           plotStructure: 'three_act', narrativePOV: 'third_limited', coreOutline: '',
-          worldSetting: '', goldenFinger: '', protagonistProfile: '', globalGuidance: '',
+             globalGuidance: '',
         },
       },
     })

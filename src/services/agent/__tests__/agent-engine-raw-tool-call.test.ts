@@ -265,10 +265,9 @@ describe('Agent raw tool-call compatibility', () => {
     }))
     const secondRequest = generate.mock.calls[1]?.[0] as Array<{ role: string; content: string }>
     const observation = secondRequest.at(-1)?.content ?? ''
-    expect(observation).toContain('[The following are tool results. Continue answering the user based on them.]')
-    expect(observation).toContain('Tool execution failed.')
+    expect(observation).toContain('[以下是工具执行结果，请根据结果继续回答用户的问题]')
+    expect(observation).toContain('工具执行失败。')
     expect(observation).not.toContain('No frozen project session')
-    expect(observation).not.toMatch(/[\u3400-\u9fff]/u)
   })
 
   it('does not expose a failed tool result while keeping its observation in the writing language', async () => {

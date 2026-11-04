@@ -29,14 +29,7 @@ const originalGenerateStream = useLLMStore.getState().generateStream
 const originalDefaultModelId = useLLMStore.getState().defaultModelId
 const originalRefreshFileTree = useProjectStore.getState().refreshFileTree
 const originalLocale = useLocaleStore.getState().locale
-const CJK_TEXT = /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/u
 
-function stripExactPayloads(request: string, payloads: readonly string[]): string {
-  return payloads.reduce(
-    (copy, payload) => payload ? copy.replaceAll(payload, '<USER_OR_MODEL_PAYLOAD>') : copy,
-    request,
-  )
-}
 
 function createContext(): WorkflowContext {
   return {
@@ -96,9 +89,9 @@ function validInference() {
       plotStructure: 'three_act',
       narrativePOV: 'third_limited',
       coreOutline: '主角在冲突中逐步认识世界。',
-      worldSetting: '现实社会。',
-      goldenFinger: '无。',
-      protagonistProfile: '敏感而倔强。',
+
+
+
       globalGuidance: '保持克制叙事。',
     },
     architectureFiles: {
@@ -177,9 +170,9 @@ beforeEach(() => {
         plotStructure: 'three_act',
         narrativePOV: 'third_limited',
         coreOutline: '',
-        worldSetting: '',
-        goldenFinger: '',
-        protagonistProfile: '',
+
+
+
         globalGuidance: '',
       },
       characterStates: '',
@@ -202,80 +195,6 @@ afterEach(() => {
 })
 
 describe('InferBlueprintsPerChapterCommand', () => {
-  it('keeps imported UTF-8 intact in English blueprint inference and its syntax-repair request', async () => {
-    const importedText = 'At “夜航 Café”, Mara sees 招牌写着“回家” and hears déjà vu in the rain.'
-    const valid = JSON.stringify({
-      blueprints: [{
-        chapterNumber: 1,
-        title: 'Night Café 夜航',
-        role: 'setup',
-        purpose: 'Trace the repeated signal.',
-        keyEvents: 'Mara enters “夜航 Café” and hears the same warning twice.',
-        characters: ['Mara'],
-        relationships: [],
-        suspenseHook: 'The clock resets to midnight.',
-      }],
-    })
-    const malformed = `${valid.slice(0, -1)},}`
-    const observed: Array<Array<{ role: string; content: string }>> = []
-    stubIpcInvoke((channel) => {
-      if (channel === 'db:blueprint-commit-range') return { success: false, error: 'captured after repair' }
-      throw new Error(`unexpected IPC ${channel}`)
-    })
-    useProjectStore.setState(state => ({
-      currentProject: state.currentProject
-        ? {
-            ...state.currentProject,
-            novelConfig: { ...state.currentProject.novelConfig, writingLanguage: 'en-US' },
-          }
-        : null,
-    }))
-    useLLMStore.setState({
-      defaultModelId: 'model-a',
-      generateStream: vi.fn<ReturnType<typeof useLLMStore.getState>['generateStream']>(async (messages, streamCallbacks) => {
-        observed.push(messages)
-        streamCallbacks.onDone?.(observed.length === 1 ? malformed : valid, undefined, 'stop')
-        return `import-blueprint-language-${observed.length}`
-      }),
-    })
-    const context = createContext()
-    context.writingLanguage = 'en-US'
-    context.uiLocale = 'zh-CN'
-    const configSummary = 'A time-loop mystery at “夜航 Café”.'
-    context.data.novelConfigSummary = configSummary
-    context.data.chapters = [{
-      number: 1,
-      title: 'Night Café 夜航',
-      content: importedText,
-      wordCount: importedText.length,
-    }]
-
-    await expect(new InferBlueprintsPerChapterCommand().execute({
-      step: {},
-      context,
-      callbacks,
-    })).rejects.toThrow('captured after repair')
-
-    expect(observed).toHaveLength(2)
-    expect(observed[0]?.[0]?.content).toContain('professional fiction-structure analyst')
-    expect(observed[0]?.[1]?.content).toContain(importedText)
-    expect(observed[0]?.map(message => message.content).join('\n')).not.toContain('【最终不可变输出合同】')
-    expect(observed[1]?.[0]?.content).toContain('You repair JSON syntax only')
-    expect(observed[1]?.[1]?.content).toContain('Malformed candidate')
-    expect(observed[1]?.[1]?.content).toContain('Night Café 夜航')
-    const initialBuiltIn = stripExactPayloads(
-      observed[0]?.map(message => message.content).join('\n') ?? '',
-      [importedText, 'Night Café 夜航', configSummary],
-    )
-    const repairBuiltIn = stripExactPayloads(
-      observed[1]?.map(message => message.content).join('\n') ?? '',
-      [malformed, importedText, 'Night Café 夜航', configSummary],
-    )
-    expect(initialBuiltIn).not.toMatch(CJK_TEXT)
-    expect(repairBuiltIn).not.toMatch(CJK_TEXT)
-    expect(callbacks.log).toHaveBeenCalledWith('开始分批推演蓝图（共 1 章，预计至多 1 次调用）...')
-    expect(callbacks.log).toHaveBeenCalledWith('  正在推演第 1–1 章...')
-  })
 
   it('fails with the registered code when the provider rejects blueprint inference as too long', async () => {
     stubIpcInvoke(() => ({ success: true }))
@@ -375,151 +294,29 @@ describe('InferBlueprintsPerChapterCommand', () => {
     expect((failure as Error).message).not.toContain('重新开始')
   })
 
-  it('fails closed with a stable relationship diagnostic when relation is missing', async () => {
-    const invoke = stubIpcInvoke((channel) => {
-      throw new Error(`unexpected mutation ${channel}`)
-    })
-    const generateStream = vi.fn<ReturnType<typeof useLLMStore.getState>['generateStream']>(
-      async (_messages, streamCallbacks) => {
-        streamCallbacks.onDone?.(JSON.stringify({
-          blueprints: [{
-            chapterNumber: 1,
-            title: '启程',
-            role: '建置',
-            purpose: '引出主角目标',
-            keyEvents: '主角发现异常',
-            characters: ['主角', '故人'],
-            relationships: [{ from: '主角', to: '故人' }],
-            suspenseHook: '门外有人',
-          }],
-        }), undefined, 'stop')
-        return 'import-blueprint-request'
-      },
-    )
-    useLLMStore.setState({ defaultModelId: 'model-a', generateStream })
-
-    await expect(new InferBlueprintsPerChapterCommand().execute({
-      step: {},
-      context: createContext(),
-      callbacks,
-    })).rejects.toThrow(
-      'code=missing_field path=blueprints[0].relationships[0].relation field=relation',
-    )
-
-    expect(generateStream).toHaveBeenCalledOnce()
-    expect(invoke.mock.calls.map(([channel]) => channel)).not.toContain('db:blueprint-commit-range')
-  })
-
-  it('records the atomic commit receipt and completes its durable character-sync operation before success', async () => {
+  it('imports explicit cast with current story-plan fields without staging character candidates', async () => {
     const workflowContext = createContext()
-    const snapshot = [{
-      chapterNumber: 1,
-      title: '启程',
-      role: '建置',
-      purpose: '引出主角目标',
-      keyEvents: '主角发现异常',
-      characters: ['主角'],
-      relationshipHints: [],
-      suspenseHook: '门外有人',
-      userGuidance: '',
-      notes: '',
-      notesUpdatedAt: '',
-    }]
+    const item = { chapterNumber: 1, title: '启程', keyEvents: '她在雨夜找到师父。', characters: ['林岚', '顾舟'] }
+    const completionReceipt = { blueprintCommitOperationId: 'import-cast', operationId: 'import-cast-sync', status: 'already-satisfied' }
+    const operation = { operationId: 'import-cast-sync', status: 'completed', completionReceipt }
     const invoke = stubIpcInvoke((channel) => {
-      if (channel === 'db:blueprint-commit-range') {
-        return {
-          success: true,
-          receipt: {
-            mode: 'replace-range',
-            operationId: 'import-commit',
-            payloadHash: 'payload',
-            idempotent: false,
-            startChapter: 1,
-            endChapter: 1,
-            chapterNumbers: [1],
-            snapshot,
-            characterSyncInput: snapshot,
-            characterSyncOperation: {
-              operationId: 'import-sync',
-              blueprintCommitOperationId: 'import-commit',
-              blueprintCommitPayloadHash: 'payload',
-              status: 'pending',
-              startChapter: 1,
-              endChapter: 1,
-              characterSyncInput: snapshot,
-              createdAt: '2026-01-01',
-              updatedAt: '2026-01-01',
-            },
-          },
-        }
-      }
-      if (channel === 'db:blueprint-character-sync-get') {
-        return {
-          operationId: 'import-sync',
-          status: 'pending',
-          characterSyncInput: snapshot,
-        }
-      }
-      if (channel === 'character-proposal:stage') return { proposalBatchId: 'import-proposal', revision: 0, status: 'pending-approval', items: [], source: { kind: 'directory', operationId: 'import-sync' } }
-      if (channel === 'db:character-roster-read') {
-        return {
-          status: 'ready',
-          revision: 1,
-          entries: [{ name: '主角' }],
-        }
-      }
-      if (channel === 'db:blueprint-character-sync-complete') {
-        return {
-          success: true,
-          operation: {
-            status: 'completed',
-            completionReceipt: {
-              blueprintCommitOperationId: 'import-commit',
-              operationId: 'import-sync',
-              status: 'committed',
-            },
-          },
-        }
-      }
+      if (channel === 'db:blueprint-commit-range') return { success: true, receipt: {
+        operationId: 'import-cast', snapshot: [item], characterSyncOperation: operation,
+      } }
+      if (channel === 'db:blueprint-character-sync-get') return operation
       throw new Error(`unexpected ${channel}`)
     })
     let generationPrompt = ''
-    useLLMStore.setState({
-      defaultModelId: 'model-a',
-      generateStream: vi.fn(async (
-        messages: Parameters<ReturnType<typeof useLLMStore.getState>['generateStream']>[0],
-        streamCallbacks: Parameters<ReturnType<typeof useLLMStore.getState>['generateStream']>[1],
-      ) => {
-        generationPrompt = messages.map(message => message.content).join('\n')
-        streamCallbacks.onDone?.(JSON.stringify({
-          blueprints: [{
-            chapterNumber: 1,
-            title: '启程',
-            role: '建置',
-            purpose: '引出主角目标',
-            keyEvents: '主角发现异常',
-            characters: ['主角'],
-            relationships: [],
-            suspenseHook: '门外有人',
-          }],
-        }), undefined, 'stop')
-        return 'import-blueprint-request'
-      }),
-    })
-
-    await new InferBlueprintsPerChapterCommand().execute({
-      step: {},
-      context: workflowContext,
-      callbacks,
-    })
-
-    expect(workflowContext.data.blueprintCommitReceipt).toMatchObject({ operationId: 'import-commit' })
-    expect(workflowContext.data.blueprintCharacterSyncReceipt).toMatchObject({ operationId: 'import-sync' })
-    expect(generationPrompt).toContain('relationships 必须是数组')
-    expect(generationPrompt).toContain('每项必须含非空 from、to、relation')
-    expect(generationPrompt).not.toContain('relationshipHints（无关系时为空数组）')
-    expect(invoke.mock.calls.map(([channel]) => channel)).toContain('db:blueprint-character-sync-complete')
-    expect(invoke.mock.calls.map(([channel]) => channel)).toContain('character-proposal:stage')
+    useLLMStore.setState({ defaultModelId: 'model-a', generateStream: vi.fn<ReturnType<typeof useLLMStore.getState>['generateStream']>(async (messages, streamCallbacks) => {
+      generationPrompt = messages.map(message => message.content).join('\n')
+      streamCallbacks.onDone?.(JSON.stringify({ blueprints: [item] }), undefined, 'stop')
+      return 'import-cast-request'
+    }) })
+    await new InferBlueprintsPerChapterCommand().execute({ step: {}, context: workflowContext, callbacks })
+    expect(invoke.mock.calls.find(([channel]) => channel === 'db:blueprint-commit-range')?.[1]).toMatchObject({ blueprints: [item] })
+    expect(generationPrompt).toContain('characters（出场角色姓名数组）')
+    expect(workflowContext.data.blueprintCharacterSyncReceipt).toEqual(completionReceipt)
+    expect(invoke.mock.calls.map(([channel]) => channel)).not.toContain('character-proposal:stage')
     expect(invoke.mock.calls.map(([channel]) => channel)).not.toContain('db:character-roster-commit')
   })
 })
@@ -551,88 +348,6 @@ describe('InferGlobalSettingsCommand', () => {
 
     expect(prompt).toContain('【总章数】23 章')
     expect(prompt).not.toContain('【总章数】5 章')
-  })
-
-  it('uses the frozen English writing language for inference and syntax repair without rewriting imported UTF-8', async () => {
-    const invoke = successfulInferenceIpc()
-    const importedText = 'The sign reads “夜航 Café” — déjà vu.'
-    const inferred = validInference()
-    inferred.novelConfig.coreOutline = 'Preserve “夜航 Café” exactly.'
-    const valid = JSON.stringify(inferred)
-    const malformed = `${valid.slice(0, -1)},}`
-    const observed: Array<Array<{ role: string; content: string }>> = []
-    const generateStream = vi.fn<ReturnType<typeof useLLMStore.getState>['generateStream']>(
-      async (messages, streamCallbacks) => {
-        observed.push(messages)
-        streamCallbacks.onDone?.(observed.length === 1 ? malformed : valid, undefined, 'stop')
-        return `import-language-${observed.length}`
-      },
-    )
-    useProjectStore.setState(state => ({
-      currentProject: state.currentProject
-        ? {
-            ...state.currentProject,
-            novelConfig: { ...state.currentProject.novelConfig, writingLanguage: 'en-US' },
-          }
-        : null,
-    }))
-    useLLMStore.setState({ defaultModelId: 'model-a', generateStream })
-    const context = createContext()
-    context.writingLanguage = 'en-US'
-    context.uiLocale = 'en-US'
-    context.writingSkills = Object.freeze({
-      planning: Object.freeze({
-        skillId: 'user:import-planning', name: 'Import planning', stage: 'planning' as const,
-        source: 'user' as const, writingLanguage: 'en-US' as const,
-        content: 'Preserve imported causal facts.', utf8Bytes: 31,
-      }),
-    })
-    context.data.chapters = [{
-      number: 1,
-      title: 'Night Café 夜航',
-      content: importedText,
-      wordCount: importedText.length,
-    }]
-
-    await new InferGlobalSettingsCommand().execute({ step: {}, context, callbacks })
-
-    expect(observed).toHaveLength(2)
-    expect(observed[0]?.[0]?.content).toContain('senior fiction editor')
-    expect(observed[0]?.[1]?.content).toContain('[Supplemental writing skill: Import planning]')
-    expect(observed[1]?.[1]?.content).toContain('[Supplemental writing skill: Import planning]')
-    expect(observed[0]?.[1]?.content).toContain(importedText)
-    expect(observed[0]?.map(message => message.content).join('\n')).not.toContain('【小说全文采样】')
-    expect(observed[1]?.[0]?.content).toContain('You repair JSON syntax only')
-    expect(observed[1]?.[1]?.content).toContain('Malformed candidate')
-    expect(observed[1]?.[1]?.content).toContain('Preserve “夜航 Café” exactly.')
-    expect(context.data.novelConfigSummary).toBe(
-      `Genre: ${inferred.novelConfig.genre} | Subgenre: ${inferred.novelConfig.subGenre} | Audience: ${inferred.novelConfig.targetAudience}\n`
-      + `Outline: ${inferred.novelConfig.coreOutline}\n`
-      + `World: ${inferred.novelConfig.worldSetting}\n`
-      + `Central advantage: ${inferred.novelConfig.goldenFinger}\n`
-      + `Protagonist: ${inferred.novelConfig.protagonistProfile}`,
-    )
-    const initialBuiltIn = stripExactPayloads(
-      observed[0]?.map(message => message.content).join('\n') ?? '',
-      [importedText],
-    )
-    const repairBuiltIn = stripExactPayloads(
-      observed[1]?.map(message => message.content).join('\n') ?? '',
-      [malformed],
-    )
-    expect(initialBuiltIn).not.toMatch(CJK_TEXT)
-    expect(repairBuiltIn).not.toMatch(CJK_TEXT)
-    expect(callbacks.log).toHaveBeenCalledWith('Retrieving key passages from the vector knowledge base...')
-    expect(callbacks.log).toHaveBeenCalledWith('Running AI inference for the global novel configuration...')
-    expect(callbacks.log).toHaveBeenCalledWith(
-      `The novel configuration, non-character architecture, and ${inferred.characterCards.length} character cards were committed atomically`,
-    )
-    const commitCalls = invoke.mock.calls.filter(([channel]) => channel === 'db:import-global-facts-commit')
-    expect(commitCalls).toHaveLength(1)
-    const committedCore = (commitCalls[0]?.[1] as { core: { coreOutline: string } }).core
-    expect(committedCore.coreOutline).toBe(inferred.novelConfig.coreOutline)
-    expect(new TextEncoder().encode(committedCore.coreOutline))
-      .toEqual(new TextEncoder().encode(inferred.novelConfig.coreOutline))
   })
 
   it('repairs one direct malformed JSON response on the same lease before writing', async () => {
@@ -725,7 +440,7 @@ describe('InferGlobalSettingsCommand', () => {
     })
     const valid = validInference()
     const architectureFiles: Record<string, string> = { ...valid.architectureFiles }
-    Reflect.deleteProperty(architectureFiles, 'synopsis')
+    Reflect.deleteProperty(architectureFiles, 'worldbuilding')
     const invalid = { ...valid, architectureFiles }
     const generateStream = vi.fn<ReturnType<typeof useLLMStore.getState>['generateStream']>(
       async (_messages, streamCallbacks) => {
@@ -736,7 +451,7 @@ describe('InferGlobalSettingsCommand', () => {
     useLLMStore.setState({ defaultModelId: 'model-a', generateStream })
 
     await expect(new InferGlobalSettingsCommand().execute({ step: {}, context: createContext(), callbacks }))
-      .rejects.toThrow('code=missing_field path=architectureFiles.synopsis')
+      .rejects.toThrow('code=missing_field path=architectureFiles.worldbuilding')
     expect(generateStream).toHaveBeenCalledOnce()
     expect(invoke.mock.calls.map(([channel]) => channel)).toEqual([
       'kb:search', 'kb:search', 'kb:search', 'kb:search',
@@ -994,7 +709,7 @@ describe('M02 text-import proposal receipts', () => {
         if (mutation === 'changed-relationship') entries[0].relationships.push({ target: entries[1].name, relation: '伪造关系' })
         if (mutation === 'reordered') entries.reverse()
         if (mutation === 'changed-operation') receipt.proposalSource.operationId = 'other'
-        if (mutation === 'changed-core') receipt.core.premise = 'other'
+        if (mutation === 'changed-core') receipt.core.coreOutline = 'other'
         if (mutation === 'mixed-lanes') Object.assign(receipt, { roster: { snapshot: { status: 'ready', entries } } })
         if (mutation === 'invalid-hash') receipt.characterProposal.sourceHash = 'invalid'
       })

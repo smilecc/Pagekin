@@ -38,7 +38,6 @@ it.each(['style', 'blueprints'] as const)('重新开始后第一个 slot 落在 
   if (stage === 'blueprints') {
     await runStyle(f)
     await runBlueprints(f, f.chapters.slice(0, 150))
-    f.db.prepare("UPDATE blueprints SET user_guidance='作者补充：信件来自灯塔', notes='作者批注' WHERE chapter_number=3").run()
   }
   f.db.prepare("UPDATE import_runs SET status='failed' WHERE id='长篇导入'").run()
   const restarted = ImportRunRepository.restart('长篇导入', '重新开始')
@@ -50,7 +49,6 @@ it.each(['style', 'blueprints'] as const)('重新开始后第一个 slot 落在 
   expect(rootBudget(f, newRoot)).toMatchObject(expectedImportRootBudget(170))
   expect(f.db.prepare('SELECT COUNT(*) FROM blueprints').pluck().get()).toBe(170)
   expect(f.db.prepare('SELECT title FROM blueprints WHERE chapter_number=150').pluck().get()).toBe('推演150')
-  if (stage === 'blueprints') expect(f.db.prepare('SELECT user_guidance,notes FROM blueprints WHERE chapter_number=3').get()).toEqual({ user_guidance: '作者补充：信件来自灯塔', notes: '作者批注' })
 }, 180_000)
 
 it('请求进行中活动时长用完时，导入回执把 ROOT_BUDGET_EXHAUSTED 交给渲染端', async () => {

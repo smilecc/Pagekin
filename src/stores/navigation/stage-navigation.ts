@@ -48,7 +48,7 @@ export function chapterPlanTabId(chapterNumber: number, projectPath: string): st
   return createProjectScopedEditorTabId(`chapter-plan:${chapterNumber}`, 'chapter', projectPath)
 }
 
-/** 打开待写章的单章视图：显示本章蓝图与「写作此章」。草稿生成后换成草稿标签。 */
+/** 打开待写章的单章视图：显示本章故事规划与「写作此章」。草稿生成后换成草稿标签。 */
 export function openChapterPlan(chapterNumber: number, title: string, session: ProjectSessionContext): void {
   const text = useLocaleStore.getState().text
   useEditorStore.getState().openFile({
@@ -121,7 +121,7 @@ function openKnowledge(): void {
   useEditorStore.getState().openFile({ id: 'knowledge-base', name: text('知识库', 'Knowledge base'), type: 'knowledge', projectKey })
 }
 
-/** 正文阶段本身没有页面，落到当前该写的那一章；还没有任何章时先去蓝图。 */
+/** 正文阶段本身没有页面，落到当前该写的那一章；还没有任何章时先去故事规划。 */
 async function openManuscript(): Promise<void> {
   const session = currentSession()
   const work = useStageStore.getState().work
@@ -141,7 +141,7 @@ async function openManuscript(): Promise<void> {
 
 /**
  * 各意图的落点。设置是内容面板里的设置页。
- * 写作此章打开这一章的单章视图，由那里的写作按钮弹出写作弹层；参数取自蓝图，不再弹旧的创作对话框。
+ * 写作此章打开这一章的单章视图，由那里的写作按钮弹出写作弹层；参数取自故事规划，不再弹旧的创作对话框。
  */
 export function stageNavigate(intent: NavigationIntent): void {
   if (intent.kind === 'settings') {

@@ -13,10 +13,7 @@ type Text = (zh: string, en: string) => string
 /** 已有作者内容的长字段：AI 填充会保留原文并追加，开始前要让作者确认扩写。 */
 export function configFieldsToExpand(config: Partial<NovelConfig> | undefined, text: Text): string[] {
   const fields: string[] = []
-  if (config?.coreOutline?.trim()) fields.push(text('核心大纲', 'Core outline'))
-  if (config?.worldSetting?.trim()) fields.push(text('世界观设定', 'World setting'))
-  if (config?.goldenFinger?.trim()) fields.push(text('金手指体系', 'Special advantage'))
-  if (config?.protagonistProfile?.trim()) fields.push(text('主角人设', 'Protagonist profile'))
+  if (config?.coreOutline?.trim()) fields.push(text('大纲', 'Outline'))
   if (config?.globalGuidance?.trim()) fields.push(text('全局写作要求', 'Global writing guidance'))
   if (config?.subGenre?.trim()) fields.push(text('细分类型', 'Subgenre'))
   return fields

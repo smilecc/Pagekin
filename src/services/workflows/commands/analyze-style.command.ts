@@ -214,7 +214,6 @@ export class AnalyzeWritingStyleCommand extends BaseWorkflowCommand<string> {
           samples.push(promptLanguageText(
             writingLanguage,
             `第${chapter.number}章 ${chapter.title}\n${chapter.content.trim().slice(0, 2000)}`,
-            `Chapter ${chapter.number}: ${chapter.title}\n${chapter.content.trim().slice(0, 2000)}`,
           ))
         }
       }

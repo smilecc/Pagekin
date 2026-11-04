@@ -246,7 +246,9 @@ afterEach(() => {
 })
 
 describe('workflow mutation failure boundaries', () => {
-  it.each(['zh-CN', 'en-US'] as const)('passes notes source-support instructions and complete prose through the renderer fallback: %s', async writingLanguage => {
+  it.each([
+'zh-CN'
+] as const)('passes notes source-support instructions and complete prose through the renderer fallback: %s', async writingLanguage => {
     const content = 'Asha waited outside the hall. The parcel remained in her bag.\n\nThe reason was still unknown.'
     const invoke = vi.fn(async (channel: string) => {
       if (channel === 'db:blueprint-update-notes' || channel === 'db:continuity-save-finalized') return { success: true }
@@ -259,49 +261,9 @@ describe('workflow mutation failure boundaries', () => {
     const steps = testFrozenCharacterSteps(content, generation)
     await steps.find(step => step.key === 'chapter_notes')!.executor(callbacks(), { ...context(), writingLanguage })
     expect(prompt).toContain(content)
-    expect(prompt).toContain(writingLanguage === 'en-US' ? 'Leave a section empty or omit it when the manuscript states no corresponding fact' : '栏目没有对应的明示事实时可留空或省略')
-    expect(prompt).toContain(writingLanguage === 'en-US' ? 'Co-occurrence does not establish ownership, causation, responsibility, or narrative purpose' : '共现不构成归属、因果、责任或叙事用途的依据')
+    expect(prompt).toContain('栏目没有对应的明示事实时可留空或省略')
+    expect(prompt).toContain('共现不构成归属、因果、责任或叙事用途的依据')
     expect(generation.complete).toHaveBeenCalledTimes(1)
-  })
-
-  it('sends both finalization post-process requests in the frozen English writing language', async () => {
-    const invoke = vi.fn(async (channel: string) => {
-      if (channel === 'db:blueprint-update-notes') return { success: true }
-      if (channel === 'db:continuity-save-finalized') return { success: true }
-      if (channel === 'db:character-roster-read') {
-        return { status: 'empty', revision: 0, entries: [] }
-      }
-      throw new Error(`unexpected IPC: ${channel}`)
-    })
-    stubVelaIpc(invoke)
-    const observedMessages: Array<Array<{ role: string; content: string }>> = []
-    useLLMStore.setState({
-      defaultModelId: 'model',
-      generateStream: vi.fn(async (messages, streamCallbacks) => {
-        observedMessages.push(messages)
-        streamCallbacks.onDone?.(
-          observedMessages.length === 2
-            ? '{"updates":[],"newCharacters":[]}'
-            : '# Chapter 1 Notes\n\n## Plot Events\n- [Trigger] The café opens.',
-          undefined,
-          'stop',
-        )
-        return `request-${observedMessages.length}`
-      }),
-    })
-    const steps = testFrozenCharacterSteps('The sign reads “夜航 Café”.', testPostProcessGeneration())
-    const workflowContext = { ...context(), writingLanguage: 'en-US' as const }
-
-    await steps.find(step => step.key === 'chapter_notes')!.executor(callbacks(), workflowContext)
-    await steps.find(step => step.key === 'character_cards')!.executor(callbacks(), workflowContext)
-
-    expect(observedMessages).toHaveLength(2)
-    expect(observedMessages[0]?.[0]?.content).toContain('You are a professional fiction structure analyst')
-    expect(observedMessages[0]?.[1]?.content).toContain('Generate precise structured chapter notes')
-    expect(observedMessages[0]?.[1]?.content).toContain('The sign reads “夜航 Café”.')
-    expect(observedMessages[1]?.[0]?.content).toContain('You maintain rigorous character records')
-    expect(observedMessages[1]?.[1]?.content).toContain('Existing character records')
-    expect(observedMessages[1]?.[1]?.content).not.toContain('【任务要求】')
   })
 
   it.each([5, 10])('keeps author writing style unchanged after Chapter %i post-processing', async chapterNumber => {
@@ -391,7 +353,7 @@ describe('workflow mutation failure boundaries', () => {
 
     await expect(savePartialData(
       PROJECT_PATH,
-      { premise_result: 'premise' },
+      { world_building_result: '世界观' },
       context().projectSession!,
       '保存架构生成检查点',
     ))
@@ -410,7 +372,7 @@ describe('workflow mutation failure boundaries', () => {
 
     await expect(savePartialData(
       PROJECT_PATH,
-      { premise_result: 'premise' },
+      { world_building_result: '世界观' },
       context().projectSession!,
       operationLabel,
       fallbackMessage,
@@ -580,38 +542,6 @@ describe('workflow mutation failure boundaries', () => {
       'db:finalization-link-knowledge-document',
       41,
       'knowledge-document-41',
-      PROJECT_PATH,
-      expect.objectContaining({ projectId: 'A', leaseId: 'lease-A' }),
-    )
-  })
-
-  it('uses an English knowledge-document prefix without rewriting mixed UTF-8 chapter facts', async () => {
-    const chapterTitle = 'Night Café 夜航'
-    const draftContent = 'The sign reads “夜航 Café” — déjà vu.'
-    const invoke = vi.fn(async (channel: string) => {
-      if (channel === 'kb:import-text') {
-        return { success: true, docId: 'knowledge-document-utf8', chunkCount: 1 }
-      }
-      throw new Error(`unexpected IPC: ${channel}`)
-    })
-    stubVelaIpc(invoke)
-    const step = buildFinalizePostProcessSteps(
-      { path: PROJECT_PATH },
-      1,
-      chapterTitle,
-      draftContent,
-      testPostProcessGeneration(),
-    ).find(candidate => candidate.key === 'kb_import')
-
-    await expect(step!.executor(callbacks(), {
-      ...context(),
-      writingLanguage: 'en-US',
-    })).resolves.toBeUndefined()
-
-    expect(invoke).toHaveBeenCalledWith(
-      'kb:import-text',
-      draftContent,
-      `Chapter 1 ${chapterTitle}.txt`,
       PROJECT_PATH,
       expect.objectContaining({ projectId: 'A', leaseId: 'lease-A' }),
     )
@@ -811,9 +741,8 @@ describe('workflow mutation failure boundaries', () => {
     })
 
   it.each([
-    ['zh-CN', '【最终输出合同，覆盖上文【输出格式（JSON）】】', '只返回一个 JSON 对象'],
-    ['en-US', '[Final output contract: this overrides the [JSON output contract] above]', 'Return one JSON object'],
-  ] as const)('prefixes the code-owned contract with an explicit template override: %s', async (writingLanguage, override, contract) => {
+['zh-CN', '【最终输出合同，覆盖上文【输出格式（JSON）】】', '只返回一个 JSON 对象']
+] as const)('prefixes the code-owned contract with an explicit template override: %s', async (writingLanguage, override, contract) => {
     stubVelaIpc(vi.fn())
     const characterStates = vi.fn(async () => ({ applied: 0, unchanged: 0, candidates: [], unresolved: [] }))
     const step = testFrozenCharacterSteps('正文', { complete: vi.fn(), characterStates }).find(step => step.key === 'character_cards')!
@@ -825,9 +754,8 @@ describe('workflow mutation failure boundaries', () => {
   })
 
   it.each([
-    ['zh-CN', '每个 update 必须填写 recentEvents（本章结束时该角色的最新状态，50字以内）', '只返回一个 JSON 对象：{"updates":[{"characterId":"冻结名单中的精确ID","currentState":{"recentEvents":"本章事件","location":"新地点"},"evidence":{"text":"原文精确引用"}}]}', '只列出实际变化的字段', ['location 只写正文明确写出的人物当前所在地点，不写事件或进度', '正文只写了计划、决定或打算前往某处时，人物仍在原处', '正文没有明确写出地点变化时不要列出 location'], 'location 只写地点，不写事件或进度'],
-    ['en-US', "Every update must include recentEvents (this character's latest state at the end of the chapter, within 50 words)", 'Return one JSON object: {"updates":[{"characterId":"exact ID from the frozen list","currentState":{"recentEvents":"this chapter\'s event","location":"new place"},"evidence":{"text":"exact source quote"}}]}', 'list only the fields that actually changed', ['location is only the place the chapter prose explicitly states the character is currently in, never an event or progress', 'the character is still where they were', 'do not list location'], 'location is a place, never an event or progress'],
-  ] as const)('requires recentEvents on every update and a prose-grounded location in the code-owned contract: %s', async (writingLanguage, requirement, example, retired, locationRules, retiredLocation) => {
+['zh-CN', '每个 update 必须填写 recentEvents（本章结束时该角色的最新状态，50字以内）', '只返回一个 JSON 对象：{"updates":[{"characterId":"冻结名单中的精确ID","currentState":{"recentEvents":"本章事件","location":"新地点"},"evidence":{"text":"原文精确引用"}}]}', '只列出实际变化的字段', ['location 只写正文明确写出的人物当前所在地点，不写事件或进度', '正文只写了计划、决定或打算前往某处时，人物仍在原处', '正文没有明确写出地点变化时不要列出 location'], 'location 只写地点，不写事件或进度']
+] as const)('requires recentEvents on every update and a prose-grounded location in the code-owned contract: %s', async (writingLanguage, requirement, example, retired, locationRules, retiredLocation) => {
     stubVelaIpc(vi.fn())
     const characterStates = vi.fn(async () => ({ applied: 0, unchanged: 0, candidates: [], unresolved: [] }))
     const step = testFrozenCharacterSteps('正文', { complete: vi.fn(), characterStates }).find(step => step.key === 'character_cards')!
@@ -1284,7 +1212,7 @@ describe('workflow mutation failure boundaries', () => {
   })
 
   it.each([
-    {
+{
       name: 'English UI with Chinese writing',
       uiLocale: 'en-US' as const,
       writingLanguage: 'zh-CN' as const,
@@ -1292,17 +1220,8 @@ describe('workflow mutation failure boundaries', () => {
       expectedLog: 'The review result failed validation (the output does not match the review-report contract (missing, oversized, or extra fields)); requesting one complete replacement...',
       expectedError: 'The AI review response was invalid twice (the replacement output still does not match the review-report contract)',
       expectedPrompt: '上一轮审稿输出未通过合同校验',
-    },
-    {
-      name: 'Chinese UI with English writing',
-      uiLocale: 'zh-CN' as const,
-      writingLanguage: 'en-US' as const,
-      response: '{}',
-      expectedLog: '审稿结果未通过校验（输出不符合审稿报告合同（字段缺失、越界或多余）），正在请求一次完整替代输出...',
-      expectedError: 'AI 返回的审稿结果两次均无效（替代输出仍不符合审稿报告合同）',
-      expectedPrompt: 'The previous review output failed contract validation',
-    },
-  ])('keeps $name diagnostics in the UI language while rebuilding in the writing language', async ({
+    }
+])('keeps $name diagnostics in the UI language while rebuilding in the writing language', async ({
     uiLocale,
     writingLanguage,
     response,
@@ -1319,7 +1238,7 @@ describe('workflow mutation failure boundaries', () => {
     stubVelaIpc(invoke)
     const command = new ReviewChapterCommand({
       draftPath: 'ai-novel://draft/1',
-      draftContent: writingLanguage === 'en-US' ? 'Draft awaiting review.' : '待审正文',
+      draftContent: '待审正文',
       chapterNumber: 1,
     })
     const llm = vi.spyOn(command as unknown as {

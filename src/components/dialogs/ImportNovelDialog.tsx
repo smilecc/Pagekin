@@ -546,7 +546,7 @@ export default function ImportNovelDialog({ open, onClose }: ImportNovelDialogPr
           <DialogDescription>
             {purpose === 'reference'
               ? text(
-                  '选择参考小说文件，AI 将执行结构拆解、文风提取、蓝图反推，并生成后续写作可用的仿写约束。',
+                  '选择参考小说文件，AI 将执行结构拆解、文风提取、故事规划反推，并生成后续写作可用的仿写约束。',
                   'Select reference novel files. AI will analyze their structure and style, infer blueprints, and create imitation constraints for future writing.',
                 )
               : text(
@@ -593,7 +593,7 @@ export default function ImportNovelDialog({ open, onClose }: ImportNovelDialogPr
                   onChange={setAuthorInference}
                   label={(
                     <span className="flex flex-col gap-0.5">
-                      <span>{text('同时反推设定、架构、角色和蓝图', 'Also infer settings, architecture, characters, and blueprints')}</span>
+                      <span>{text('同时反推设定、架构、角色和故事规划', 'Also infer settings, architecture, characters, and blueprints')}</span>
                       <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
                         {text('只补空白，不覆盖已有内容', 'Fills only what is empty; existing content is kept')}
                       </span>
@@ -927,7 +927,7 @@ export default function ImportNovelDialog({ open, onClose }: ImportNovelDialogPr
               <div className="text-xs space-y-0.5" style={{ color: 'var(--color-text-muted)' }}>
                 {[
                   text(`· 全局推演：~${kTokens(costEstimate.globalTokens)}`, `Global analysis: ~${kTokens(costEstimate.globalTokens)}`),
-                  text(`· 蓝图推演：~${kTokens(costEstimate.blueprintTokens)}`, `Chapter blueprints: ~${kTokens(costEstimate.blueprintTokens)}`),
+                  text(`· 故事规划推演：~${kTokens(costEstimate.blueprintTokens)}`, `Story plans: ~${kTokens(costEstimate.blueprintTokens)}`),
                   text(`· 总计：~${kTokens(costEstimate.estimatedTokens)}`, `Total: ~${kTokens(costEstimate.estimatedTokens)}`),
                 ].map((line, i) => <div key={i}>{line}</div>)}
               </div>

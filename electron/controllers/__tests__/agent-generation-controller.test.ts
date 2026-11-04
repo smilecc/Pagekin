@@ -57,12 +57,12 @@ async function workflow() {
   const f = await action('start_workflow', { workflow: 'generate_architecture' })
   await invoke('agent-generation:claim-tool', { ref: f.ref, confirmed: true })
   const registration = await invoke('agent-generation:register-workflow', { ref: f.ref })
-  const selection: BeginGenerationRequest = { operation: 'generate-core-seed', uiActionNonce: 'child-stage', modelId: model.id,
-    promptKeys: ['premise'], skillStages: ['planning'], selectedDraftIds: [], selectedFinalizedDraftIds: [], output: 'visible-text',
+  const selection: BeginGenerationRequest = { operation: 'generate-world-building', uiActionNonce: 'child-stage', modelId: model.id,
+    promptKeys: ['world_building'], skillStages: ['planning'], selectedDraftIds: [], selectedFinalizedDraftIds: [], output: 'visible-text',
     authorInputs: [{ id: 'planning:target-units', text: String(registration.planning!.targetUnits) },
       { id: 'architecture:author-config', text: JSON.stringify({ totalChapters: 100 }) },
       { id: 'architecture:planning-intent', text: JSON.stringify({ version: 'architecture-action-v1',
-        priorSteps: ['premise', 'characters', 'worldbuilding'], synopsisRange: { from: registration.planning!.from, to: registration.planning!.to } }) }],
+        priorSteps: ['characters', 'worldbuilding'], synopsisRange: null }) }],
     parentRootActionId: f.recovery.handle.rootActionId, agentWorkflowRegistrationId: registration.registrationId }
   return { ...f, registration, selection }
 }
@@ -93,13 +93,13 @@ afterEach(() => {
 
 describe('Agent registered IPC, actual SQLite and intercepted provider boundary', () => {
   it.each(['generate_architecture', 'generate_blueprint'] as const)('carries frozen planning through the real %s launcher and factory into main admission', async workflow => {
-    getProjectDb()!.prepare('UPDATE project_core SET premise=?').run('Synthetic established premise. '.repeat(4))
+    getProjectDb()!.prepare('UPDATE project_core SET worldbuilding=?').run('Synthetic established premise. '.repeat(4))
     getProjectDb()!.exec("INSERT INTO characters(name) VALUES('Mara')")
     useProjectStore.setState({ currentProject: { id: session.projectId, path: session.projectPath, sessionLease: session.leaseId,
       name: 'Synthetic Agent IPC', createdAt: '', updatedAt: '', characterStates: '', novelConfig: {
         genre: 'Original genre', subGenre: '', targetAudience: '', totalChapters: 100, wordsPerChapter: 3000,
         plotStructure: 'three_act', narrativePOV: 'third_limited', coreOutline: 'A frozen author outline.',
-        worldSetting: '', goldenFinger: '', protagonistProfile: '', globalGuidance: 'Author guidance',
+           globalGuidance: 'Author guidance',
       } } })
     const f = await action('start_workflow', { workflow, start_chapter: 11, chapter_count: 10, target_units: 1000 })
     await invoke('agent-generation:claim-tool', { ref: f.ref, confirmed: true })
@@ -138,7 +138,7 @@ describe('Agent registered IPC, actual SQLite and intercepted provider boundary'
     const child = children[0]
     expect(child.handle.rootActionId).toBe(f.started.handle.rootActionId)
     const result = await invoke('generation:execute', { handle: child.handle, invocationNonce: 'factory-child-request', task: {
-      purpose: workflow === 'generate_architecture' ? 'generate-core-seed' : 'directory', output: selections[0].output,
+      purpose: workflow === 'generate_architecture' ? 'generate-world-building' : 'directory', output: selections[0].output,
       messages: [{ role: 'user', content: 'Synthetic child.' }] } })
     expect(result.run.ledger?.physicalRequests).toBe(2)
     expect(f.fetch).toHaveBeenCalledTimes(2)
@@ -230,7 +230,7 @@ describe('Agent registered IPC, actual SQLite and intercepted provider boundary'
     await expect(invoke('generation:begin', { ...f.selection, authorInputs: [] })).rejects.toThrow('GENERATION_AGENT_CHILD_NOT_AUTHORIZED')
     const [left, right] = await Promise.all([invoke('generation:begin', f.selection), invoke('generation:begin', { ...f.selection, uiActionNonce: 'second-launch' })])
     expect(left.handle).toEqual(right.handle)
-    const result = await invoke('generation:execute', { handle: left.handle, invocationNonce: 'child-request', task: { purpose: 'generate-core-seed', output: 'visible-text', messages: [{ role: 'user', content: 'Synthetic child' }] } })
+    const result = await invoke('generation:execute', { handle: left.handle, invocationNonce: 'child-request', task: { purpose: 'generate-world-building', output: 'visible-text', messages: [{ role: 'user', content: 'Synthetic child' }] } })
     expect(result.run.ledger?.physicalRequests).toBe(2)
     expect(result.run.handle.rootActionId).toBe(f.recovery.handle.rootActionId)
     const read = await invoke('agent-generation:read', { handle: f.recovery.handle })
@@ -241,23 +241,23 @@ describe('Agent registered IPC, actual SQLite and intercepted provider boundary'
   it('keeps an admitted child source change fail-closed before its dispatch', async () => {
     const f = await workflow(), child = await invoke('generation:begin', f.selection)
     getProjectDb()!.exec("UPDATE project_core SET global_guidance='Author changed guidance'")
-    await expect(invoke('generation:execute', { handle: child.handle, invocationNonce: 'child-request', task: { purpose: 'generate-core-seed', output: 'visible-text', messages: [{ role: 'user', content: 'Synthetic child' }] } })).rejects.toThrow('GENERATION_SOURCE_CHANGED')
+    await expect(invoke('generation:execute', { handle: child.handle, invocationNonce: 'child-request', task: { purpose: 'generate-world-building', output: 'visible-text', messages: [{ role: 'user', content: 'Synthetic child' }] } })).rejects.toThrow('GENERATION_SOURCE_CHANGED')
     expect(f.fetch).toHaveBeenCalledOnce()
   })
 
   it('keeps a proved child write current after the Agent has already returned its next round', async () => {
     const f = await workflow(), child = await invoke('generation:begin', f.selection)
-    await invoke('generation:execute', { handle: child.handle, invocationNonce: 'child-request', task: { purpose: 'generate-core-seed', output: 'visible-text', messages: [{ role: 'user', content: 'Synthetic child' }] } })
+    await invoke('generation:execute', { handle: child.handle, invocationNonce: 'child-request', task: { purpose: 'generate-world-building', output: 'visible-text', messages: [{ role: 'user', content: 'Synthetic child' }] } })
     await invoke('agent-generation:finish-tool', { ref: f.ref, status: 'completed', observation: 'Child launched' })
     const next = await invoke('agent-generation:round', { handle: f.recovery.handle, index: 1 })
     expect(next.sourceStatus).toBe('current')
-    const saved = await mocks.handlers.get('db:project-core-commit-generated')!({ sender }, { generationRunHandle: child.handle, data: { premise: 'Proved child premise' } }, session.projectPath, session)
+    const saved = await mocks.handlers.get('db:project-core-commit-generated')!({ sender }, { generationRunHandle: child.handle, data: { worldbuilding: 'Proved child premise' } }, session.projectPath, session)
     expect(saved).toEqual({ success: true })
     const read = await invoke('agent-generation:read', { handle: next.handle })
     expect(read.sourceStatus).toBe('current')
     expect(read.rounds.at(-1)?.visibleText).toBe('Synthetic final reply.')
     expect(f.fetch).toHaveBeenCalledTimes(3)
-    getProjectDb()!.exec("UPDATE project_core SET premise='Unrelated external edit after the child commit'")
+    getProjectDb()!.exec("UPDATE project_core SET worldbuilding='Unrelated external edit after the child commit'")
     expect((await invoke('agent-generation:read', { handle: next.handle })).sourceStatus).toBe('conflict')
   })
 
@@ -284,13 +284,13 @@ describe('Agent registered IPC, actual SQLite and intercepted provider boundary'
 
   it('does not reauthorize a cancelled root or allow its child to commit', async () => {
     const f = await workflow(), child = await invoke('generation:begin', f.selection)
-    await invoke('generation:execute', { handle: child.handle, invocationNonce: 'child-request', task: { purpose: 'generate-core-seed', output: 'visible-text', messages: [{ role: 'user', content: 'Synthetic child' }] } })
+    await invoke('generation:execute', { handle: child.handle, invocationNonce: 'child-request', task: { purpose: 'generate-world-building', output: 'visible-text', messages: [{ role: 'user', content: 'Synthetic child' }] } })
     await invoke('generation:cancel', f.recovery.handle)
     await expect(invoke('agent-generation:resume', { handle: f.recovery.handle })).rejects.toThrow()
-    const before = getProjectDb()!.prepare('SELECT premise FROM project_core').pluck().get()
-    const saved = await mocks.handlers.get('db:project-core-commit-generated')!({ sender }, { generationRunHandle: child.handle, data: { premise: 'Cancelled child write' } }, session.projectPath, session)
+    const before = getProjectDb()!.prepare('SELECT worldbuilding FROM project_core').pluck().get()
+    const saved = await mocks.handlers.get('db:project-core-commit-generated')!({ sender }, { generationRunHandle: child.handle, data: { worldbuilding: 'Cancelled child write' } }, session.projectPath, session)
     expect(saved).toMatchObject({ success: false })
-    expect(getProjectDb()!.prepare('SELECT premise FROM project_core').pluck().get()).toBe(before)
+    expect(getProjectDb()!.prepare('SELECT worldbuilding FROM project_core').pluck().get()).toBe(before)
     expect(f.fetch).toHaveBeenCalledTimes(2)
   })
 
@@ -305,7 +305,7 @@ describe('Agent registered IPC, actual SQLite and intercepted provider boundary'
 
   it.each(['later-binding-corrupt', 'second-proof-update-fails'] as const)('rejects the whole child effect when %s', async fault => {
     const f = await workflow(), child = await invoke('generation:begin', f.selection)
-    await invoke('generation:execute', { handle: child.handle, invocationNonce: 'child-request', task: { purpose: 'generate-core-seed', output: 'visible-text', messages: [{ role: 'user', content: 'Synthetic child' }] } })
+    await invoke('generation:execute', { handle: child.handle, invocationNonce: 'child-request', task: { purpose: 'generate-world-building', output: 'visible-text', messages: [{ role: 'user', content: 'Synthetic child' }] } })
     await invoke('agent-generation:finish-tool', { ref: f.ref, status: 'completed', observation: 'Child launched' })
     const next = await invoke('agent-generation:round', { handle: f.recovery.handle, index: 1 }), db = getProjectDb()!
     // A corruption probe targets only the later persisted binding. It does not
@@ -314,7 +314,7 @@ describe('Agent registered IPC, actual SQLite and intercepted provider boundary'
     else db.exec("CREATE TRIGGER second_agent_proof_failure BEFORE UPDATE OF usage_receipt_json ON generation_attempts WHEN NEW.run_id IN (SELECT run_id FROM generation_runs WHERE json_extract(binding_json,'$.sourceManifest.agentSession.roundIndex')=1) BEGIN SELECT RAISE(ABORT,'Synthetic second proof update failure'); END")
     const dataBefore = db.prepare('SELECT * FROM project_core').all(), usageBefore = db.prepare('SELECT attempt_id,usage_receipt_json FROM generation_attempts ORDER BY rowid').all()
     const bindingsBefore = db.prepare('SELECT run_id,binding_json FROM generation_runs ORDER BY rowid').all()
-    const saved = await mocks.handlers.get('db:project-core-commit-generated')!({ sender }, { generationRunHandle: child.handle, data: { premise: 'Must be atomic with both forward proofs' } }, session.projectPath, session)
+    const saved = await mocks.handlers.get('db:project-core-commit-generated')!({ sender }, { generationRunHandle: child.handle, data: { worldbuilding: 'Must be atomic with both forward proofs' } }, session.projectPath, session)
     expect(saved).toMatchObject({ success: false })
     expect(db.prepare('SELECT * FROM project_core').all()).toEqual(dataBefore)
     expect(db.prepare('SELECT attempt_id,usage_receipt_json FROM generation_attempts ORDER BY rowid').all()).toEqual(usageBefore)

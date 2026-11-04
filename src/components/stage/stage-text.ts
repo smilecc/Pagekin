@@ -5,9 +5,14 @@ import type { ChapterPhase } from '../../stores/navigation/stage-progress'
 type Text = (zh: string, en: string) => string
 
 export const STAGE_NAMES: Record<WorkStage, [string, string]> = {
-  setup: ['设定', 'Setup'],
-  architecture: ['架构', 'Architecture'],
-  blueprint: ['蓝图', 'Blueprint'],
+  outline: ['大纲', 'Outline'],
+  world: ['世界观', 'World'],
+  cast: ['角色名单', 'Cast'],
+  style: ['文风', 'Writing style'],
+  guidance: ['全局写作要求', 'Global guidance'],
+  setup: ['写作选项', 'Writing options'],
+  architecture: ['写作选项', 'Writing options'],
+  blueprint: ['故事规划', 'Story planning'],
   manuscript: ['正文', 'Manuscript'],
 }
 
@@ -41,7 +46,7 @@ const PAGE_TAB_NAMES: Partial<Record<EditorTab['type'], [string, string]>> = {
 }
 
 /** 标签显示的名字。正文、审稿报告与恢复草稿等标签沿用各自的名字。 */
-export function stageTabName(tab: Pick<EditorTab, 'type' | 'name' | 'planningRecovery'>, text: Text): string {
-  const name = tab.planningRecovery ? undefined : PAGE_TAB_NAMES[tab.type]
+export function stageTabName(tab: Pick<EditorTab, 'type' | 'name' | 'planningRecovery' | 'configField'>, text: Text): string {
+  const name = tab.planningRecovery || tab.configField ? undefined : PAGE_TAB_NAMES[tab.type]
   return name ? text(...name) : tab.name
 }

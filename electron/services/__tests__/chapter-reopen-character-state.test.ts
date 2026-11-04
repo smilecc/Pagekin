@@ -158,11 +158,6 @@ describe('替换中间一章后的派生角色状态（维护者问题 12）', (
     expect(restatement).toContain(`林岚（characterId：${CHARACTER_ID}）：location`)
     expect(restatement).not.toMatch(/keyItems|recentEvents/u)
     expect(restatement).toContain('与现有角色卡相同也要列出')
-    const english = characterPrompt(replacement, 'en-US')
-    const englishRestatement = english.slice(english.indexOf('[This chapter replaced an earlier final'))
-    expect(englishRestatement).toContain(`林岚 (characterId: ${CHARACTER_ID}): location`)
-    expect(englishRestatement).toContain('even when it is the same as the existing card')
-    expect(englishRestatement.replace('林岚', '')).not.toMatch(/\p{Script=Han}/u)
     expect(characterPrompt(three)).not.toContain('【本章替换了旧定稿')
 
     derive(replacement, { location: '西城客栈' }, '住进西城客栈')

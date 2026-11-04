@@ -30,6 +30,7 @@ export const enUS = {
   'error.projectArchiveTargetExists': 'The target file already exists. Choose another file name; project archives never overwrite existing files.',
   'error.externalFileGrantExpired': 'Access to the selected file or folder has expired. Choose it again.',
   'error.unknown': 'Something went wrong: {message}',
+  'error.generationOperationRemoved': 'This generation action is no longer available. Choose an action from the current writing workflow.',
   'error.generationRequestFailed': 'The generation request failed before its result was saved. Try again. If it keeps happening, report this message and when it occurred.',
   'error.generationProjectSessionStale': 'The book was switched or reopened, so the result of this action from the earlier session is unavailable. Check the book that is open now and repeat the action if needed.',
   'error.generationProjectSessionRequired': 'This action did not carry the session of the open book, so its result is unavailable. Reopen the book and try again.',

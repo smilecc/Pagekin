@@ -359,7 +359,7 @@ export function buildGenerationSourceBinding(deps: GenerationSourceBindingDepend
         if (!raw)
             fail('GENERATION_PROJECT_CORE_MISSING');
         const core = without(raw, ['created_at', 'updated_at', 'character_states', 'plot_tree_snapshot']);
-        const language: WritingLanguage = core.writing_language === 'en-US' ? 'en-US' : 'zh-CN';
+        const language: WritingLanguage = 'zh-CN';
         add('project-core:main', 0, stable(core), 'author-constraint', 'current project settings');
         if (input.legacyRosterKey) {
             legacyContext = captureLegacyRosterGenerationContext(deps.db, input, input.legacyRosterKey, input.legacyRosterContext);

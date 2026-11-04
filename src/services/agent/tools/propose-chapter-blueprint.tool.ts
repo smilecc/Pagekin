@@ -3,11 +3,10 @@ import { ipc } from '../../ipc-client'
 import { buildAgentTool, type AgentExecutionContext } from '../tool-registry'
 import { agentToolText, assertAgentProjectCurrent, assertAgentToolActive, requireAgentProject, agentToolErrorDetail } from './project-context'
 import type { ProposalFieldDiff } from './propose-novel-config.tool'
-import { containsHan } from '../../../i18n/app-errors'
 import { pluralEn } from '../../../shared/plural-en'
 
 const STRING_FIELDS = new Set<keyof BlueprintData>([
-  'title', 'role', 'purpose', 'keyEvents', 'suspenseHook', 'userGuidance', 'notes',
+  'title', 'keyEvents',
 ])
 const FIELD_ALIASES: Record<string, keyof BlueprintData> = {
   '作者微操指导': 'userGuidance',
@@ -32,8 +31,8 @@ function validateBlueprintChanges(args: Record<string, unknown>, context?: Agent
     if (STRING_FIELDS.has(canonicalField as keyof BlueprintData)) {
       if (typeof proposed !== 'string') return { valid: false, error: agentToolText(context, `字段 ${field} 必须是文本`, `Field ${field} must be text`) }
     } else if (canonicalField === 'characters') {
-      if (!Array.isArray(proposed) || !proposed.every(item => typeof item === 'string')) {
-        return { valid: false, error: agentToolText(context, '字段 characters 必须是文本数组', 'Field characters must be an array of text values') }
+      if (!Array.isArray(proposed) || proposed.some(name => typeof name !== 'string' || !name.trim())) {
+        return { valid: false, error: agentToolText(context, '出场角色必须是姓名数组', 'Characters must be an array of names') }
       }
     } else {
       return { valid: false, error: agentToolText(context, `未知章节蓝图字段：${field}`, `Unknown chapter blueprint field: ${field}`) }
@@ -78,8 +77,8 @@ export const proposeChapterBlueprintTool = buildAgentTool({
       chapter_number: { type: 'number', description: '目标章节号', descriptionEn: 'Target chapter number' },
       changes: {
         type: 'object',
-        description: '章节蓝图建议值。字段使用 title、role、purpose、keyEvents、characters、suspenseHook、userGuidance、notes；“作者微操指导”或“用户指引”也会规范化为 userGuidance。',
-        descriptionEn: 'Proposed blueprint values. Use title, role, purpose, keyEvents, characters, suspenseHook, userGuidance, and notes.',
+        description: '章节蓝图建议值。字段使用 title（章节名）、keyEvents（规划正文）、characters（出场角色姓名数组）。',
+        descriptionEn: 'Proposed blueprint values. Use title, keyEvents, and characters (an array of names).',
       },
     },
     required: ['chapter_number', 'changes'],
@@ -117,9 +116,7 @@ export const proposeChapterBlueprintTool = buildAgentTool({
       return {
         success: false,
         content: '',
-        error: context?.writingLanguage === 'en-US' && containsHan(detail ?? '')
-          ? text('章节蓝图写入失败', 'Could not update the chapter blueprint')
-          : detail ?? text('章节蓝图写入失败', 'Could not update the chapter blueprint'),
+        error: detail ?? text('章节蓝图写入失败', 'Could not update the chapter blueprint'),
       }
     }
     return { success: true, content: text(`第 ${chapterNumber} 章蓝图已更新（${proposal.diffs.length} 个字段）`, `Chapter ${chapterNumber} blueprint updated (${proposal.diffs.length} ${pluralEn(proposal.diffs.length, 'field')})`) }

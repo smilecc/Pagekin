@@ -9,18 +9,18 @@ import {
 } from '../import-fill-empty'
 
 const TEXT_FIELDS: ImportFillField[] = [
-  'genre', 'subGenre', 'targetAudience', 'goldenFinger', 'globalGuidance', 'coreOutline',
-  'worldSetting', 'protagonistProfile', 'premise', 'worldbuilding', 'synopsis', 'writingStyle',
+  'genre', 'subGenre', 'targetAudience', 'globalGuidance', 'coreOutline',
+  'worldbuilding', 'writingStyle',
 ]
 const COUNT_FIELDS: ImportFillField[] = ['totalChapters', 'wordsPerChapter']
 const CHOICE_FIELDS: ImportFillField[] = ['plotStructure', 'narrativePov']
 
 const inferred: ImportFillValues = {
   genre: '悬疑', subGenre: '本格', targetAudience: '成人', totalChapters: 5, wordsPerChapter: 2400,
-  plotStructure: 'heros_journey', narrativePov: 'first_person', goldenFinger: '过目不忘',
-  globalGuidance: '冷静克制', coreOutline: '侦探追查旧案', worldSetting: '民国上海',
-  protagonistProfile: '沈默，前巡捕', premise: '旧案重启', worldbuilding: '租界与华界',
-  synopsis: '五章查清真相', writingStyle: '短句，白描',
+  plotStructure: 'heros_journey', narrativePov: 'first_person',
+  globalGuidance: '冷静克制', coreOutline: '侦探追查旧案',
+    worldbuilding: '租界与华界',
+   writingStyle: '短句，白描',
 }
 
 describe('作者原稿反推的判空与补空计划', () => {
@@ -46,8 +46,8 @@ describe('作者原稿反推的判空与补空计划', () => {
   it('空项目：每个字段都补上，没有建议', () => {
     const empty = {
       genre: '', subGenre: null, targetAudience: '  ', totalChapters: 0, wordsPerChapter: null,
-      plotStructure: '', narrativePov: '', goldenFinger: '', globalGuidance: '', coreOutline: '',
-      worldSetting: '', protagonistProfile: '', premise: '', worldbuilding: '', synopsis: '', writingStyle: '',
+      plotStructure: '', narrativePov: '',  globalGuidance: '', coreOutline: '',
+         worldbuilding: '',  writingStyle: '',
     }
     const plan = planImportFill(IMPORT_FILL_FIELDS, empty, inferred)
     expect(plan.patch).toEqual(inferred)
@@ -57,14 +57,14 @@ describe('作者原稿反推的判空与补空计划', () => {
   it('已有设定：非空字段一字不改，不同的进建议，相同的不进', () => {
     const current = {
       genre: '悬疑', subGenre: '社会派', targetAudience: '', totalChapters: 100, wordsPerChapter: 3000,
-      plotStructure: 'three_act', narrativePov: 'first_person', goldenFinger: '', globalGuidance: '',
-      coreOutline: '我写的大纲', worldSetting: '', protagonistProfile: '', premise: '', worldbuilding: '',
-      synopsis: '', writingStyle: '长句',
+      plotStructure: 'three_act', narrativePov: 'first_person',  globalGuidance: '',
+      coreOutline: '我写的大纲',    worldbuilding: '',
+       writingStyle: '长句',
     }
     const plan = planImportFill(IMPORT_FILL_FIELDS, current, inferred)
     expect(plan.patch).toEqual({
-      targetAudience: '成人', goldenFinger: '过目不忘', globalGuidance: '冷静克制', worldSetting: '民国上海',
-      protagonistProfile: '沈默，前巡捕', premise: '旧案重启', worldbuilding: '租界与华界', synopsis: '五章查清真相',
+      targetAudience: '成人',  globalGuidance: '冷静克制',
+        worldbuilding: '租界与华界',
     })
     expect(plan.suggestions).toEqual([
       { field: 'subGenre', current: '社会派', inferred: '本格' },

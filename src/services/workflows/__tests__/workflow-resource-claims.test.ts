@@ -219,7 +219,7 @@ describe('workflow factory resource claims', () => {
     const premiseOnly = createArchitectureWorkflow({
       projectPath: PROJECT_PATH,
       projectSession: PROJECT_SESSION,
-      selectedSteps: ['premise'],
+      selectedSteps: ['worldbuilding'],
     })
 
     expect(premiseOnly.resourceKeys).toEqual(['architecture'])

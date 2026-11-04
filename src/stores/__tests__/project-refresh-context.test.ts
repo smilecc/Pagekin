@@ -40,9 +40,9 @@ function project(key: 'A' | 'B'): ProjectData {
       plotStructure: 'three_act',
       narrativePOV: 'third_limited',
       coreOutline: '',
-      worldSetting: '',
-      goldenFinger: '',
-      protagonistProfile: '',
+
+
+
       globalGuidance: '',
     },
     characterStates: '',
@@ -423,10 +423,7 @@ describe('project refresh context', () => {
     invoke.mockImplementation((channel: string) => {
       if (channel === 'db:project-core-get') {
         return Promise.resolve({
-          premise: 'A'.repeat(51),
-          charactersArch: '',
-          worldbuilding: '',
-          synopsis: '',
+          premise: '', charactersArch: '', worldbuilding: 'A'.repeat(51), synopsis: '',
         })
       }
       if (channel === 'db:character-roster-read') {
@@ -442,7 +439,7 @@ describe('project refresh context', () => {
       leaseId: projectA.sessionLease!,
       projectPath: projectA.path,
     }
-    await expect(checkArchStatus(projectSession)).resolves.toMatchObject({ premise: true })
+    await expect(checkArchStatus(projectSession)).resolves.toMatchObject({ worldbuilding: true })
     await expect(getBlueprintCount(projectSession)).resolves.toBe(1)
     expect(invoke).toHaveBeenCalledWith('db:project-core-get', project('A').path)
     expect(invoke).toHaveBeenCalledWith('db:character-roster-read', project('A').path)

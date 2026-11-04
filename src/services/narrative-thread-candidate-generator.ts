@@ -42,7 +42,6 @@ export function createNarrativeThreadCandidateGenerator(
           throw new Error(promptLanguageText(
             input.writingLanguage,
             '叙事线索计划候选生成未完整完成',
-            'Narrative-thread plan candidate generation did not complete.',
           ))
         }
         const candidates = parseNarrativeThreadPlanCandidates(outcome.content, input.totalChapters)
@@ -50,7 +49,6 @@ export function createNarrativeThreadCandidateGenerator(
         if (candidates.length === 0) throw new Error(promptLanguageText(
           input.writingLanguage,
           '模型未返回有效的叙事线索计划候选',
-          'The model did not return any valid narrative-thread plan candidates.',
         ))
         return candidates
       } finally {
@@ -76,7 +74,6 @@ export function createNarrativeThreadCandidateGenerator(
           throw new Error(promptLanguageText(
             input.writingLanguage,
             '叙事线索事件候选生成未完整完成',
-            'Narrative-thread event candidate generation did not complete.',
           ))
         }
         const candidates = parseNarrativeThreadEventCandidates(outcome.content, input.finalizedContent)
@@ -84,7 +81,6 @@ export function createNarrativeThreadCandidateGenerator(
         if (candidates.length === 0) throw new Error(promptLanguageText(
           input.writingLanguage,
           '模型未返回带有效定稿证据的事件候选',
-          'The model did not return any event candidates with valid finalized-manuscript evidence.',
         ))
         return candidates
       } finally {

@@ -38,9 +38,7 @@ export class BasePromptBuilder {
       for (const [key, value] of Object.entries(this.variables)) {
         taskGuidance = taskGuidance.replaceAll(`{{${key}}}`, value || '')
       }
-      const heading = this.writingLanguage === 'en-US'
-        ? '[User-defined creative guidance]'
-        : '【用户自定义创作指导】'
+      const heading = '【用户自定义创作指导】'
       result += `\n\n${heading}\n${taskGuidance.trim()}`
     }
 
@@ -101,9 +99,12 @@ export class ChapterPromptBuilder extends BasePromptBuilder {
   }
 
   withChapterInfo(chapterInfo: string | object) {
-    this.variables.chapter_info = typeof chapterInfo === 'string' 
-      ? chapterInfo 
-      : JSON.stringify(chapterInfo, null, 2);
+    if (typeof chapterInfo === 'string') {
+      this.variables.chapter_info = chapterInfo;
+      return this;
+    }
+    const { chapterNumber, title, keyEvents, characters } = chapterInfo as { chapterNumber?: number; title?: string; keyEvents?: string; characters?: string[] };
+    this.variables.chapter_info = JSON.stringify({ chapterNumber, title, keyEvents, characters }, null, 2);
     return this;
   }
 
@@ -264,23 +265,15 @@ export class ArchitecturePromptBuilder extends BasePromptBuilder {
     return this;
   }
 
-  withGoldenFinger(finger: string) {
-    this.variables.golden_finger = finger;
-    return this;
-  }
 
-  withProtagonistProfile(profile: string) {
-    this.variables.protagonist_profile = profile;
-    return this;
-  }
 
   withGlobalGuidance(guidance: string) {
     this.variables.global_guidance = guidance;
     return this;
   }
 
-  withCoreSeed(seed: string) {
-    this.variables.premise = seed;
+  withCoreOutline(seed: string) {
+    this.variables.core_outline = seed;
     return this;
   }
 

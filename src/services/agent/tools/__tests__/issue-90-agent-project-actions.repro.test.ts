@@ -27,9 +27,9 @@ const project = {
     plotStructure: 'three_act',
     narrativePOV: 'third_limited',
     coreOutline: '林舟必须在永夜吞没城市前找回太阳。',
-    worldSetting: '',
-    goldenFinger: '',
-    protagonistProfile: '',
+
+
+
     globalGuidance: '',
   },
 }
@@ -128,14 +128,17 @@ describe('Issue #90 AI assistant project actions', () => {
     {
       label: 'architecture config',
       intent: { workflow: 'generate_architecture' } as const,
-      prepare: () => useProjectStore.setState({ currentProject: { ...project, novelConfig: { ...project.novelConfig, coreOutline: '', protagonistProfile: '', worldSetting: '' } } as never }),
+      prepare: () => useProjectStore.setState({ currentProject: { ...project, novelConfig: { ...project.novelConfig, coreOutline: '',   } } as never }),
       expected: '小说配置',
     },
     {
       label: 'directory prerequisites',
       intent: { workflow: 'generate_blueprint' } as const,
-      prepare: () => stubWorkflowIpc({ 'db:project-core-get': { premise: '', charactersArch: '', worldbuilding: '', synopsis: '' } }),
-      expected: '故事前提',
+      prepare: () => {
+        const project = useProjectStore.getState().currentProject!
+        useProjectStore.setState({ currentProject: { ...project, novelConfig: { ...project.novelConfig, coreOutline: '' } } })
+      },
+      expected: '大纲',
     },
     {
       label: 'draft character roster',
@@ -335,33 +338,6 @@ describe('Issue #90 AI assistant project actions', () => {
       projectPath,
       status: 'running',
     }))
-  })
-
-  it('returns an English start receipt from the frozen project writing language', async () => {
-    stubWorkflowIpc()
-    useLocaleStore.setState({ locale: 'zh-CN' })
-    useProjectStore.setState({
-      currentProject: {
-        ...project,
-        novelConfig: { ...project.novelConfig, writingLanguage: 'en-US' },
-      } as never,
-    })
-
-    const context = createAgentExecutionContext()
-    const result = await startWorkflowTool.execute(
-      { workflow: 'generate_draft', chapter_number: 1 },
-      context,
-    )
-
-    expect(result.success).toBe(true)
-    expect(result.content).toMatch(/^Started the draft \(Chapter 1\) workflow/)
-    expect(result.content).not.toMatch(/[\u3400-\u9fff]/u)
-
-    const failure = await startWorkflowTool.execute(
-      { workflow: 'review', chapter_number: 1 },
-      context,
-    )
-    expect(failure.error).toBe('Could not start the review (Chapter 1) workflow.')
   })
 
   it('没有失败原因时按作品写作语言说明启动失败，不给中文作品英文句子', async () => {

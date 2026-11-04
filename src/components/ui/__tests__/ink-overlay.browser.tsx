@@ -677,7 +677,7 @@ describe('清除生成内容', () => {
     expect(dialog.className).toContain('pi-dialog--marked')
     expect(focused().textContent).toBe('取消')
     const [consequence, recover, advice] = dialog.querySelectorAll<HTMLElement>('.pi-dialog-consequence > p')
-    expect(consequence.textContent).toBe('将清除 3 类内容：故事架构与大纲、章节蓝图、草稿、定稿与审稿产物。')
+    expect(consequence.textContent).toBe('将清除 3 类内容：故事架构与大纲、故事规划、草稿、定稿与审稿产物。')
     expect(recover.textContent).toBe('清除后不会自动恢复。')
     expect(getComputedStyle(recover).color).toBe('rgb(180, 35, 24)')
     expect(advice.textContent).toBe('若需要保留当前内容，请先复制到外部文件或导出项目备份。')
@@ -687,7 +687,7 @@ describe('清除生成内容', () => {
     await page.screenshot({ path: `${SHOTS}/rdv-clear-light.png` })
 
     await userEvent.click(boxes[0])
-    expect(consequence.textContent).toBe('将清除 2 类内容：章节蓝图、草稿、定稿与审稿产物。')
+    expect(consequence.textContent).toBe('将清除 2 类内容：故事规划、草稿、定稿与审稿产物。')
     await userEvent.click(boxes[1])
     await userEvent.click(boxes[2])
     expect(consequence.textContent).toBe('请至少选择一类内容。')

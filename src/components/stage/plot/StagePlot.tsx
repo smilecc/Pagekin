@@ -126,7 +126,7 @@ export default function StagePlot({ projectKey, initialView, viewRequest }: Stag
           open={clearOpen}
           onOpenChange={setClearOpen}
           title={text('清除剧情树？', 'Clear the plot tree?')}
-          consequence={text('会删除当前的剧情树快照。蓝图、定稿和伏笔线索都不受影响。', 'The current plot tree snapshot is removed. The blueprint, finals and threads are kept.')}
+          consequence={text('会删除当前的剧情树快照。故事规划、定稿和伏笔线索都不受影响。', 'The current plot tree snapshot is removed. The blueprint, finals and threads are kept.')}
           recoverability={text('清除后无法恢复这一份快照，之后可以随时重新生成。', 'This snapshot cannot be restored, but you can build a new one at any time.')}
           confirmLabel={text('清除剧情树', 'Clear plot tree')}
           cancelLabel={text('取消', 'Cancel')}

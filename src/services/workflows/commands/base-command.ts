@@ -62,10 +62,7 @@ export function injectWritingSkillIntoTask(
   if (!skill) return { task }
   const userMessageIndex = task.messages.findIndex(message => message.role === 'user')
   if (userMessageIndex < 0) return { task }
-  const writingLanguage = workflowWritingLanguage(context)
-  const block = writingLanguage === 'en-US'
-    ? `[Supplemental writing skill: ${skill.name}]\nThis guidance may improve craft, but author facts, the project writing language, and the output contract below always take priority.\n${skill.content}`
-    : `【补充写作 Skill：${skill.name}】\n以下内容只能补充创作方法；作者事实、项目写作语言和后续输出合同始终优先。\n${skill.content}`
+  const block = `【补充写作 Skill：${skill.name}】\n以下内容只能补充创作方法；作者事实、项目写作语言和后续输出合同始终优先。\n${skill.content}`
   const messages = task.messages.map((message, index) => index === userMessageIndex
     ? { ...message, content: `${block}\n\n${message.content}` }
     : message)

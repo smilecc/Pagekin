@@ -21,7 +21,7 @@ import {
 
 const STORY_FACT_FIELDS = new Set([
   'genre', 'subGenre', 'totalChapters', 'plotStructure', 'narrativePOV', 'coreOutline',
-  'worldSetting', 'goldenFinger', 'protagonistProfile', 'globalGuidance',
+  'globalGuidance',
 ])
 
 interface ImpactBlueprint {
@@ -221,8 +221,8 @@ export default function ConfigImpactPreview({ preview, selectedKeys, onSelection
       </div>
 
       <ImpactList
-        title={text('未写章节蓝图', 'Unwritten blueprints')}
-        empty={text('没有未写蓝图', 'No unwritten blueprints')}
+        title={text('未写故事规划', 'Unwritten blueprints')}
+        empty={text('没有未写故事规划', 'No unwritten blueprints')}
         items={preview.unwrittenBlueprints.map(item => ({
           key: `blueprint:${item.chapterNumber}`,
           title: text(`第 ${item.chapterNumber} 章 · ${item.title}`, `Chapter ${item.chapterNumber} · ${item.title}`),
@@ -249,8 +249,8 @@ export default function ConfigImpactPreview({ preview, selectedKeys, onSelection
       />
 
       {preview.blueprintProposals.length > 0 && (
-        <div className="space-y-1" aria-label={text('可选蓝图差异', 'Optional blueprint changes')}>
-          <div className="text-[0.7rem] font-medium">{text('可选蓝图差异（将逐项再次确认）', 'Optional blueprint changes (confirmed again one by one)')}</div>
+        <div className="space-y-1" aria-label={text('可选故事规划差异', 'Optional blueprint changes')}>
+          <div className="text-[0.7rem] font-medium">{text('可选故事规划差异（将逐项再次确认）', 'Optional blueprint changes (confirmed again one by one)')}</div>
           {preview.blueprintProposals.map(proposal => (
             <label key={proposal.key} className="flex cursor-pointer items-start gap-2 rounded bg-[var(--color-hover)] p-2 text-[0.68rem]">
               <input

@@ -199,11 +199,11 @@ describe('planning authorization before confirmation', () => {
   expect(f.db.prepare('SELECT COUNT(*) FROM generation_runs').pluck().get()).toBe(1)
   expect(f.spy).toHaveBeenCalledTimes(1)
  })
- it.each([16384,32768,65536])('uses the same physical %i output cap and frozen English target for ordinary and registered children', async maxTokens => {
+ it.each([16384,32768,65536])('uses the same physical %i output cap and frozen target for ordinary and registered children', async maxTokens => {
   const f=fixture(planningDispatch({workflow:'generate_blueprint',chapter_count:10,target_units:1000}))
   Object.assign(f.model,{provider:'deepseek',baseUrl:'https://api.deepseek.com',modelName:'deepseek-v4-flash',maxTokens,
    capabilities:{contextWindowTokens:262144,maxOutputTokens:maxTokens,reasoning:true,structuredOutput:true,usage:true}})
-  f.db.prepare("UPDATE project_core SET writing_language='en-US'").run()
+  f.db.prepare("UPDATE project_core SET writing_language='zh-CN'").run()
   const result=await f.round(),action=result.rounds[0].actions[0]
   f.owner.agents.claimTool({ref:action.ref,confirmed:true})
   const registration=f.owner.agents.registerWorkflow(action.ref)
@@ -212,12 +212,12 @@ describe('planning authorization before confirmation', () => {
   const child=f.owner.begin({...selection,parentRootActionId:result.handle.rootActionId,agentWorkflowRegistrationId:registration.registrationId})
   const ordinary=f.owner.begin({...selection,uiActionNonce:'ordinary'})
   const task:GenerationTask={purpose:'chapter-blueprint-directory',output:'structured-data',reasoningStage:'planning',messages:[{role:'user',content:'Preserve author facts.'}],
-   budgetDemand:{kind:'structured-items',requestedItems:1,writingLanguage:'en-US'}}
+   budgetDemand:{kind:'structured-items',requestedItems:1,writingLanguage:'zh-CN'}}
   for (const run of [child,ordinary]) await f.owner.execute({handle:run.handle,invocationNonce:'blueprint',task})
   const requests=f.spy.mock.calls.map(call=>call[0] as {task:GenerationTask;plan:MainGenerationPlan})
   expect(requests.map(value=>value.plan.requestedOutputTokens)).toEqual([maxTokens,maxTokens,maxTokens])
   for(const request of requests.slice(1)) expect(request.task.messages.filter(message=>message.role==='system').map(message=>message.content).join('\n'))
-   .toContain(planningTargetInstruction('blueprint',1000,'en-US'))
+   .toContain(planningTargetInstruction('blueprint',1000,'zh-CN'))
   expect(child.handle.rootActionId).toBe(result.handle.rootActionId)
   expect(child.ledger!.policy).toEqual(result.run.ledger!.policy)
   const repository=new GenerationRunRepository(()=>f.db)

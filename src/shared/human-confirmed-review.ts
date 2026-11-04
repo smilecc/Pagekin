@@ -240,15 +240,13 @@ export function renderHumanConfirmedReviewBrief(
 
   if (appliedItems.some(item => item.origin === 'ai')) {
     sections.push(writingLanguageText(writingLanguage,
-      '【AI 意见边界】选择 AI 意见只授权处理问题，不把建议中的替换事实变成作者事实。先核对作者材料、前驱和正文；错误或无依据的改法不得照抄。作者亲写要求另行标注。',
-      '[AI suggestion boundary] Selecting an AI finding authorizes addressing the issue; proposed replacement facts do not become author facts. Check author material, predecessor and manuscript first; do not copy an incorrect or unsupported remedy. Author-written requests are labeled separately.'))
+      '【AI 意见边界】选择 AI 意见只授权处理问题，不把建议中的替换事实变成作者事实。先核对作者材料、前驱和正文；错误或无依据的改法不得照抄。作者亲写要求另行标注。'))
   }
 
   if (appliedItems.some(item => item.severity === 'unknown')) {
     sections.push(writingLanguageText(
       writingLanguage,
       '【待核实项处理边界】作者纳入待核实项不等于确认其为错误。不得据此编造缺失前史或事实；仅按作者已有指导及正文证据处理，证据不足时保留不确定性。',
-      '[Unverified item boundary] Including an unverified item does not confirm an error. Do not invent missing history or facts; follow existing author guidance and draft evidence, retaining uncertainty when evidence is insufficient.',
     ))
   }
 
@@ -257,18 +255,16 @@ export function renderHumanConfirmedReviewBrief(
       writingLanguageText(
         writingLanguage,
         '【已确认纳入本次修稿的审稿项】',
-        '[Confirmed review items included in this revision]',
       ),
       ...appliedItems.map((item, index) => {
         const quote = item.quote?.trim()
           ? writingLanguageText(
               writingLanguage,
               `\n  相关原文：${item.quote.trim()}`,
-              `\n  Source excerpt: ${item.quote.trim()}`,
             )
           : ''
         const origin = writingLanguageText(writingLanguage,
-          item.origin === 'author' ? '作者亲写' : 'AI 意见', item.origin === 'author' ? 'Author-written' : 'AI suggestion')
+          item.origin === 'author' ? '作者亲写' : 'AI 意见')
         return `${index + 1}. [${item.category} / ${item.severity}] [${origin}] ${item.description}${quote}`
       }),
     ].join('\n'))
@@ -279,7 +275,6 @@ export function renderHumanConfirmedReviewBrief(
     sections.push(writingLanguageText(
       writingLanguage,
       `【作者补充修稿指导】\n${authorGuidance}`,
-      `[Confirmed author guidance]\n${authorGuidance}`,
     ))
   }
 

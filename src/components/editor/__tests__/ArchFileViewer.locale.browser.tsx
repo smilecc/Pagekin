@@ -10,7 +10,6 @@ import { useProjectStore } from '../../../stores/project-store'
 import { saveDirtyEditorChangesForExit, useEditorStore } from '../../../stores/editor-store'
 import { toast } from '../../ui/Toast'
 import ArchFileViewer from '../ArchFileViewer'
-import { renderPlotOutlineSynopsis } from '../../../shared/plot-outline-contract'
 
 const PROJECT_PATH = 'C:\\novels\\arch-locale'
 const project: ProjectData = {
@@ -20,8 +19,8 @@ const project: ProjectData = {
   path: PROJECT_PATH,
   novelConfig: {
     genre: '', subGenre: '', targetAudience: '', totalChapters: 4, wordsPerChapter: 2500,
-    plotStructure: 'three_act', narrativePOV: 'third_limited', coreOutline: '', worldSetting: '',
-    goldenFinger: '', protagonistProfile: '', globalGuidance: '',
+    plotStructure: 'three_act', narrativePOV: 'third_limited', coreOutline: '',
+      globalGuidance: '',
   },
   characterStates: '',
   createdAt: '',
@@ -73,10 +72,8 @@ afterEach(async () => {
 
 describe('ArchFileViewer locale', () => {
   it.each([
-    ['premise', '故事前提'],
-    ['characters', '角色名单'],
     ['worldbuilding', '世界观'],
-    ['synopsis', '情节大纲'],
+    ['characters', '角色名单'],
   ])('recognizes the actual core protocol %s and restores generation controls', async (key, label) => {
     useLocaleStore.setState({ locale: 'zh-CN' })
     await act(async () => root.render(
@@ -98,7 +95,7 @@ describe('ArchFileViewer locale', () => {
       })))
       expect(view.state.doc.toString()).toBe('')
       expect(container.querySelector('[title="保存（Cmd+S）"]')).toBeNull()
-    } else if (key === 'premise') {
+    } else if (key === 'worldbuilding') {
       const view = EditorView.findFromDOM(container.querySelector('.cm-editor') as HTMLElement)!
       expect(view.state.readOnly).toBe(false)
       await act(async () => view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', {
@@ -137,60 +134,23 @@ describe('ArchFileViewer locale', () => {
     }
   })
 
-  it('judges the outline range against the saved outline in the database, not the unsaved editor text', async () => {
-    useLocaleStore.setState({ locale: 'zh-CN' })
-    useProjectStore.setState({ currentProject: { ...project, novelConfig: { ...project.novelConfig, totalChapters: 24, coreOutline: '末班车', genre: '悬疑', targetAudience: '成人' } } })
-    const entries = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, index) => `## 第${from + index}章：灯${from + index}\n第${from + index}站。`).join('\n\n')
-    const saved = renderPlotOutlineSynopsis(entries(1, 16), 16, { totalChapters: 24, writingLanguage: 'zh-CN' })
-    invoke.mockImplementation(async (channel: string) => {
-      if (channel === 'db:project-core-get') return { synopsis: saved, totalChapters: 24, writingLanguage: 'zh-CN', premise: 'P'.repeat(60), worldbuilding: '' }
-      if (channel === 'config:get') return {}
-      return { success: true }
-    })
-    const unsaved = `${saved}\n\n${entries(17, 18)}`
-    await act(async () => root.render(
-      <ArchFileViewer tabId="arch-synopsis" filePath="ai-novel://core/synopsis" projectKey={PROJECT_PATH} content={unsaved} savedContent={saved} />,
-    ))
-    await act(async () => (container.querySelector('[title="AI 重新生成「情节大纲」"]') as HTMLButtonElement).click())
-    const from = () => document.querySelector<HTMLInputElement>('input[aria-label="本次生成范围的起始章"]')
-    await vi.waitFor(() => expect(from()?.value).toBe('17'))
-    const setRange = async (start: number, end: number) => {
-      for (const [label, value] of [['本次生成范围的起始章', start], ['本次生成范围的结束章', end]] as const) {
-        const input = document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!
-        await act(async () => {
-          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, String(value))
-          input.dispatchEvent(new Event('input', { bubbles: true }))
-        })
-      }
-    }
-    const pill = () => document.querySelectorAll('[role="dialog"] [data-mark]')[3]?.textContent
-    const submit = () => [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(button => button.textContent?.includes('确认生成'))!
-    await setRange(1, 5)
-    expect(pill()).toBe('将覆盖第 1–5 章')
-    expect(submit().disabled).toBe(false)
-    await setRange(19, 23)
-    expect(pill()).toBe('范围无效')
-    expect(document.querySelector('[role="dialog"] [role="alert"]')?.textContent).toContain('请从第 17 章续写')
-    expect(submit().disabled).toBe(true)
-  })
-
   it('reports a rejected save without clearing the draft and rejects exit-save', async () => {
     useLocaleStore.setState({ locale: 'zh-CN' })
     const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => {})
     invoke.mockResolvedValue({ success: false, error: '磁盘已满' })
     useEditorStore.setState({ tabs: [{
-      id: 'arch-save-error', name: '故事前提', type: 'arch-file',
-      projectKey: PROJECT_PATH, filePath: 'ai-novel://core/premise',
-      content: '未保存的故事前提', savedContent: '', dirty: true,
+      id: 'arch-save-error', name: '世界观', type: 'arch-file',
+      projectKey: PROJECT_PATH, filePath: 'ai-novel://core/worldbuilding',
+      content: '未保存的世界观', savedContent: '', dirty: true,
     }], draftLedgers: {} })
     await act(async () => root.render(
-      <ArchFileViewer tabId="arch-save-error" filePath="ai-novel://core/premise"
-        projectKey={PROJECT_PATH} content="未保存的故事前提" savedContent="" />,
+      <ArchFileViewer tabId="arch-save-error" filePath="ai-novel://core/worldbuilding"
+        projectKey={PROJECT_PATH} content="未保存的世界观" savedContent="" />,
     ))
     await act(async () => (container.querySelector('[title="保存（Cmd+S）"]') as HTMLButtonElement).click())
     expect(errorToast).toHaveBeenCalledWith(expect.stringContaining('磁盘已满'))
     expect(container.textContent).toContain('保存失败')
-    expect(container.textContent).toContain('未保存的故事前提')
+    expect(container.textContent).toContain('未保存的世界观')
     expect(container.querySelector('[title="有未保存的修改"]')).not.toBeNull()
     expect(useEditorStore.getState().tabs[0]).toMatchObject({ dirty: true, savedContent: '' })
     await act(async () => {
@@ -201,12 +161,12 @@ describe('ArchFileViewer locale', () => {
 
   it('keeps its exit-save handler while an inactive tab is unmounted', async () => {
     useEditorStore.setState({ tabs: [{
-      id: 'arch-inactive', name: '故事前提', type: 'arch-file',
-      projectKey: PROJECT_PATH, filePath: 'ai-novel://core/premise',
+      id: 'arch-inactive', name: '世界观', type: 'arch-file',
+      projectKey: PROJECT_PATH, filePath: 'ai-novel://core/worldbuilding',
       content: '待保存内容', savedContent: '', dirty: true,
     }], draftLedgers: {} })
     await act(async () => root.render(
-      <ArchFileViewer tabId="arch-inactive" filePath="ai-novel://core/premise"
+      <ArchFileViewer tabId="arch-inactive" filePath="ai-novel://core/worldbuilding"
         projectKey={PROJECT_PATH} content="待保存内容" savedContent="" />,
     ))
 
@@ -220,8 +180,8 @@ describe('ArchFileViewer locale', () => {
     const generatedContent = 'A'.repeat(60)
     await act(async () => root.render(
       <ArchFileViewer
-        tabId="arch-premise"
-        filePath="ai-novel://core/premise"
+        tabId="arch-worldbuilding"
+        filePath="ai-novel://core/worldbuilding"
         projectKey={PROJECT_PATH}
         content={generatedContent}
         savedContent=""
@@ -233,7 +193,7 @@ describe('ArchFileViewer locale', () => {
     expect(container.textContent).toContain('AI Regenerate')
     expect(container.querySelector('[title="Unsaved changes"]')).not.toBeNull()
     expect(container.querySelector('[title="Save (Cmd+S)"]')).not.toBeNull()
-    expect(container.querySelector('[title="AI Regenerate “Premise”"]')).not.toBeNull()
+    expect(container.querySelector('[title="AI Regenerate “World”"]')).not.toBeNull()
     expect(container.textContent).not.toMatch(/字|保存|重新生成/)
 
     let finishSave: ((value: { success: true }) => void) | undefined
@@ -247,8 +207,8 @@ describe('ArchFileViewer locale', () => {
     root = createRoot(container)
     await act(async () => root.render(
       <ArchFileViewer
-        tabId="arch-empty-premise"
-        filePath="ai-novel://core/premise"
+        tabId="arch-empty-worldbuilding"
+        filePath="ai-novel://core/worldbuilding"
         projectKey={PROJECT_PATH}
         content=""
         savedContent=""
@@ -256,7 +216,7 @@ describe('ArchFileViewer locale', () => {
     ))
 
     await vi.waitFor(() => expect(container.textContent).toContain('AI Generate'))
-    expect(container.querySelector('[title="AI Generate “Premise”"]')).not.toBeNull()
+    expect(container.querySelector('[title="AI Generate “World”"]')).not.toBeNull()
     expect(container.textContent).toContain('No content yet. Click “AI Generate” in the top-right or start editing here...')
     expect(container.textContent).not.toMatch(/尚未生成内容|AI 生成/)
   })

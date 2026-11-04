@@ -213,13 +213,8 @@ export async function launchChapterWrite({
       const preflight = await readConsistencyPreflight(session, [{
         chapterNumber: targetChapter,
         title: form.title,
-        role: form.role,
-        purpose: form.purpose,
         keyEvents: form.keyEvents,
-        characters: form.characters.split(/[、,，]/u).map(value => value.trim()).filter(Boolean),
-        suspenseHook: '',
-        userGuidance: form.userGuidance,
-        notes: '',
+        characters: form.characters.split(/[、,，]/u).map(name => name.trim()).filter(Boolean),
       }])
       if (!isProjectSessionCurrent(session)) return { kind: 'stale' }
       if (preflight.findings.length > 0) return { kind: 'preflight', preflight }

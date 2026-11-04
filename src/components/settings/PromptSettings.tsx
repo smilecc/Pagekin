@@ -39,11 +39,8 @@ const PROMPT_META_EN: Record<string, { name: string; description: string }> = {
   edit_selected_text: { name: 'Selected-text editing', description: 'Refine, expand, or rewrite selected story prose' },
   generate_novel_config_field: { name: 'Single configuration field', description: 'Complete one novel setting from existing author facts' },
   generate_global_config: { name: 'Full configuration', description: 'Generate a complete novel configuration from a short idea' },
-  premise: { name: 'Story premise', description: 'Distill the central hook and chain of conflicts' },
   character_dynamics: { name: 'Character map', description: 'Build character arcs, relationships, and conflicts' },
   world_building: { name: 'World building', description: 'Build a world matrix that naturally creates conflict' },
-  synopsis: { name: 'Plot synopsis', description: 'Combine the architecture into a structured plot outline' },
-  chapter_blueprint: { name: 'Chapter blueprint', description: 'Plan the complete sequence of chapter-level events' },
   chapter_blueprint_chunk: { name: 'Blueprint segment', description: 'Plan a selected range of chapter-level events' },
   first_chapter_draft: { name: 'First chapter draft', description: 'Generate the complete first chapter' },
   next_chapter_draft: { name: 'Next chapter draft', description: 'Generate the next chapter from context and its blueprint' },
@@ -55,7 +52,7 @@ const PROMPT_META_EN: Record<string, { name: string; description: string }> = {
   update_character_cards: { name: 'Character state update', description: 'Update character records from chapter facts' },
   infer_novel_config: { name: 'Infer novel configuration', description: 'Infer a configuration from imported prose' },
   extract_initial_characters: { name: 'Extract initial characters', description: 'Extract initial character records from imported material' },
-  infer_single_chapter_blueprint: { name: 'Infer chapter blueprint', description: 'Infer a chapter blueprint from existing prose' },
+  infer_single_chapter_blueprint: { name: 'Infer story plan', description: 'Infer a story plan from existing prose' },
   infer_novel_config_with_vectors: { name: 'Infer configuration from samples', description: 'Infer a configuration from retrieved source excerpts' },
 }
 
@@ -72,13 +69,8 @@ export default function PromptSettings() {
     ? captureProjectSession({ id: projectId, path: projectPath, sessionLease: projectLease })
     : null
   const projectWritingLanguage = resolveWritingLanguage(project?.novelConfig.writingLanguage)
-  const [languageSelection, setLanguageSelection] = useState<{
-    projectId: string | null
-    writingLanguage: WritingLanguage
-  }>({ projectId: projectId ?? null, writingLanguage: projectWritingLanguage })
-  const editingLanguage = languageSelection.projectId === (projectId ?? null)
-    ? languageSelection.writingLanguage
-    : projectWritingLanguage
+  const editingLanguage = projectWritingLanguage
+
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
   // 强制刷新用（保存/恢复后 getPromptSource 的结果会变）
   const [refreshKey, setRefreshKey] = useState(0)
@@ -169,28 +161,7 @@ export default function PromptSettings() {
         </span>
       </div>
 
-      <label className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-[var(--color-border)]">
-        <span>
-          <span className="block text-xs font-medium text-[var(--color-text)]">
-            {text('编辑的写作语言', 'Writing language to edit')}
-          </span>
-          <span className="block text-[0.68rem] text-[var(--color-text-muted)]">
-            {text('中英文覆盖独立保存，不会互相串用。', 'Chinese and English overrides are stored independently.')}
-          </span>
-        </span>
-        <select
-          value={editingLanguage}
-          onChange={(event) => setLanguageSelection({
-            projectId: projectId ?? null,
-            writingLanguage: event.target.value as WritingLanguage,
-          })}
-          className="rounded-md px-2.5 py-1.5 text-xs bg-[var(--color-panel)] text-[var(--color-text)] border border-[var(--color-border)]"
-          aria-label={text('编辑的写作语言', 'Writing language to edit')}
-        >
-          <option value="zh-CN">{text('简体中文', 'Chinese (Simplified)')}</option>
-          <option value="en-US">English</option>
-        </select>
-      </label>
+
 
       {editableTemplates.map((builtinTemplate) => {
         const source = getPromptSource(builtinTemplate.key, projectSession ?? undefined, editingLanguage)

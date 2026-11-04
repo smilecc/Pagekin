@@ -2,6 +2,9 @@ import { useEffect, useRef } from 'react'
 import { useCharacterStore } from '../../../stores/character-store'
 import { useLocaleStore } from '../../../stores/locale-store'
 import { refreshStageWork } from '../use-stage-work'
+import { Button } from '../../ui/Button'
+import { useArchitectureOverview } from '../../editor/use-architecture-overview'
+import ArchitectureGenerateDialog from '../architecture/ArchitectureGenerateDialog'
 import CharacterProfile from './CharacterProfile'
 import CharacterRoster from './CharacterRoster'
 import CharacterSuggestions from './CharacterSuggestions'
@@ -21,11 +24,18 @@ function useRefreshSpineOnRosterChange(): void {
 export default function StageCharacters({ projectKey }: { projectKey: string }) {
   const text = useLocaleStore(s => s.text)
   useRefreshSpineOnRosterChange()
+  const overview = useArchitectureOverview(projectKey)
   return (
     <div className="cast-page" role="region" aria-label={text('角色名单', 'Cast')}>
+      <ArchitectureGenerateDialog {...overview.generateDialog} />
       <CharacterSuggestions />
       <div className="cast-body">
-        <CharacterRoster projectKey={projectKey} />
+        <CharacterRoster projectKey={projectKey} generationAction={
+          <Button className="cast-generate-button" variant="secondary" size="sm" disabled={overview.loading}
+            onClick={() => overview.openGenerateDialog(['characters'])}>
+            {text('AI 生成角色名单', 'Generate cast with AI')}
+          </Button>
+        } />
         <CharacterProfile projectKey={projectKey} />
       </div>
     </div>

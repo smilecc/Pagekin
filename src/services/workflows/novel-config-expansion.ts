@@ -28,9 +28,6 @@ export function isGeneratedGlobalGuidanceValid(content: string): boolean {
 
 export const EXPANDABLE_NOVEL_CONFIG_FIELDS = [
   'coreOutline',
-  'worldSetting',
-  'goldenFinger',
-  'protagonistProfile',
   'globalGuidance',
   'writingStyle',
 ] as const satisfies readonly (keyof NovelConfig)[]

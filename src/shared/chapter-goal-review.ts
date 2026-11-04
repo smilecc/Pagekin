@@ -53,20 +53,7 @@ export function buildChapterGoalReviewPrompt(goals: FrozenChapterGoals, language
 最后汇总所有子动作：任一 unmet → unmet；否则任一 unknown → unknown；仅全部完成 → completed。不得用多数已完成掩盖一个延期或不明子动作。
 completed/unmet 都须当前正文逐字证据；unknown 可 evidence:[]。不拼接或改写引文，不引用计划证明行动；引文存在不证明推断成立。不检查字数或强求背景细节。
 目标原文与作者确认设定冲突时，无论正文是否写出该冲突内容，都判 unknown（不判 completed 或 unmet），并在 description 说明冲突，仍不得改写目标。
-冻结清单：${JSON.stringify(goals)}`,
-    `[Current chapter goal checklist | software-frozen]
-Keep the existing summary/items review contract and add goalReviews to the same JSON root (not subject to the general items limit).
-Return fields in id, evidence, description, status order: {"id":"original id","evidence":[{"quote":"verbatim current draft excerpt"}],"description":"list every current-chapter sub-action in the original goal with its judgment, then summarize","status":"completed|unmet|unknown"}. Do not delete/rewrite goals or invent IDs.
-Decide in order:
-1. Distinguish actions due now from background/future constraints, and decide whether the goal requires something new in this chapter or explicitly asks for a recap or maintenance of an existing state. An agreement goal only requires the agreement, not early execution. Background, purpose and future plans are not established events or automatically due actions.
-Then read the whole draft for all actions and actual consequences that could satisfy the goal's original meaning. One excerpt recounting an old result does not establish absence from the whole draft. In description, briefly state each sub-action's requirement, the same event's end state in the previous chapter, and this chapter's actions and actual consequences. Use that comparison to distinguish new current-chapter events, old results and future plans, then assign status by the rules below. If the previous chapter does not record the same event, state that; reasonable new actions need not appear earlier. Judge new events by narrative actions and consequences, without requiring a different clock time or scene, while checking any timing or scene explicitly required by the goal. Old results cannot satisfy required new progress. Explicit recap or state-maintenance goals need no invented action or cost. Do not add a threshold for a cost's form, amount, intensity or irreversibility when the goal specifies none, but still require a locatable concrete actual consequence. Vague inconvenience, old loss and future promises do not automatically count as completion. For a goal requiring something new in this chapter, if the whole draft has only old results or unclear timing and no explicit postponement, refusal or opposite outcome, apply unknown below. A quote's presence or absence of contradiction does not establish completed. Keep description to brief comparison results, without lengthy reasoning.
-2. Explicit draft evidence of postponement, refusal or an opposite outcome for a due action → unmet. Preparation/promises cannot replace execution due now; partial completion is not whole-goal completion.
-3. Evidence completes every due action or explicitly supports the constraint → completed. A mustShow goal requires positive, locatable prose showing it; background consistency or absence of contradiction is insufficient.
-4. Mere omission, ambiguity or insufficient evidence → unknown, not proof of non-occurrence. A completely unshown mustShow goal is unknown and may enter one revision when the author explicitly applies it. Ordinary background is checked only for contradiction. Example: a goal requires returning a library book, but the draft only describes entering the library: unknown, not unmet.
-Aggregate last: any unmet → unmet; otherwise any unknown → unknown; only all completed → completed. A completed majority cannot hide one postponed or uncertain sub-action.
-completed/unmet require verbatim current-draft evidence; unknown may use evidence:[]. Do not combine/rewrite quotations or cite plans as proof. Locatable evidence does not prove an inference. Do not check length or demand background detail.
-If a goal's text conflicts with author-confirmed settings, judge it unknown (never completed or unmet) whether or not the draft contains the conflicting content, and explain the conflict in description. Still do not rewrite the goal.
-Frozen checklist: ${JSON.stringify(goals)}`)
+冻结清单：${JSON.stringify(goals)}`)
 }
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -118,7 +105,7 @@ export function normalizeChapterGoalReview(
       ...goal,
       status: valid ? candidate!.status as ChapterGoalReviewItem['status'] : 'unknown',
       description: valid ? candidate!.description as string : writingLanguageText(language,
-        '该目标缺少有效的逐项判断或正文证据，请人工核实。', 'This goal lacks a valid judgment or draft evidence; verify it manually.'),
+        '该目标缺少有效的逐项判断或正文证据，请人工核实。'),
       evidence: valid ? evidence : [],
     }
   })
@@ -148,7 +135,7 @@ export function parseChapterGoalReview(value: unknown): ChapterGoalReview | null
 
 /** A deterministic presentation projection, not another editable source of goal truth. */
 export function chapterGoalReviewItems(review: ChapterGoalReview, language: WritingLanguage): Array<Record<string, unknown>> {
-  const category = writingLanguageText(language, '本章目标', 'Chapter goal')
+  const category = writingLanguageText(language, '本章目标')
   const items: Array<Record<string, unknown>> = review.items.map(item => ({
     category, goalId: item.id,
     severity: item.status === 'completed' ? 'pass' : item.status === 'unmet' ? 'error' : 'unknown',
@@ -158,8 +145,8 @@ export function chapterGoalReviewItems(review: ChapterGoalReview, language: Writ
   if (review.coverage !== 'complete') items.push({
     category, severity: 'unknown',
     description: review.coverage === 'not_configured'
-      ? writingLanguageText(language, '本章未配置可核对的关键事件，未完成目标验收。', 'No chapter key events are configured; goal acceptance was not performed.')
-      : writingLanguageText(language, '本章目标来源或逐项核对不完整，请人工核实。', 'Chapter goal sources or checklist coverage are incomplete; verify manually.'),
+      ? writingLanguageText(language, '本章未配置可核对的关键事件，未完成目标验收。')
+      : writingLanguageText(language, '本章目标来源或逐项核对不完整，请人工核实。'),
   })
   return items
 }

@@ -520,12 +520,10 @@ export async function assembleChapterMaterials(input: {
   const required = promptLanguageText(
     writingLanguage,
     `【作者资料（保留原文；人物状态具有时点，不是永久约束）】\n${[...authorFacts, input.characterProfiles].filter(Boolean).join('\n\n') || '（无补充作者资料）'}\n\n【后续计划边界（只约束当前章，不是当前章任务）】\n以下保留作者后续计划原文，只用于防止本章提前执行。明确安排在后续章节的知情变化、物品转交、行动和完成状态不得前移；允许不改变这些时点的铺垫。\n${input.futurePlans}`,
-    `[Author material (verbatim; character state is time-bound, not permanent)]\n${[...authorFacts, input.characterProfiles].filter(Boolean).join('\n\n') || '(no additional author material)'}\n\n[Future-plan boundary (constrains the current chapter; not a current-chapter task)]\nThe author's future plans are preserved verbatim below and only prevent premature execution in this chapter. Knowledge changes, item transfers, actions, and completed states explicitly assigned to later chapters must not be moved earlier; foreshadowing that does not change those timings is allowed.\n${input.futurePlans}`,
   )
   const sourced = promptLanguageText(
     writingLanguage,
     '【有来源的历史与候选】\n以下定稿原文只证明原文直接写明的内容；索引、摘要和 currentState 都不是作者事实。候选正文尚未确认，不得冒充定稿。',
-    '[Sourced history and candidates]\nFinalized excerpts establish only their exact text; indexes, summaries, and currentState are not author facts. Candidate prose is unconfirmed and is not finalized history.',
   )
   const requiredCandidate = await push({ family: 'required', locatedEvidence: 0, passages: [] }, {
     sourceId: REQUIRED_SOURCE_ID, revision: 1, text: required,
@@ -538,7 +536,6 @@ export async function assembleChapterMaterials(input: {
     text: promptLanguageText(
       writingLanguage,
       `【定稿原文 · 第${source.chapterNumber}章 · draft ${source.draftId}】\n${passages.join('\n\n')}`,
-      `[Finalized manuscript · Chapter ${source.chapterNumber} · draft ${source.draftId}]\n${passages.join('\n\n')}`,
     ),
     category: 'finalized-history' as const,
     provenance: source.sourceStatus === 'legacy' ? 'legacy' as const : 'finalized' as const,
@@ -629,7 +626,6 @@ export async function assembleChapterMaterials(input: {
       text: promptLanguageText(
         writingLanguage,
         `【未定稿候选 · 第${candidate.chapterNumber}章 · draft ${candidate.draftId} · v${candidate.version}】\n${passages.join('\n\n')}`,
-        `[Unfinalized candidate · Chapter ${candidate.chapterNumber} · draft ${candidate.draftId} · v${candidate.version}]\n${passages.join('\n\n')}`,
       ),
       category: 'finalized-history',
       provenance: 'author',
@@ -751,7 +747,6 @@ export async function assembleChapterMaterials(input: {
     ? promptLanguageText(
         writingLanguage,
         `【可选材料覆盖缺口】${allOmissions.map(item => `${item.source}${item.chapterNumber ? `#${item.chapterNumber}` : ''}:${item.reason}`).join('；')}`,
-        `[Optional material coverage gaps] ${allOmissions.map(item => `${item.source}${item.chapterNumber ? `#${item.chapterNumber}` : ''}:${item.reason}`).join('; ')}`,
       )
     : ''
 

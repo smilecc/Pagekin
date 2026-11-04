@@ -62,7 +62,7 @@ export async function swapChapterTab(tabId: string, open: () => Promise<boolean>
   })
 }
 
-/** 这一章的某一稿在单章视图里打开（已开就切过去），标签名按章号与蓝图标题。 */
+/** 这一章的某一稿在单章视图里打开（已开就切过去），标签名按章号与故事规划标题。 */
 export function openDraftInChapterView(draft: DraftMeta, title: string, session: ProjectSessionContext): Promise<boolean> {
   return openDraftTab(draft, chapterTabName(draft.chapterNumber, title, useLocaleStore.getState().text), session)
 }

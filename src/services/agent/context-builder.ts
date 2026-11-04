@@ -91,11 +91,7 @@ async function buildIdentityPrompt(
   const template = await resolvePromptTemplate('assistant_writing_identity', projectSession, writingLanguage)
     ?? getBuiltinPromptTemplate('assistant_writing_identity', writingLanguage)
   if (!template) throw new Error('Missing assistant writing identity prompt')
-  const modeInstruction = writingLanguage === 'en-US'
-    ? (mode === 'planning'
-        ? 'Planning mode: analyze the request, form a short plan, and carry it out through the available application tools.'
-        : 'Fast mode: complete straightforward requests directly and efficiently.')
-    : (mode === 'planning'
+  const modeInstruction = (mode === 'planning'
         ? '当前处于规划模式：先分析需求、形成简短方案，再通过可用的应用工具执行。'
         : '当前处于快速模式：直接、高效地完成清晰直接的请求。')
   return `${composePromptSystemRole(template, writingLanguage)}\n\n${renderPrompt(
@@ -124,7 +120,7 @@ function buildL0ProjectContext(
 
   const cfg = project.novelConfig
   const modelFacts = localizeNovelConfigFacts(cfg, writingLanguage)
-  const label = (zhCN: string, enUS: string) => promptLanguageText(writingLanguage, zhCN, enUS)
+  const label = (zhCN: string, _enUS: string) => { void _enUS; return promptLanguageText(writingLanguage, zhCN) }
   const parts: string[] = [
     `## ${label('当前项目上下文', 'Current project context')}`,
     `${label('项目名称', 'Project name')}: ${project.name}`,
@@ -171,7 +167,7 @@ function buildL1EditorContext(
   executionContext?: AgentExecutionContext,
 ): string | null {
   const parts: string[] = []
-  const label = (zhCN: string, enUS: string) => promptLanguageText(writingLanguage, zhCN, enUS)
+  const label = (zhCN: string, _enUS: string) => { void _enUS; return promptLanguageText(writingLanguage, zhCN) }
 
   // 当前打开的编辑器 Tab
   const editorState = useEditorStore.getState()
@@ -211,7 +207,7 @@ function buildL1EditorContext(
   if (workflowState.hasActiveRun()) {
     const run = workflowState.activeRuns.find(item => item.projectPath === currentProjectPath)
     if (run) {
-      const runName = writingLanguage === 'en-US' ? run.type : run.title
+      const runName = run.title
       parts.push(`## ${label('工作流状态', 'Workflow status')}\n${label('正在运行', 'Running')}: ${runName} (${label('进度', 'progress')}: ${run.currentStepIndex + 1}/${run.steps.length})`)
     }
   }

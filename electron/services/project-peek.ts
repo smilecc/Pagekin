@@ -156,9 +156,9 @@ interface CoreRow {
   totalChapters: number
   wordsPerChapter: number
   coreOutline: string
-  worldSetting: string
-  goldenFinger: string
-  protagonistProfile: string
+
+
+
   globalGuidance: string
   writingStyle: string
   premise: string
@@ -188,18 +188,17 @@ function aggregateProject(
     SELECT project_name AS projectName, genre, sub_genre AS subGenre,
            target_audience AS targetAudience, total_chapters AS totalChapters,
            words_per_chapter AS wordsPerChapter,
-           core_outline AS coreOutline, world_setting AS worldSetting,
-           golden_finger AS goldenFinger, protagonist_profile AS protagonistProfile,
+           core_outline AS coreOutline,
            global_guidance AS globalGuidance, writing_style AS writingStyle,
            premise, worldbuilding, characters_arch AS charactersArch, synopsis
     FROM project_core WHERE id='main'
   `).get() as CoreRow | undefined
   if (!core) throw new Error('PROJECT_PEEK_CORE_MISSING')
   const configurationCount = [
-    core.genre, core.subGenre, core.targetAudience, core.coreOutline, core.worldSetting,
-    core.goldenFinger, core.protagonistProfile, core.globalGuidance, core.writingStyle,
+    core.genre, core.subGenre, core.targetAudience, core.coreOutline,
+    core.globalGuidance, core.writingStyle,
   ].filter(value => typeof value === 'string' && value.trim()).length
-  const architectureCount = [core.premise, core.worldbuilding, core.charactersArch, core.synopsis]
+  const architectureCount = [core.coreOutline, core.worldbuilding, core.charactersArch]
     .filter(value => typeof value === 'string' && value.trim()).length
   const blueprints = chapterNumbers(database.prepare('SELECT DISTINCT chapter_number AS chapterNumber FROM blueprints').all() as { chapterNumber: number }[])
   const currentDrafts = database.prepare(`
@@ -248,11 +247,11 @@ function aggregateProject(
   const characters = Number(database.prepare('SELECT COUNT(*) FROM characters WHERE retired=0').pluck().get())
   const plannedChapters = Number.isSafeInteger(core.totalChapters) ? core.totalChapters : 0
   const filled = (value: unknown) => typeof value === 'string' && Boolean(value.trim())
-  const setupReady = filled(core.coreOutline) && filled(core.genre) && filled(core.targetAudience)
+  const setupReady = filled(core.genre) && filled(core.targetAudience)
     && plannedChapters > 0 && Number.isSafeInteger(core.wordsPerChapter) && core.wordsPerChapter > 0
   const stages: ProjectOverviewStage[] = [
-    { id: 'configuration', status: configurationCount === 9 ? 'completed' : configurationCount ? 'in-progress' : 'not-started', count: configurationCount },
-    { id: 'architecture', status: architectureCount === 4 ? 'completed' : architectureCount ? 'in-progress' : 'not-started', count: architectureCount },
+    { id: 'configuration', status: configurationCount === 6 ? 'completed' : configurationCount ? 'in-progress' : 'not-started', count: configurationCount },
+    { id: 'architecture', status: architectureCount === 3 ? 'completed' : architectureCount ? 'in-progress' : 'not-started', count: architectureCount },
     { id: 'blueprint', status: plannedStatus(blueprints, plannedChapters), count: blueprints.length },
     { id: 'drafting', status: plannedStatus(draftChapters, plannedChapters), count: draftChapters.length },
     { id: 'review', status: plannedStatus(reviewChapters, plannedChapters), count: reviewChapters.length },

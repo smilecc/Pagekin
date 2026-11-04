@@ -53,9 +53,11 @@ describe('product identity used by release scripts', () => {
       expect(selected).toBe(join(root, '书童.exe'))
       expect(existsSync(selected)).toBe(true)
       // 复用已有产物时，仍按实际存在的文件找。
-      rmSync(join(root, '书童.exe'))
-      writeFileSync(join(root, 'AI小说作家.exe'), '')
-      expect(resolvePackagedWindowsExecutable(root, { freshBuild: false })).toBe(join(root, 'AI小说作家.exe'))
+      // Windows 扫描器可能暂时持有刚创建的 exe，让删除延后；复用场景使用独立目录。
+      const reused = join(root, 'reused')
+      mkdirSync(reused)
+      writeFileSync(join(reused, 'AI小说作家.exe'), '')
+      expect(resolvePackagedWindowsExecutable(reused, { freshBuild: false })).toBe(join(reused, 'AI小说作家.exe'))
     } finally {
       rmSync(root, { recursive: true, force: true })
     }

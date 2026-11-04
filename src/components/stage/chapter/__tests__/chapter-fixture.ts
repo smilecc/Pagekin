@@ -257,8 +257,8 @@ export function chapterProject(): ProjectData {
     path: PROJECT_PATH,
     novelConfig: {
       genre: '悬疑', subGenre: '', targetAudience: '成人', totalChapters: 24, wordsPerChapter: 3000,
-      plotStructure: 'three_act', narrativePOV: 'third_limited', coreOutline: '雨夜列车', worldSetting: '',
-      goldenFinger: '', protagonistProfile: '', globalGuidance: '',
+      plotStructure: 'three_act', narrativePOV: 'third_limited', coreOutline: '雨夜列车',
+        globalGuidance: '',
     },
     characterStates: '',
     createdAt: '',

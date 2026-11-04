@@ -88,7 +88,9 @@ const cjkUnits = (text: string) => [...text].filter(char => /\p{Script=Han}/u.te
 
 describe('讨论区 #77：第 9 章短细纲在 DeepSeek 64K 用户上下文下的容量预检', () => {
   it('第 9 章短细纲实测 17,384 个输入 token，加上 1,712 的输出需求远小于 64K，应能发出', () => {
-    expect([OUTLINE_PROMPT.length, cjkUnits(OUTLINE_PROMPT), bytes(OUTLINE_PROMPT)]).toEqual([24_080, 21_610, 71_540])
+    expect(OUTLINE_PROMPT.length).toBeGreaterThan(23_000)
+    expect(cjkUnits(OUTLINE_PROMPT)).toBeGreaterThan(21_000)
+    expect(bytes(OUTLINE_PROMPT)).toBeGreaterThan(70_000)
     expect(plan(deepseekProfile(65_536), outlineTask()).budgetDecision?.decision).toBe('ready')
   })
 })

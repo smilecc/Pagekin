@@ -10,22 +10,12 @@ import { openCanonicalProjectFixture as initProjectDatabase } from '../../../tes
 import { ProjectCoreRepository } from '../project-core-repository'
 import { ImportRunRepository } from '../import-run-repository'
 import { BlueprintRepository, type BlueprintData } from '../blueprint-repository'
-import { CharacterProposalService } from '../../services/character-proposal-service'
-import { proveCharacterProposal } from '../../services/generation-character-proposal-proof'
-import { GenerationRunRepository } from '../generation-run-repository'
-import { projectAccess } from '../../services/project-access'
 
 const require = createRequire(import.meta.url)
 const Database = require('better-sqlite3') as typeof import('better-sqlite3')
 
 let root = ''
 const content = 'reference'
-function stageDirectory(operationId: string) {
-  const db = getProjectDb()!, project = projectAccess.probeExistingProject(root)
-  if (project.kind !== 'manifest') throw new Error('test project identity missing')
-  return new CharacterProposalService(db, project.projectId, source => proveCharacterProposal(db,
-    new GenerationRunRepository(() => db), project.projectId, source, false, () => {})).stage({ kind: 'directory', operationId })
-}
 
 beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-novel-import-receipt-'))
@@ -156,8 +146,8 @@ function prepareCommittedGlobalReceipt(): void {
       core: {
         genre: 'Literary', subGenre: 'Drama', targetAudience: 'General', totalChapters: 1,
         wordsPerChapter: 2000, plotStructure: 'three_act', narrativePov: 'third_limited',
-        goldenFinger: 'None', globalGuidance: 'Concise', coreOutline: 'A conflict unfolds',
-        worldSetting: 'A small town', protagonistProfile: 'A careful observer',
+         globalGuidance: 'Concise', coreOutline: 'A conflict unfolds',
+
         premise: 'Truth has a cost', worldbuilding: 'Contemporary', synopsis: 'A discovery changes a life',
       },
       characterEntries: [{
@@ -170,12 +160,11 @@ function prepareCommittedGlobalReceipt(): void {
 }
 
 describe('import-run durable effect receipt', () => {
-  it('reopens a committed blueprint receipt after its durable character sync completes', () => {
+  it('reopens a committed blueprint receipt without a removed character-candidate sync step', () => {
     prepareCommittedBlueprintReceipt()
     const operation = BlueprintRepository.getCommittedRangeOperation('import-blueprints-receipt-run-1-1')
-    expect(operation?.characterSyncOperation.status).toBe('pending')
+    expect(operation?.characterSyncOperation.status).toBe('completed')
 
-    stageDirectory(operation!.characterSyncOperation.operationId)
     expect(BlueprintRepository.completeCharacterSyncOperation(
       operation!.characterSyncOperation.operationId,
     ).status).toBe('completed')
@@ -188,7 +177,7 @@ describe('import-run durable effect receipt', () => {
         state: 'committed',
         effectReceipt: {
           operationId: 'import-blueprints-receipt-run-1-1',
-          characterSyncOperation: { status: 'pending' },
+          characterSyncOperation: { status: 'completed' },
         },
       })
   })
@@ -208,24 +197,6 @@ describe('import-run durable effect receipt', () => {
               'revision', 1,
               'idempotent', json('false')
             )
-          ),
-          completed_at = created_at
-      WHERE operation_id = 'blueprint-sync-import-blueprints-receipt-run-1-1'
-    `)
-
-    expect(() => ImportRunRepository.getEffectReceipt('receipt-run', 'blueprints', '1-1-52367a66'))
-      .toThrow('IMPORT_RUN_RECEIPT_CORRUPT')
-  })
-
-  it('rejects an already-satisfied claim without a durable proposal under the ID schema', () => {
-    prepareCommittedBlueprintReceipt()
-    tamperOffline(`
-      UPDATE blueprint_character_sync_operations
-      SET status = 'completed',
-          completion_receipt = json_object(
-            'blueprintCommitOperationId', 'import-blueprints-receipt-run-1-1',
-            'operationId', 'blueprint-sync-import-blueprints-receipt-run-1-1',
-            'status', 'already-satisfied'
           ),
           completed_at = created_at
       WHERE operation_id = 'blueprint-sync-import-blueprints-receipt-run-1-1'
@@ -353,7 +324,7 @@ describe('import-run durable effect receipt', () => {
   it.each([
     ['payload hash', `UPDATE blueprint_commit_operations SET payload_hash = '${'0'.repeat(64)}' WHERE operation_id = 'import-blueprints-receipt-run-1-1'`],
     ['range', `UPDATE blueprint_commit_operations SET end_chapter = 2 WHERE operation_id = 'import-blueprints-receipt-run-1-1'`],
-    ['sync status', `UPDATE blueprint_character_sync_operations SET status = 'completed' WHERE operation_id = 'blueprint-sync-import-blueprints-receipt-run-1-1'`],
+    ['sync status', `UPDATE blueprint_character_sync_operations SET status = 'pending' WHERE operation_id = 'blueprint-sync-import-blueprints-receipt-run-1-1'`],
   ])('fails closed after reopen when authoritative blueprint %s is tampered', (_label, mutation) => {
     prepareCommittedBlueprintReceipt()
     tamperOffline(mutation)
@@ -394,7 +365,7 @@ describe('import-run durable effect receipt', () => {
     expect(getProjectDb()!.prepare(`
       SELECT status FROM blueprint_character_sync_operations
       WHERE operation_id = 'blueprint-sync-import-blueprints-receipt-run-1-1'
-    `).get()).toEqual({ status: 'pending' })
+    `).get()).toEqual({ status: 'completed' })
   })
 
   it('rejects a global receipt whose operation ledger hash changes after reopen', () => {

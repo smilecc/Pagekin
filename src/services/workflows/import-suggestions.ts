@@ -51,10 +51,10 @@ export function configFieldsFromCore(core: ProjectCoreData): Partial<NovelConfig
     narrativePOV: core.narrativePov as NovelConfig['narrativePOV'],
     writingStyle: core.writingStyle,
     globalGuidance: core.globalGuidance,
-    goldenFinger: core.goldenFinger,
+
     coreOutline: core.coreOutline,
-    worldSetting: core.worldSetting,
-    protagonistProfile: core.protagonistProfile,
+
+
   }
 }
 

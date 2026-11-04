@@ -9,14 +9,12 @@ export interface ImportGlobalFactsCore {
   wordsPerChapter: number
   plotStructure: NovelConfig['plotStructure']
   narrativePov: NovelConfig['narrativePOV']
-  goldenFinger: string
+
   globalGuidance: string
   coreOutline: string
-  worldSetting: string
-  protagonistProfile: string
-  premise: string
+
   worldbuilding: string
-  synopsis: string
+
 }
 
 export interface ImportGlobalFactsRequest {

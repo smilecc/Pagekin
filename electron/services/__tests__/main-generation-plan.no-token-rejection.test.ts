@@ -46,7 +46,6 @@ const TASKS: ReadonlyArray<[string, (content: string) => GenerationTask]> = [
   ['定稿后处理', content => ({ purpose: 'finalization-chapter-notes', output: 'structured-data', reasoningStage: 'general', messages: user(content) })],
   ['蓝图', content => ({ purpose: 'chapter-blueprint-directory', output: 'structured-data', reasoningStage: 'planning', messages: user(content),
     budgetDemand: { kind: 'structured-items', writingLanguage: 'zh-CN', requestedItems: 10 } })],
-  ['大纲', content => ({ purpose: 'generate-plot-outline', output: 'visible-text', reasoningStage: 'planning', messages: user(content) })],
 ]
 
 const selection: BeginGenerationRequest = { operation: 'chapter-draft', chapterNumber: 9, uiActionNonce: 'd77', modelId: 'deepseek',

@@ -164,8 +164,8 @@ describe('createImportWorkflow', () => {
           writingLanguage: 'en-US',
           genre: 'Mystery',
           coreOutline: 'Find the missing witness',
-          worldSetting: 'A coastal city',
-          protagonistProfile: 'A patient investigator',
+
+
         } as never,
       },
     })
@@ -195,13 +195,13 @@ describe('createImportWorkflow', () => {
     const workflow = createImportWorkflow({
       projectPath: session.projectPath, projectSession: session, run: snapshot, executionOwner,
     })
-    const frozenContext = { ...context(), writingLanguage: 'en-US' as const, uiLocale: 'zh-CN' as const }
+    const frozenContext = { ...context(), writingLanguage: 'zh-CN' as const, uiLocale: 'en-US' as const }
 
     await expect(workflow.steps[3].executor({} as never, frozenContext, callbacks))
       .rejects.toThrow('stop-after-blueprint-prompt-context')
 
-    expect(commandMocks.blueprintContext?.data.novelConfigSummary).toContain('Genre: Mystery')
-    expect(commandMocks.blueprintContext?.data.novelConfigSummary).not.toContain('类型:')
+    expect(commandMocks.blueprintContext?.data.novelConfigSummary).toContain('类型: Mystery')
+    expect(commandMocks.blueprintContext?.data.novelConfigSummary).not.toContain('Genre:')
     expect(commandMocks.blueprintContext?.data.importGenerationSlot).toEqual({ runId: snapshot.id, stage: 'blueprints', batchId: '1-1-cccccccc' })
     expect(commandMocks.blueprintContext?.data.importRunExecution).toMatchObject({ owner: executionOwner, epoch: 1 })
   })

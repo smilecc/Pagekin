@@ -278,7 +278,7 @@ export function assertStoredPlotTreeSnapshot(
   if (
     !input
     || input.version !== 1
-    || !WRITING_LANGUAGES.includes(input.writingLanguage as WritingLanguage)
+    || !WRITING_LANGUAGES.some(language => language === input.writingLanguage)
   ) {
     throw new Error('剧情树快照版本或写作语言无效')
   }

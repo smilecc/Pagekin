@@ -14,7 +14,7 @@ import { Notice } from '../../ui/Notice'
 import { InkDialog } from '../InkDialog'
 import WritePreflight from '../write/WritePreflight'
 
-/** 批量创作：按蓝图连续写几章。每次打开都是新的实例，上一次选的模型不会带到下一次。 */
+/** 批量创作：按故事规划连续写几章。每次打开都是新的实例，上一次选的模型不会带到下一次。 */
 export default function BatchWriteDialog(props: BatchChapterProps) {
   const session = captureProjectSession(useProjectStore(s => s.currentProject))
   const sessionKey = session ? `${session.projectId}:${session.leaseId}` : 'inactive'
@@ -41,7 +41,7 @@ function BatchWriteDialogSession(props: BatchChapterProps) {
         props.onClose()
       }}
       title={text('批量创作', 'Batch write')}
-      description={text(`按蓝图连续写几章，一次最多 ${MAX_BATCH_CHAPTERS} 章。`, `Write consecutive chapters from their blueprints, up to ${MAX_BATCH_CHAPTERS} at a time.`)}
+      description={text(`按故事规划连续写几章，一次最多 ${MAX_BATCH_CHAPTERS} 章。`, `Write consecutive chapters from their blueprints, up to ${MAX_BATCH_CHAPTERS} at a time.`)}
       footer={(
         <>
           <span className="stage-bp-dialog-note">{text('进度在顶栏「运行」里查看', 'Follow progress from Run in the top bar')}</span>

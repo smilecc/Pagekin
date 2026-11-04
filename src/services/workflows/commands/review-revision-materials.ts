@@ -4,18 +4,16 @@ import { promptLanguageText } from '../../prompt-language'
 import { selectReviewRevisionMaterials, unknownReviewMaterialIdentity, type ChapterMaterialIdentity, type ReviewRevisionMaterial } from '../chapter-materials'
 
 export function reviewHistoryMaterials(frozen: ReviewRevisionContext, current: ChapterMaterialIdentity): ReviewRevisionMaterial[] {
-  const text = (zh: string, en: string) => promptLanguageText(frozen.writingLanguage, zh, en)
+  const text = (zh: string, _en?: string) => { void _en; return promptLanguageText(frozen.writingLanguage, zh) }
   return [...frozen.history, ...(frozen.predecessor ? [frozen.predecessor] : [])].map(item => ({
     identity: item.identity ?? unknownReviewMaterialIdentity(current),
     category: 'finalized-history',
     required: item.chapterNumber === frozen.source.chapterNumber - 1,
     text: [
-      text(`【第${item.chapterNumber}章${item === frozen.predecessor ? '已选保存前驱｜可能含未解决问题，不覆盖作者设定' : '定稿历史'}】`,
-        `[Chapter ${item.chapterNumber} ${item === frozen.predecessor ? 'selected saved predecessor | unresolved issues may remain; does not override author settings' : 'finalized history'}]`),
+      text(`【第${item.chapterNumber}章${item === frozen.predecessor ? '已选保存前驱｜可能含未解决问题，不覆盖作者设定' : '定稿历史'}】`),
       item.content,
       ...(item.projection?.sourceStatus === 'current' ? (item.projection.facts ?? []).map(fact =>
-        text(`- [${fact.category}] ${fact.statement}（来源第${fact.sourceChapter}章；证据：${fact.evidence}）`,
-          `- [${fact.category}] ${fact.statement} (source: Chapter ${fact.sourceChapter}; evidence: ${fact.evidence})`)) : []),
+        text(`- [${fact.category}] ${fact.statement}（来源第${fact.sourceChapter}章；证据：${fact.evidence}）`)) : []),
     ].join('\n'),
   }))
 }
@@ -33,5 +31,5 @@ export async function selectFrozenReviewRevisionMaterials(frozen: ReviewRevision
   return selectReviewRevisionMaterials({ current, writingLanguage: frozen.writingLanguage, materials,
     // Optional history keeps its local allowance; main admits the complete request including all required material.
     budgetChars: 8_000,
-    relevanceTerms: [blueprint?.title ?? '', blueprint?.keyEvents ?? '', ...(blueprint?.characters ?? [])] })
+    relevanceTerms: [blueprint?.title ?? '', blueprint?.keyEvents ?? ''] })
 }

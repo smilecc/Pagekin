@@ -43,10 +43,10 @@ const OPTIONS: Array<{
   },
   {
     key: 'blueprints',
-    labelZh: '章节蓝图',
-    labelEn: 'Chapter blueprints',
-    descZh: '清空所有章节蓝图与章节级规划，后续可重新生成。',
-    descEn: 'Clear every chapter blueprint and chapter-level plan. You can generate them again later.',
+    labelZh: '故事规划',
+    labelEn: 'Story plannings',
+    descZh: '清空所有故事规划与章节级规划，后续可重新生成。',
+    descEn: 'Clear every story plan and chapter-level plan. You can generate them again later.',
   },
   {
     key: 'generatedText',

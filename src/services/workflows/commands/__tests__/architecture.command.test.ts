@@ -12,10 +12,8 @@ import type { CharacterRosterEntry, CharacterRosterSnapshot } from '../../../../
 import {
   GenerateCharactersCommand as RuntimeGenerateCharactersCommand,
   GenerateConfigCommand as RuntimeGenerateConfigCommand,
-  GenerateCoreSeedCommand,
   GenerateWorldBuildingCommand,
-  GeneratePlotArchitectureCommand,
-} from '../architecture.command'
+  } from '../architecture.command'
 import {
   createWorkflowRuntimeDependencies,
   workflowRuntimeDependencies,
@@ -59,9 +57,9 @@ const validConfigJson = JSON.stringify({
   plotStructure: 'three_act',
   narrativePOV: 'third_limited',
   coreOutline: '主角必须在故乡毁灭前找到失落传承，并阻止席卷大陆的终局灾难。',
-  worldSetting: '灵脉决定城邦兴衰，宗门垄断资源，边境异变正在瓦解旧有秩序。',
-  goldenFinger: '主角能够解析残缺功法，但每次使用都会付出记忆损耗的代价。',
-  protagonistProfile: '外表谨慎克制，内心执着于守护家人，在利益与承诺间不断抉择。',
+
+
+
   globalGuidance: ['保持因果推进。', '保留已建立的角色状态。', '用行动升级冲突。', '收束已兑现的伏笔。'].join('\n'),
   writingStyle: '节奏紧凑，场景切换清晰，对话简洁有张力，行动描写强调因果。',
 })
@@ -263,9 +261,9 @@ describe('GenerateConfigCommand error boundaries', () => {
           plotStructure: 'multi_thread',
           narrativePOV: 'first_person',
           coreOutline: authorOutline,
-          worldSetting: '',
-          goldenFinger: '',
-          protagonistProfile: '',
+
+
+
           globalGuidance: authorGuidance,
         },
       } as never,
@@ -292,7 +290,7 @@ describe('GenerateConfigCommand error boundaries', () => {
       plotStructure: 'multi_thread',
       narrativePOV: 'first_person',
       coreOutline: `${authorOutline}\n\n${JSON.parse(validConfigJson).coreOutline}`,
-      worldSetting: JSON.parse(validConfigJson).worldSetting,
+
       globalGuidance: `${authorGuidance}\n\n${JSON.parse(validConfigJson).globalGuidance}`,
     }))
   })
@@ -300,8 +298,6 @@ describe('GenerateConfigCommand error boundaries', () => {
   it.each([
     { uiLocale: 'zh-CN', writingLanguage: 'zh-CN', expected: '你是一位经验丰富的小说编辑', unexpected: 'You are an experienced fiction editor' },
     { uiLocale: 'en-US', writingLanguage: 'zh-CN', expected: '你是一位经验丰富的小说编辑', unexpected: 'You are an experienced fiction editor' },
-    { uiLocale: 'zh-CN', writingLanguage: 'en-US', expected: 'You are an experienced fiction editor', unexpected: '你是一位经验丰富的小说编辑' },
-    { uiLocale: 'en-US', writingLanguage: 'en-US', expected: 'You are an experienced fiction editor', unexpected: '你是一位经验丰富的小说编辑' },
   ] as const)(
     'sends $writingLanguage configuration instructions through the provider request in a $uiLocale interface',
     async ({ uiLocale, writingLanguage, expected, unexpected }) => {
@@ -309,7 +305,7 @@ describe('GenerateConfigCommand error boundaries', () => {
       useProjectStore.setState({
         currentProject: {
           ...project(projectAPath),
-          novelConfig: { writingLanguage },
+          novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', writingLanguage },
         } as never,
         saveProject: vi.fn().mockResolvedValue(true),
       })
@@ -357,7 +353,7 @@ describe('GenerateConfigCommand error boundaries', () => {
 
     expect(generateStream).toHaveBeenCalledTimes(2)
     for (const prompt of observedPrompts) {
-      expect(prompt).toContain('genre、targetAudience、subGenre、coreOutline、worldSetting、goldenFinger、protagonistProfile、globalGuidance、writingStyle')
+      expect(prompt).toContain('genre、targetAudience、subGenre、coreOutline、globalGuidance、writingStyle')
       expect(prompt).toContain('three_act | heros_journey | save_the_cat | kishotenketsu | multi_thread | freeform')
       expect(prompt).toContain('third_limited | first_person | third_omniscient | multi_pov')
       expect(prompt).toContain('totalChapters 若输出必须严格等于 100')
@@ -525,112 +521,12 @@ describe('GenerateConfigCommand error boundaries', () => {
 })
 
 describe('GenerateCharactersCommand structured roster seam', () => {
-  it('persists English architecture headings without rewriting mixed UTF-8 model output', async () => {
-    const modelOutput = 'Night Café 夜航 — “déjà vu” remains unchanged.'
-    const novelConfig = {
-      writingLanguage: 'en-US',
-      genre: 'speculative thriller',
-      targetAudience: 'general',
-      totalChapters: 20,
-      wordsPerChapter: 2500,
-      plotStructure: 'three_act',
-      narrativePOV: 'third_limited',
-    } as const
-    useProjectStore.setState({
-      currentProject: {
-        ...project(projectAPath),
-        novelConfig,
-      } as never,
-    })
-    const runContext = {
-      ...context,
-      writingLanguage: 'en-US' as const,
-      uiLocale: 'en-US' as const,
-      data: {},
-    }
-    const englishCallbacks = callbacks
-    // synopsis 批次契约：完成输出必须携带英文批次进度行（1–20/20）
-    const enProgressMark = '[Outline batch progress: covered chapters 1-20 of 20]'
-    const outlineOutput = `Chapters 1-20: Shared threshold\n${modelOutput}`
-    let englishCallCount = 0
-    useLLMStore.setState({
-      defaultModelId: 'model-1',
-      generateStream: vi.fn(async (_messages, streamCallbacks) => {
-        englishCallCount += 1
-        streamCallbacks.onDone?.(
-          englishCallCount === 3 ? `${outlineOutput}\n\n${enProgressMark}` : modelOutput,
-          undefined,
-          'stop',
-        )
-        return `architecture-english-request-${englishCallCount}`
-      }),
-    })
-    const invoke = vi.fn(async (channel: string, ...args: unknown[]) => {
-      switch (channel) {
-        case 'character-proposal:stage': return proposalBatchFixture((args[0] as { source: CharacterProposalSource }).source)
-        case 'prompt:load-global':
-          return { templates: [], diagnostics: [] }
-        case 'fs:check-exists':
-          return false
-        case 'db:project-core-get':
-          return {
-            premise: 'A sufficiently detailed premise for worldbuilding and plot persistence verification.',
-            charactersArch: 'Mara and Jules pursue conflicting goals.',
-            worldbuilding: 'The overlapping cities obey a midnight boundary.',
-          }
-        case 'db:project-core-update':
-        case 'fs:write-json':
-          return { success: true }
-        case 'db:project-core-synopsis-commit':
-          return { success: true }
-        case 'fs:read-json':
-          return { success: true, data: {} }
-        default:
-          throw new Error(`Unexpected IPC channel: ${channel}`)
-      }
-    })
-    vi.stubGlobal('window', {
-      aiNovelAPI: { invoke, on: vi.fn(), once: vi.fn(), send: vi.fn(), setZoomLevel: vi.fn(), setZoomFactor: vi.fn(), getZoomLevel: vi.fn() },
-    })
-    const snapshot = { expectedProjectPath: projectAPath, novelConfig } as never
 
-    await new GenerateCoreSeedCommand(snapshot, workflowRuntimeDependencies)
-      .execute({ step: {}, context: runContext, callbacks: englishCallbacks })
-    await new GenerateWorldBuildingCommand(snapshot, workflowRuntimeDependencies)
-      .execute({ step: {}, context: runContext, callbacks: englishCallbacks })
-    await new GeneratePlotArchitectureCommand(['synopsis'], snapshot, workflowRuntimeDependencies)
-      .execute({ step: {}, context: runContext, callbacks: englishCallbacks })
-
-    const persistedUpdates = (invoke.mock.calls as unknown as Array<[string, unknown]>)
-      .filter(([channel]) => channel === 'db:project-core-update')
-      .map(([, update]) => update)
-    const synopsisCommit = (invoke.mock.calls as unknown as Array<[string, { synopsis?: string }]> )
-      .find(([channel]) => channel === 'db:project-core-synopsis-commit')?.[1]
-    expect(persistedUpdates).toEqual([
-      { premise: `# Story Premise\n\n${modelOutput}` },
-      { worldbuilding: `# Worldbuilding\n\n${modelOutput}` },
-    ])
-    expect(synopsisCommit).toEqual(expect.objectContaining({
-      synopsis: `# Plot Outline\n\n${outlineOutput}`,
-    }))
-    for (const update of persistedUpdates) {
-      expect(JSON.stringify(update)).not.toContain('# 故事前提')
-      expect(JSON.stringify(update)).not.toContain('# 世界观')
-      expect(JSON.stringify(update)).not.toContain('# 情节大纲')
-      expect(JSON.stringify(update)).toContain(modelOutput)
-    }
-    expect(englishCallbacks.log).toHaveBeenCalledWith('Generating story premise...')
-    expect(englishCallbacks.log).toHaveBeenCalledWith('Story premise generated and saved to the database.')
-    expect(englishCallbacks.log).toHaveBeenCalledWith('Generating worldbuilding...')
-    expect(englishCallbacks.log).toHaveBeenCalledWith('Worldbuilding generated and saved to the database.')
-    expect(englishCallbacks.log).toHaveBeenCalledWith('Generating plot outline...')
-    expect(englishCallbacks.log).toHaveBeenCalledWith('Plot outline generated; the full outline is ready.')
-  })
 
   it('preserves the full worldbuilding task through append and persisted seed recovery with unknown capacity', async () => {
     const middleRule = 'AUTHOR_MIDDLE_RULE: Magic cannot restore a dead person.'
     const authorGuidance = `${'Earlier author facts. '.repeat(400)}\n${middleRule}\n${'Later author facts. '.repeat(400)}`
-    const novelConfig = { writingLanguage: 'en-US' as const, genre: 'fantasy', globalGuidance: authorGuidance }
+    const novelConfig = { coreOutline: 'A cartographer must expose the false border before the river kingdoms go to war.', writingLanguage: 'en-US' as const, genre: 'fantasy', globalGuidance: authorGuidance }
     useProjectStore.setState({ currentProject: { ...project(projectAPath), novelConfig } as never })
     const initial = `EARLY_VISIBLE_TEXT\n${'The river divides the two kingdoms. '.repeat(100)}\nLATEST_VISIBLE_TEXT`
     const second = 'The southern king taxes every crossing.'
@@ -642,7 +538,6 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
       if (channel === 'fs:check-exists') return false
       if (channel === 'db:project-core-get') return {
-        premise: 'A cartographer must expose the false border before the river kingdoms go to war.',
         worldbuilding: 'The existing author-approved worldbuilding.',
       }
       if (channel === 'fs:read-json') return { success: true, data: structuredClone(partialFile) }
@@ -686,165 +581,11 @@ describe('GenerateCharactersCommand structured roster seam', () => {
     expect(domainIpcChannels(invoke).filter(channel => channel === 'db:project-core-update')).toHaveLength(1)
   })
 
-  it('uses the frozen English UI locale for premise logs and an empty-result error', async () => {
-    const novelConfig = {
-      writingLanguage: 'zh-CN',
-      genre: '悬疑',
-      targetAudience: '全龄',
-      totalChapters: 20,
-      wordsPerChapter: 2500,
-    } as const
-    useProjectStore.setState({
-      currentProject: { ...project(projectAPath), novelConfig } as never,
-    })
-    useLLMStore.setState({
-      defaultModelId: 'model-1',
-      generateStream: vi.fn(async (_messages, streamCallbacks) => {
-        streamCallbacks.onDone?.('', undefined, 'stop')
-        return 'empty-premise-request'
-      }),
-    })
-    const runContext = {
-      ...context,
-      writingLanguage: 'zh-CN' as const,
-      uiLocale: 'en-US' as const,
-      data: {},
-    }
-    const stepCallbacks = callbacks
-    const snapshot = { expectedProjectPath: projectAPath, novelConfig } as never
 
-    await expect(new GenerateCoreSeedCommand(snapshot, workflowRuntimeDependencies).execute({
-      step: {},
-      context: runContext,
-      callbacks: stepCallbacks,
-    })).rejects.toThrow('Story premise generation failed because the AI returned empty content.')
-    expect(stepCallbacks.log).toHaveBeenCalledWith('Generating story premise...')
-  })
 
-  it('uses the frozen English UI locale when the provider aborts premise generation', async () => {
-    const novelConfig = {
-      writingLanguage: 'en-US',
-      genre: 'mystery',
-      targetAudience: 'general',
-      totalChapters: 20,
-      wordsPerChapter: 2500,
-    } as const
-    useProjectStore.setState({
-      currentProject: { ...project(projectAPath), novelConfig } as never,
-    })
-    useLLMStore.setState({
-      defaultModelId: 'model-1',
-      generateStream: vi.fn(() => new Promise<string>(() => {})),
-    })
-    const runContext = {
-      ...context,
-      writingLanguage: 'en-US' as const,
-      uiLocale: 'en-US' as const,
-      data: {},
-    }
-    const stepCallbacks = callbacks
-    const snapshot = { expectedProjectPath: projectAPath, novelConfig } as never
 
-    const execution = new GenerateCoreSeedCommand(snapshot, workflowRuntimeDependencies).execute({
-      step: {},
-      context: runContext,
-      callbacks: stepCallbacks,
-    })
-    await vi.waitFor(() => expect(useLLMStore.getState().generateStream).toHaveBeenCalledOnce())
-    runContext.cancelled = true
 
-    await expect(execution).rejects.toThrow('Workflow was cancelled.')
-    const visibleLogs = vi.mocked(stepCallbacks.log).mock.calls.map(([message]) => message).join('\n')
-    expect(visibleLogs).toContain('Generating story premise...')
-    expect(visibleLogs).not.toMatch(/[\u3400-\u9fff]/u)
-  })
 
-  it('sends English built-in instructions for premise, character, world, and synopsis requests', async () => {
-    const novelConfig = {
-      writingLanguage: 'en-US',
-      genre: '科幻',
-      subGenre: 'time-loop mystery',
-      targetAudience: '全龄',
-      totalChapters: 20,
-      wordsPerChapter: 2500,
-      plotStructure: 'three_act',
-      narrativePOV: 'third_limited',
-      coreOutline: 'A café exists in two timelines.',
-      worldSetting: 'Two cities overlap at midnight.',
-      goldenFinger: 'The protagonist remembers each reset.',
-      protagonistProfile: 'Mara is cautious but stubborn.',
-      globalGuidance: 'Preserve causal continuity.',
-    } as const
-    useProjectStore.setState({
-      currentProject: {
-        ...project(projectAPath),
-        novelConfig,
-      } as never,
-    })
-    const runContext = {
-      ...context,
-      writingLanguage: 'en-US' as const,
-      uiLocale: 'en-US' as const,
-    }
-    const observed = new Map<string, string>()
-    useLLMStore.setState({
-      defaultModelId: 'model-1',
-      generateStream: vi.fn(async (
-        messages: Parameters<ReturnType<typeof useLLMStore.getState>['generateStream']>[0],
-        streamCallbacks,
-        _modelId,
-        options,
-      ) => {
-        observed.set(options?.purpose ?? 'unknown', messages.map(message => message.content).join('\n'))
-        streamCallbacks.onError?.('captured request')
-        return 'architecture-language-request'
-      }),
-    })
-    const invoke = vi.fn(async (channel: string, ...args: unknown[]) => {
-      if (channel === 'character-proposal:stage') return proposalBatchFixture((args[0] as { source: CharacterProposalSource }).source)
-      if (channel === 'character-proposal:approve') return { batch: { proposalBatchId: 'fixture-proposals', revision: 1, status: 'approved', items: [] } as unknown as CharacterProposalBatch, created: [] }
-      if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
-      if (channel === 'fs:check-exists') return false
-      if (channel === 'fs:read-json') return { success: true, data: {} }
-      if (channel === 'db:project-core-get') {
-        return {
-          premise: 'A sufficiently detailed premise for the language contract and character planning request.',
-          charactersArch: 'Mara and Jules pursue conflicting goals.',
-          worldbuilding: 'The overlapping cities obey a midnight boundary.',
-          synopsis: 'The investigation escalates across three acts.',
-        }
-      }
-      throw new Error(`Unexpected IPC channel: ${channel}`)
-    })
-    vi.stubGlobal('window', {
-      aiNovelAPI: { invoke, on: vi.fn(), once: vi.fn(), send: vi.fn(), setZoomLevel: vi.fn(), setZoomFactor: vi.fn(), getZoomLevel: vi.fn() },
-    })
-    const snapshot = { expectedProjectPath: projectAPath, novelConfig } as never
-    const commands = [
-      [new GenerateCoreSeedCommand(snapshot, workflowRuntimeDependencies), 'Generating story premise...'],
-      [new GenerateCharactersCommand(snapshot), 'Generating the cast...'],
-      [new GenerateWorldBuildingCommand(snapshot, workflowRuntimeDependencies), 'Generating worldbuilding...'],
-      [new GeneratePlotArchitectureCommand(['synopsis'], snapshot, workflowRuntimeDependencies), 'Generating plot outline...'],
-    ] as const
-    for (const [command, expectedStartLog] of commands) {
-      const stepCallbacks = callbacks
-      await expect(command.execute({ step: {}, context: runContext, callbacks: stepCallbacks })).rejects.toThrow()
-      expect(stepCallbacks.log).toHaveBeenCalledWith(expectedStartLog)
-    }
-
-    expect(observed.get('generate-core-seed')).toContain('Build a compact story premise')
-    expect(observed.get('character-architecture-manifest')).toContain('You plan character identities')
-    expect(observed.get('character-architecture-manifest')).toContain('at least one protagonist')
-    expect(observed.get('character-architecture-manifest')).not.toContain('exactly one protagonist')
-    expect(observed.get('generate-world-building')).toContain('Design the world as a conflict system')
-    expect(observed.get('generate-plot-architecture')).toContain('Build the complete plot architecture')
-    for (const request of observed.values()) {
-      expect(request).toContain('Science fiction')
-      expect(request).not.toContain('科幻')
-      expect(request).not.toContain('全龄')
-      expect(request).not.toContain('你是一位网络小说策划专家与故事架构师')
-    }
-  })
 
   it('preflights the character identity manifest with field attribution before any provider request', async () => {
     const generateStream = vi.fn()
@@ -855,7 +596,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
       if (channel === 'fs:check-exists') return false
       if (channel === 'db:project-core-get') {
-        return { premise: 'A sufficiently detailed premise for prompt-budget attribution before character generation.' }
+        return { }
       }
       throw new Error(`Unexpected IPC channel: ${channel}`)
     })
@@ -870,7 +611,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
     }
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: {
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.',
         genre: 'fantasy',
         totalChapters: 20,
         wordsPerChapter: 2500,
@@ -914,7 +655,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       if (channel === 'character-proposal:approve') return { batch: { proposalBatchId: 'fixture-proposals', revision: 1, status: 'approved', items: [] } as unknown as CharacterProposalBatch, created: [] }
       if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
       if (channel === 'fs:check-exists') return false
-      if (channel === 'db:project-core-get') return { premise: 'P'.repeat(1_747) }
+      if (channel === 'db:project-core-get') return { }
       throw new Error(`Unexpected IPC channel: ${channel}`)
     })
     vi.stubGlobal('window', {
@@ -922,7 +663,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
     })
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: {
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.',
         genre: 'fantasy',
         totalChapters: 20,
         wordsPerChapter: 2_500,
@@ -951,7 +692,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
       if (channel === 'fs:check-exists') return false
       if (channel === 'db:project-core-get') {
-        return { premise: 'A sufficiently detailed premise for a large-window character-planning request.' }
+        return { }
       }
       throw new Error(`Unexpected IPC channel: ${channel}`)
     })
@@ -960,7 +701,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
     })
     const command = new RuntimeGenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: {
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.',
         genre: 'fantasy',
         totalChapters: 20,
         wordsPerChapter: 2_500,
@@ -1083,7 +824,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
       if (channel === 'fs:check-exists') return false
       if (channel === 'fs:mkdir' || channel === 'fs:write-file') return { success: true }
-      if (channel === 'db:project-core-get') return { premise: '足够长的八人群像故事前提，用于验证身份清单和分批详情始终在同一个生成会话中完成，并且只有全局关系闭包通过后才原子提交。' }
+      if (channel === 'db:project-core-get') return { worldbuilding: 'UPDATED_WORLD_FACT' }
       if (channel === 'db:character-roster-read') return { ...readyRoster, revision: 0, migrationState: 'empty', entries: [], renderedMarkdown: '' }
       if (channel === 'db:character-roster-commit') {
         committedRequest = args[0]
@@ -1121,7 +862,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
       novelConfig: { genre: '科幻悬疑', totalChapters: 4, wordsPerChapter: 6200,
-        goldenFinger: 'UPDATED_GOLDEN_FACT', worldSetting: 'UPDATED_WORLD_FACT', coreOutline: 'UPDATED_OUTLINE_FACT' } as never,
+          coreOutline: 'UPDATED_OUTLINE_FACT' } as never,
     })
 
     await expect(command.execute({ step: {}, context: eightContext, callbacks: stepCallbacks })).resolves.toContain('Character proposals')
@@ -1129,7 +870,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
     expect(generateStream).toHaveBeenCalledTimes(4)
     for (const [messages] of generateStream.mock.calls) {
       const prompt = messages.map(message => message.content).join('\n')
-      for (const fact of ['UPDATED_GOLDEN_FACT', 'UPDATED_WORLD_FACT', 'UPDATED_OUTLINE_FACT']) expect(prompt).toContain(fact)
+      for (const fact of ['UPDATED_WORLD_FACT', 'UPDATED_OUTLINE_FACT']) expect(prompt).toContain(fact)
     }
     const manifestPrompt = manifestMessages?.map(message => message.content).join('\n') ?? ''
     expect(manifestPrompt).not.toMatch(/appearance|currentState|"?entries"?/u)
@@ -1196,7 +937,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
       if (channel === 'fs:check-exists') return false
       if (channel === 'db:project-core-get') {
-        return { premise: '足够长的双主角故事前提，用于验证身份清单没有任何 protagonist 时必须在生成详情或提交角色图谱前失败关闭。' }
+        return { }
       }
       throw new Error(`Unexpected IPC channel: ${channel}`)
     })
@@ -1205,7 +946,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
     })
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '校园爱情', totalChapters: 4, wordsPerChapter: 2500 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '校园爱情', totalChapters: 4, wordsPerChapter: 2500 } as never,
     })
 
     await expect(command.execute({ step: {}, context, callbacks }))
@@ -1226,7 +967,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
       if (channel === 'fs:check-exists') return false
       if (channel === 'db:project-core-get') {
-        return { premise: '足够长的故事前提，用于验证旧的完整角色卡 entries 响应不能被身份清单阶段接受，也绝不触发任何角色事实提交。' }
+        return { }
       }
       throw new Error(`Unexpected IPC channel: ${channel}`)
     })
@@ -1235,7 +976,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
     })
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
     })
 
     await expect(command.execute({ step: {}, context, callbacks })).rejects.toThrow('角色身份清单缺少 slots')
@@ -1256,7 +997,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       if (channel === 'character-proposal:approve') return { batch: { proposalBatchId: 'fixture-proposals', revision: 1, status: 'approved', items: [] } as unknown as CharacterProposalBatch, created: [] }
       if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
       if (channel === 'fs:check-exists') return false
-      if (channel === 'db:project-core-get') return { premise: '足够长的故事前提，用于验证角色详情不得伪造或覆盖身份清单中的冻结关系，任何异常关系字段都必须在提交前失败关闭。' }
+      if (channel === 'db:project-core-get') return { }
       throw new Error(`Unexpected IPC channel: ${channel}`)
     })
     vi.stubGlobal('window', {
@@ -1264,7 +1005,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
     })
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
     })
 
     await expect(command.execute({ step: {}, context, callbacks })).rejects.toThrow('角色详情 slotId=slot-1 字段 relationships 不得出现')
@@ -1312,7 +1053,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
         case 'character-proposal:stage': return proposalBatchFixture((args[0] as { source: CharacterProposalSource }).source)
         case 'prompt:load-global': return { templates: [], diagnostics: [] }
         case 'fs:check-exists': return false
-        case 'db:project-core-get': return { premise: '双主角校园故事围绕一份异常记录展开，四名角色分别承担调查、阻碍、见证与选择职责，并在同一条因果链中推进冲突。' }
+        case 'db:project-core-get': return { }
         case 'db:character-roster-read':
           return { ...readyRoster, revision: 4, entries: existingEntries }
         case 'db:character-roster-commit':
@@ -1342,7 +1083,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
     })
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '校园悬疑', totalChapters: 4, wordsPerChapter: 2500 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '校园悬疑', totalChapters: 4, wordsPerChapter: 2500 } as never,
     })
 
     await expect(command.execute({ step: {}, context, callbacks })).resolves.toContain('角色提议')
@@ -1393,7 +1134,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
         case 'fs:check-exists':
           return false
         case 'db:project-core-get':
-          return { premise: '足够长的故事前提，确保角色架构命令能够开始生成并写入结构化角色事实，且不会因为前置条件长度不足而提前中止本次端到端工作流验证。' }
+          return { }
         case 'db:character-roster-read':
           return { ...readyRoster, revision: 0, migrationState: 'empty', entries: [], renderedMarkdown: '' }
         case 'db:character-roster-commit':
@@ -1429,7 +1170,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
 
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: {
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.',
         genre: '玄幻',
         totalChapters: 100,
         wordsPerChapter: 3000,
@@ -1464,7 +1205,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
         case 'fs:check-exists':
           return false
         case 'db:project-core-get':
-          return { premise: '足够长的故事前提，确保角色架构命令能够开始生成并验证带 Markdown 围栏和说明文字的身份清单仍会经过严格结构校验后再原子提交。' }
+          return { }
         case 'db:character-roster-read':
           return { ...readyRoster, revision: 0, migrationState: 'empty', entries: [], renderedMarkdown: '' }
         case 'db:character-roster-commit':
@@ -1500,7 +1241,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
 
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
     })
     await expect(command.execute({ step: {}, context, callbacks }))
       .resolves.toMatch(/角色提议|Character proposals/u)
@@ -1526,7 +1267,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
         case 'fs:check-exists':
           return false
         case 'db:project-core-get':
-          return { premise: '足够长的故事前提，确保角色架构命令能够开始生成并验证完整身份清单后追加截断 JSON 片段时必须在角色名单提交前失败关闭。' }
+          return { }
         case 'db:character-roster-read':
           return { ...readyRoster, revision: 0, migrationState: 'empty', entries: [], renderedMarkdown: '' }
         case 'db:character-roster-commit':
@@ -1562,7 +1303,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
 
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
     })
     await expect(command.execute({ step: {}, context, callbacks }))
       .rejects.toThrow(/完整 JSON|截断/u)
@@ -1585,7 +1326,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
         case 'fs:check-exists':
           return false
         case 'db:project-core-get':
-          return { premise: '足够长的故事前提，确保角色架构命令能够开始生成并验证每个角色详情批次即使包裹说明文字和 Markdown 围栏，也必须先严格校验再原子提交。' }
+          return { }
         case 'db:character-roster-read':
           return { ...readyRoster, revision: 0, migrationState: 'empty', entries: [], renderedMarkdown: '' }
         case 'db:character-roster-commit':
@@ -1621,7 +1362,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
 
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
     })
     await expect(command.execute({ step: {}, context, callbacks }))
       .resolves.toMatch(/角色提议|Character proposals/u)
@@ -1648,7 +1389,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
         case 'fs:check-exists':
           return false
         case 'db:project-core-get':
-          return { premise: '足够长的故事前提，确保角色架构命令能够开始生成并验证原子角色名单提交后若收到取消请求，不会再调用任何检查点 IPC。' }
+          return { }
         case 'db:character-roster-read':
           return { ...readyRoster, revision: 0, migrationState: 'empty', entries: [], renderedMarkdown: '' }
         case 'db:character-roster-commit':
@@ -1681,7 +1422,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
 
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
     })
     await expect(command.execute({ step: {}, context: committedThenCancelledContext, callbacks }))
       .resolves.toMatch(/角色提议|Character proposals/u)
@@ -1705,7 +1446,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
         case 'fs:check-exists':
           return false
         case 'db:project-core-get':
-          return { premise: '足够长的故事前提，确保角色架构命令能够开始生成并验证角色事实提交成功后，检查点写入失败不会误报角色图谱生成失败。' }
+          return { }
         case 'db:character-roster-read':
           return { ...readyRoster, revision: 0, migrationState: 'empty', entries: [], renderedMarkdown: '' }
         case 'db:character-roster-commit':
@@ -1741,7 +1482,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
 
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
     })
     await expect(command.execute({ step: {}, context: checkpointContext, callbacks }))
       .resolves.toMatch(/角色提议|Character proposals/u)
@@ -1780,7 +1521,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
         case 'fs:check-exists':
           return false
         case 'db:project-core-get':
-          return { premise: '足够长的故事前提，确保角色架构命令能够开始生成并验证截断结构化响应必须先由完整替代 JSON 覆盖后才允许写入结构化角色事实。' }
+          return { }
         case 'db:character-roster-read':
           return { ...readyRoster, revision: 0, migrationState: 'empty', entries: [], renderedMarkdown: '' }
         case 'db:character-roster-commit':
@@ -1816,7 +1557,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
 
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
     })
     await expect(command.execute({ step: {}, context, callbacks }))
       .resolves.toMatch(/角色提议|Character proposals/u)
@@ -1851,7 +1592,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
         case 'fs:check-exists':
           return false
         case 'db:project-core-get':
-          return { premise: 'A sufficiently detailed premise for a protected character-manifest continuation request.' }
+          return { }
         case 'db:character-roster-read':
           return { ...readyRoster, revision: 0, migrationState: 'empty', entries: [], renderedMarkdown: '' }
         case 'db:character-roster-commit':
@@ -1893,7 +1634,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
     }
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: {
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.',
         genre: 'fantasy',
         totalChapters: 100,
         wordsPerChapter: 3000,
@@ -1933,7 +1674,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
       if (channel === 'fs:check-exists') return false
       if (channel === 'db:project-core-get') {
-        return { premise: 'A sufficiently detailed premise for a protected character-manifest continuation request.' }
+        return { }
       }
       throw new Error(`Unexpected IPC channel: ${channel}`)
     })
@@ -1957,11 +1698,11 @@ describe('GenerateCharactersCommand structured roster seam', () => {
     }
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: {
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.',
         genre: 'fantasy',
         totalChapters: 100,
         wordsPerChapter: 3000,
-        globalGuidance: 'G'.repeat(30_500),
+        globalGuidance: 'G'.repeat(30_000),
       } as never,
     })
 
@@ -1979,7 +1720,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
         limitUtf8Bytes: 32_768,
         errorCode: 'PROMPT_BUDGET_EXHAUSTED',
         sections: expect.arrayContaining([
-          { sectionName: 'global-guidance', utf8Bytes: 30_519 },
+          { sectionName: 'global-guidance', utf8Bytes: 30_019 },
           expect.objectContaining({ sectionName: 'prompt-overhead' }),
         ]),
       },
@@ -2012,7 +1753,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
         case 'fs:check-exists':
           return false
         case 'db:project-core-get':
-          return { premise: '足够长的故事前提，确保角色架构命令能够开始生成并验证一次 JSON 语法修复后的原子角色名单提交，避免测试因为前置长度不足而提前中止。' }
+          return { }
         case 'db:character-roster-read':
           return { ...readyRoster, revision: 0, migrationState: 'empty', entries: [], renderedMarkdown: '' }
         case 'db:character-roster-commit':
@@ -2048,7 +1789,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
 
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
     })
     await expect(command.execute({ step: {}, context, callbacks }))
       .resolves.toMatch(/角色提议|Character proposals/u)
@@ -2072,7 +1813,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
         case 'fs:check-exists':
           return false
         case 'db:project-core-get':
-          return { premise: '足够长的故事前提，确保角色架构命令能够开始生成并将空角色名单的语义错误交给原子角色名单 seam 拒绝。' }
+          return { }
         default:
           throw new Error(`Unexpected IPC channel: ${channel}`)
       }
@@ -2091,7 +1832,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
 
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
     })
     const failure = await command.execute({
       step: {},
@@ -2135,7 +1876,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
         case 'character-proposal:stage': return proposalBatchFixture((args[0] as { source: CharacterProposalSource }).source)
         case 'prompt:load-global': return { templates: [], diagnostics: [] }
         case 'fs:check-exists': return false
-        case 'db:project-core-get': return { premise: '这是一段足够长且包含明确冲突的故事前提，用于验证模型生成的完整自由描述必须保留尾部澄清句，并且不得静默丢失否定事实或改变作者材料中的原始含义。' }
+        case 'db:project-core-get': return { }
         case 'db:character-roster-read':
           return { ...readyRoster, revision: 0, migrationState: 'empty', entries: [], renderedMarkdown: '' }
         case 'db:character-roster-commit': {
@@ -2162,7 +1903,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
     })
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
     })
 
     await expect(command.execute({ step: {}, context, callbacks }))
@@ -2197,7 +1938,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       if (channel === 'character-proposal:approve') return { batch: { proposalBatchId: 'fixture-proposals', revision: 1, status: 'approved', items: [] } as unknown as CharacterProposalBatch, created: [] }
       if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
         if (channel === 'fs:check-exists') return false
-        if (channel === 'db:project-core-get') return { premise: '这是一个足够长且包含明确冲突与人物目标的故事前提，用于验证非法年龄类型必须在角色事实提交之前安全失败。' }
+        if (channel === 'db:project-core-get') return { }
         throw new Error(`Unexpected IPC channel: ${channel}`)
       })
       vi.stubGlobal('window', {
@@ -2205,7 +1946,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       })
       const command = new GenerateCharactersCommand({
         expectedProjectPath: projectAPath,
-        novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+        novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
       })
 
       await expect(command.execute({ step: {}, context, callbacks }))
@@ -2227,7 +1968,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       if (channel === 'character-proposal:approve') return { batch: { proposalBatchId: 'fixture-proposals', revision: 1, status: 'approved', items: [] } as unknown as CharacterProposalBatch, created: [] }
       if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
           if (channel === 'fs:check-exists') return false
-          if (channel === 'db:project-core-get') return { premise: '这是一个足够长且包含明确冲突与人物目标的故事前提，用于验证非法角色状态列表必须在角色事实提交之前安全失败。' }
+          if (channel === 'db:project-core-get') return { }
           throw new Error(`Unexpected IPC channel: ${channel}`)
         })
         vi.stubGlobal('window', {
@@ -2235,7 +1976,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
         })
         const command = new GenerateCharactersCommand({
           expectedProjectPath: projectAPath,
-          novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+          novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
         })
 
         await expect(command.execute({ step: {}, context, callbacks }))
@@ -2255,7 +1996,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       if (channel === 'character-proposal:approve') return { batch: { proposalBatchId: 'fixture-proposals', revision: 1, status: 'approved', items: [] } as unknown as CharacterProposalBatch, created: [] }
       if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
       if (channel === 'fs:check-exists') return false
-      if (channel === 'db:project-core-get') return { premise: '这是一个足够长且包含明确冲突、人物目标和世界危机的故事前提，用于验证角色详情缺少必填初始状态时必须在任何角色名单读取和提交之前失败关闭。' }
+      if (channel === 'db:project-core-get') return { }
       throw new Error(`Unexpected IPC channel: ${channel}`)
     })
     vi.stubGlobal('window', {
@@ -2263,7 +2004,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
     })
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
     })
 
     await expect(command.execute({ step: {}, context, callbacks })).rejects.toThrow('角色详情 slotId=slot-1 字段 currentState 必填')
@@ -2277,13 +2018,13 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
       if (channel === 'fs:check-exists') return false
       if (channel === 'db:project-core-get') {
-        return { premise: '足够长的故事前提，确保角色架构命令能够开始生成，并在服务商以上下文超长拒绝角色详情时带着登记的错误码停止，不写入任何角色。' }
+        return { }
       }
       throw new Error(`Unexpected IPC channel: ${channel}`)
     }), on: vi.fn(), once: vi.fn(), send: vi.fn(), setZoomLevel: vi.fn(), setZoomFactor: vi.fn(), getZoomLevel: vi.fn() } })
     const command = new RuntimeGenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
     }, contextLengthRejectingDependencies(proposalRuntimeFixture(), task => task.purpose === 'character-architecture-details'))
     const failure = await command.execute({ step: {}, context, callbacks }).then(() => null, error => error as Error & { code?: string })
     expect(failure?.message).toBe('GENERATION_CONTEXT_LENGTH_EXCEEDED')
@@ -2305,7 +2046,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
       if (channel === 'fs:check-exists') return false
       if (channel === 'db:project-core-get') {
-        return { premise: '足够长的故事前提，确保角色架构命令能够开始生成并验证批次语法修复和单项重生成仍无效时停止且不写入，同时避免测试因为前置长度不足而提前中止。' }
+        return { }
       }
       throw new Error(`Unexpected IPC channel: ${channel}`)
     })
@@ -2323,7 +2064,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
 
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
     })
     await expect(command.execute({ step: {}, context, callbacks }))
       .rejects.toThrow('结构化输出无法按合同解码；角色详情失败收据：code=invalid_output reason=invalid_item')
@@ -2356,7 +2097,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
       if (channel === 'fs:check-exists') return false
       if (channel === 'db:project-core-get') {
-        return { premise: '足够长的故事前提，确保角色架构命令能够开始生成并验证项目会话切换后不会提交任何角色图谱或角色卡，同时避免测试因为前置长度不足而提前中止。' }
+        return { }
       }
       throw new Error(`Unexpected IPC channel: ${channel}`)
     })
@@ -2374,7 +2115,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
 
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
     })
     const execution = command.execute({ step: {}, context, callbacks })
     await vi.waitFor(() => expect(generateStream).toHaveBeenCalledOnce())
@@ -2402,7 +2143,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
       if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
       if (channel === 'fs:check-exists') return false
       if (channel === 'db:project-core-get') {
-        return { premise: '足够长的故事前提，确保角色架构命令能够开始生成并验证取消发生在提交前时不会写入角色图谱或角色卡，同时避免测试因为前置长度不足而提前中止。' }
+        return { }
       }
       throw new Error(`Unexpected IPC channel: ${channel}`)
     })
@@ -2421,7 +2162,7 @@ describe('GenerateCharactersCommand structured roster seam', () => {
     const cancelledContext: WorkflowContext = { ...context, cancelled: false }
     const command = new GenerateCharactersCommand({
       expectedProjectPath: projectAPath,
-      novelConfig: { genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
+      novelConfig: { coreOutline: 'A detailed outline: two protagonists investigate the missing records before their city is destroyed.', genre: '玄幻', totalChapters: 100, wordsPerChapter: 3000 } as never,
     })
     const execution = command.execute({ step: {}, context: cancelledContext, callbacks })
     await vi.waitFor(() => expect(generateStream).toHaveBeenCalledOnce())

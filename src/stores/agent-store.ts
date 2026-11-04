@@ -352,23 +352,20 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
     const editor = useEditorStore.getState()
     const activeTab = editor.tabs.find(tab => tab.id === editor.activeTabId && tab.projectKey === executionContext.projectSession?.projectPath)
     const editorContext = activeTab ? `${activeTab.name} (${activeTab.type}${activeTab.dirty ? ', unsaved' : ''})\n${(activeTab.content ?? '').slice(0, 500)}` : undefined
-    const modelText = (zhCNText: string, enUSText: string) => writingLanguageText(
+    const modelText = (zhCNText: string, _enUSText?: string) => { void _enUSText; return writingLanguageText(
       executionContext.writingLanguage,
       zhCNText,
-      enUSText,
-    )
+    ) }
     if (skillInvocation) {
       const skill = skillInvocation.skill
-      const displayName = executionContext.writingLanguage === 'en-US'
-        ? (skill.writingSkill.metadata.displayName ?? skill.metadata.name)
-        : (skill.metadata.displayName ?? skill.metadata.name)
+      const displayName = (skill.metadata.displayName ?? skill.metadata.name)
       let skillContent = skill.localizedContent?.[executionContext.writingLanguage] ?? skill.content
       if (skillInvocation.input) {
         skillContent = skillContent
           .replace(/\$\{args\}/g, skillInvocation.input)
           .replace(/\$1/g, skillInvocation.input)
       }
-      content = `${modelText('[用户使用了 Skill:', '[The user invoked Skill:')} ${displayName}]\n\n${modelText('用户输入:', 'User input:')} ${skillInvocation.input || modelText('(无额外参数)', '(no additional arguments)')}\n\n---\n\n${skillContent}`
+      content = `${modelText('[用户使用了 Skill:')} ${displayName}]\n\n${modelText('用户输入:')} ${skillInvocation.input || modelText('(无额外参数)')}\n\n---\n\n${skillContent}`
     }
 
     // 构建用户消息
@@ -440,7 +437,7 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
     }) : null
     activeGenerationClient = client
     const frozenTools = toolRegistry.listAll().map(tool => ({ name: tool.name,
-      description: executionContext.writingLanguage === 'en-US' ? tool.descriptionEn ?? tool.description : tool.description,
+      description: tool.description,
       inputSchema: { ...structuredClone(tool.inputSchema) }, requiresConfirmation: tool.requiresConfirmation,
       isReadOnly: tool.isReadOnly, source: tool.source }))
     try {
@@ -459,7 +456,7 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
             try {
               const result = await tool.execute(call.args, executionContext)
               if (result.success && result.content) {
-                prefetchResults.push(`${modelText('[预加载上下文', '[Prefetched context')} @${call.toolName}]\n${result.content}`)
+                prefetchResults.push(`${modelText('[预加载上下文')} @${call.toolName}]\n${result.content}`)
               }
             } catch {
               // 预取失败不阻塞主流程
@@ -469,7 +466,6 @@ export const useAgentStore = create<AgentState>()((set, get) => ({
         if (prefetchResults.length > 0) {
           enrichedUserMessage = `${enrichedUserMessage}\n\n---\n${modelText(
             '以下是用户 @ 引用的上下文数据（已自动获取）：',
-            'The following context was requested with @ and fetched automatically:',
           )}\n\n${prefetchResults.join('\n\n---\n\n')}`
         }
       }

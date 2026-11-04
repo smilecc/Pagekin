@@ -1,7 +1,7 @@
 import { composeVisibleContinuation } from '../../../../shared/visible-continuation'
 import { GenerateFieldCommand } from '../generate-field.command'
 import { assertSemanticGenerationTask } from '../../../../../electron/services/main-generation-plan'
-import { GenerateWorldBuildingCommand, GeneratePlotArchitectureCommand } from '../architecture.command'
+import { GenerateWorldBuildingCommand, } from '../architecture.command'
 import { afterEach, expect, it, vi } from 'vitest'
 import { AnalyzeWritingStyleCommand } from '../analyze-style.command'
 import { useProjectStore } from '../../../../stores/project-store'
@@ -15,7 +15,7 @@ const originalDefaultModelId = useLLMStore.getState().defaultModelId
 const originalProject = useProjectStore.getState().currentProject
 function fixture() {
   const context: WorkflowContext = { runId: '同一作者动作', projectPath: projectSession.projectPath, projectSession, writingLanguage: 'zh-CN', uiLocale: 'zh-CN', data: {}, cancelled: false }
-  useProjectStore.setState({ currentProject: { id: projectSession.projectId, path: projectSession.projectPath, name: '合成小说', sessionLease: projectSession.leaseId, novelConfig: {} } as never })
+  useProjectStore.setState({ currentProject: { id: projectSession.projectId, path: projectSession.projectPath, name: '合成小说', sessionLease: projectSession.leaseId, novelConfig: { coreOutline: '测绘师追查记忆税令，保护沿岸聚落。' } } as never })
   useLLMStore.setState({ models: [{ id: '合成模型', purposes: ['generation'] }] as never, defaultModelId: '合成模型' })
   const view: MainGenerationRunView = { handle: { projectId: projectSession.projectId, epoch: projectSession.leaseId, rootActionId: '主进程根', runId: '主进程运行' }, status: 'running', nonReplayable: false, artifacts: [], budget: { maxAttempts: 32, maxRequestedOutputTokens: 2097152, maxRequestedOutputTokensPerAttempt: 32768, deadlineAt: 9999999999999 } }
   const invoke = vi.fn(async (channel: string, ...args: unknown[]): Promise<unknown> => {
@@ -24,7 +24,7 @@ function fixture() {
     if (channel === 'fs:check-exists') return false
     if (channel === 'generation:begin' || channel === 'generation:read') return structuredClone(view)
     if (channel === 'generation:read-context') return {
-      modelId: '合成模型', handle: structuredClone(view.handle), operation: 'generate-plot-outline',
+      modelId: '合成模型', handle: structuredClone(view.handle), operation: 'generate-world-building',
       authorInputs: [], selectedDraftIds: [], selectedFinalizedDraftIds: [], selectedBlueprintChapterNumbers: [],
       composition: null, lastCompositionFinishReason: null, attemptedPurposes: [], draftSave: { kind: 'absent' },
     } satisfies GenerationRecoveryContext
@@ -58,18 +58,13 @@ it('style resolves actual finalized IDs before beginning instead of forging auth
 })
 
 
-it('legacy recovery without a persistent handle never creates a replacement root', async () => {
-  const f = fixture(), snapshot = { expectedProjectPath: projectSession.projectPath, novelConfig: {} } as never
-  const commands = [new GenerateWorldBuildingCommand(snapshot, undefined, { resumeWorldBuilding: true }), new GeneratePlotArchitectureCommand(['synopsis'], snapshot, undefined, { resumeSynopsis: true })]
-  for (const command of commands) await expect(command.execute({ step: {}, ...f })).rejects.toThrow('没有持久运行记录')
-  expect(f.invoke.mock.calls.some(([channel]) => channel.startsWith('generation:'))).toBe(false)
-})
+
 
 it('camel-case field keys produce legal main semantic purposes without physical overrides', async () => {
   const f = fixture()
-  await new GenerateFieldCommand('worldSetting').execute({ step: {}, ...f })
+  await new GenerateFieldCommand('writingStyle').execute({ step: {}, ...f })
   const execute = f.invoke.mock.calls.find(([channel]) => channel === 'generation:execute')!
-  expect(execute[1]).toMatchObject({ task: { purpose: 'generate-field-world-setting' } })
+  expect(execute[1]).toMatchObject({ task: { purpose: 'generate-field-writing-style' } })
   expect(f.invoke.mock.calls.find(([channel]) => channel === 'db:project-core-commit-generated')?.[1]).toMatchObject({ generationRunHandle: f.context.mainGenerationRunHandle })
   expect(f.invoke.mock.calls.some(([channel]) => channel === 'project:save' || channel === 'db:project-core-update')).toBe(false)
 })
@@ -80,7 +75,7 @@ it('world navigation is persisted before physical calls, and failed navigation b
     if (channel === 'fs:write-json') return { success: false, error: '导航写入失败' }
     return original(channel, ...args)
   })
-  const snapshot = { expectedProjectPath: projectSession.projectPath, novelConfig: {} } as never
+  const snapshot = { expectedProjectPath: projectSession.projectPath, novelConfig: { coreOutline: '测绘师追查记忆税令，保护沿岸聚落。' } } as never
   await expect(new GenerateWorldBuildingCommand(snapshot).execute({ step: {}, ...f })).rejects.toThrow('导航写入失败')
   const write = f.invoke.mock.calls.find(([channel]) => channel === 'fs:write-json')!
   expect(write[2]).toEqual({ world_building_generation_handle: { projectId: projectSession.projectId, epoch: projectSession.leaseId, rootActionId: '主进程根', runId: '主进程运行' } })
@@ -118,7 +113,7 @@ it.each([false, true])('world restart uses only acknowledged composition (availa
     if (channel === 'db:project-core-commit-generated') { formalWrites.push(args[0]); return { success: true } }
     return original(channel, ...args)
   })
-  const snapshot = { expectedProjectPath: projectSession.projectPath, novelConfig: {} } as never
+  const snapshot = { expectedProjectPath: projectSession.projectPath, novelConfig: { coreOutline: '测绘师追查记忆税令，保护沿岸聚落。' } } as never
   await expect(new GenerateWorldBuildingCommand(snapshot).execute({ step: {}, ...f })).rejects.toThrow('合成进程中断')
   expect(partial.world_building_generation_handle).toEqual(handle)
   expect(partial.world_building_partial_result).toBeUndefined()
@@ -170,7 +165,7 @@ it.each([false, true])('world first length composes its artifact before continua
     if (channel === 'db:project-core-commit-generated') { formalWrites.push(args[0]); return { success: true } }
     return original(channel, ...args)
   })
-  const snapshot = { expectedProjectPath: projectSession.projectPath, novelConfig: {} } as never
+  const snapshot = { expectedProjectPath: projectSession.projectPath, novelConfig: { coreOutline: '测绘师追查记忆税令，保护沿岸聚落。' } } as never
   const operation = new GenerateWorldBuildingCommand(snapshot).execute({ step: {}, ...f })
   if (composeFails) await expect(operation).rejects.toThrow('合成拒绝')
   else await expect(operation).rejects.toThrow('世界观未能完整生成')
@@ -202,7 +197,7 @@ it('world first stop keeps an inspectable main candidate when its source changes
     if (channel === 'generation:begin' || channel === 'generation:read') return view
     if (channel === 'generation:read-visible-composition') return composition
     if (channel === 'generation:execute') {
-      useProjectStore.setState({ currentProject: { ...project, novelConfig: { ...project.novelConfig, worldSetting: '作者在生成期间改动的设定。' } } })
+      useProjectStore.setState({ currentProject: { ...project, novelConfig: { ...project.novelConfig, coreOutline: '作者新修改的大纲。' } } })
       return { run: view, outcome: { status: 'completed', content: candidate, finishReason: 'stop', receipt: { finishReason: 'stop', visibleArtifact: { artifactId: '首次响应', attemptId: '首次尝试', revision: 1, textHash: digest } } } }
     }
     if (channel === 'generation:compose-visible') {
@@ -213,7 +208,7 @@ it('world first stop keeps an inspectable main candidate when its source changes
     if (channel === 'db:project-core-commit-generated') { formalWrites.push(args[0]); return { success: true } }
     return original(channel, ...args)
   })
-  const snapshot = { expectedProjectPath: projectSession.projectPath, novelConfig: {} } as never
+  const snapshot = { expectedProjectPath: projectSession.projectPath, novelConfig: { coreOutline: '测绘师追查记忆税令，保护沿岸聚落。' } } as never
   await expect(new GenerateWorldBuildingCommand(snapshot).execute({ step: {}, ...f })).rejects.toThrow('本次结果已保留为候选')
   expect(f.invoke.mock.calls.filter(([channel]) => channel === 'generation:begin')).toHaveLength(1)
   expect(f.invoke.mock.calls.filter(([channel]) => channel === 'generation:execute')).toHaveLength(1)
@@ -223,73 +218,24 @@ it('world first stop keeps an inspectable main candidate when its source changes
   expect(await f.invoke('generation:read-visible-composition', handle, projectSession)).toEqual({ text: candidate, textHash: digest, artifactIds: ['首次响应'] })
 })
 
-it.each([false, true])('synopsis restart uses only acknowledged composition (available=%s)', async acknowledged => {
-  const f = fixture(), original = f.invoke.getMockImplementation()!
-  const handle = { projectId: projectSession.projectId, epoch: projectSession.leaseId, rootActionId: '主进程根', runId: '主进程运行' }
-  let partial: Record<string, unknown> = {}
-  let interrupted = true
-  let composition: { text: string; textHash: string; artifactIds: string[] } | null = null
-  const durableCandidate = '第1章：古城税册\n' + '测绘师发现粮仓税册的矛盾，决定追查伪造凭据的行会。'.repeat(15)
-  const addition = '行会核对税册，王庭公开裁决争议，形成相互制衡的秩序。'
-  const hash = async (value: string) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))), byte => byte.toString(16).padStart(2, '0')).join('')
-  const formalWrites: unknown[] = []
-  f.invoke.mockImplementation(async (channel, ...args) => {
-    if (channel === 'db:project-core-get') return { premise: '测绘师追查记忆税令，保护沿岸聚落免于倒悬古城的灾难。'.repeat(4), charactersArch: '角色各自追求明确，行会与主角存在利益冲突。'.repeat(4), worldbuilding: '作者确认的世界观。'.repeat(10), synopsis: '' }
-    if (channel === 'fs:read-json') return { success: true, data: structuredClone(partial) }
-    if (channel === 'fs:write-json') { partial = structuredClone(args[1] as Record<string, unknown>); return { success: true } }
-    if (channel === 'generation:read-visible-composition') return composition
-    if (channel === 'generation:compose-visible') {
-      const text = composeVisibleContinuation(durableCandidate, addition)
-      expect(args[1]).toEqual(['已确认候选', '恢复响应'])
-      expect(args[2]).toBe(await hash(text))
-      composition = { text, textHash: await hash(text), artifactIds: args[1] as string[] }
-      return composition
-    }
-    if (channel === 'generation:execute') {
-      if (interrupted) throw new Error('合成进程中断')
-      return { run: await original('generation:read', handle), outcome: { status: 'completed', content: addition, finishReason: 'stop',
-        receipt: { finishReason: 'stop', visibleArtifact: { artifactId: '恢复响应', attemptId: '恢复尝试', revision: 1, textHash: await hash(addition) } } } }
-    }
-    if (channel === 'db:project-core-synopsis-commit') { formalWrites.push(args[0]); return { success: true } }
-    return original(channel, ...args)
-  })
-  const snapshot = { expectedProjectPath: projectSession.projectPath, novelConfig: { totalChapters: 1, wordsPerChapter: 3000 } } as never
-  await expect(new GeneratePlotArchitectureCommand(['synopsis'], snapshot).execute({ step: {}, ...f })).rejects.toThrow('合成进程中断')
-  expect(partial.synopsis_generation_handle).toEqual(handle)
-  expect(partial.synopsis_result).toBeUndefined()
-  expect(formalWrites).toEqual([])
-  interrupted = false
-  if (acknowledged) composition = { text: durableCandidate, textHash: await hash(durableCandidate), artifactIds: ['已确认候选'] }
-  const resumed = { ...f.context, runId: '重新打开的作者动作', data: {}, mainGenerationRootHandle: undefined, mainGenerationRunHandle: undefined }
-  const requestCount = f.invoke.mock.calls.filter(([channel]) => channel === 'generation:execute').length
-  const operation = new GeneratePlotArchitectureCommand(['synopsis'], snapshot, undefined, { resumeSynopsis: true, resumeHandle: handle }).execute({ step: {}, context: resumed, callbacks: f.callbacks })
-  if (acknowledged) {
-    await expect(operation).resolves.toBe(composeVisibleContinuation(durableCandidate, addition))
-    expect(formalWrites).toHaveLength(1)
-  } else {
-    await expect(operation).rejects.toThrow('中断检查点内容过短')
-    expect(f.invoke.mock.calls.filter(([channel]) => channel === 'generation:execute')).toHaveLength(requestCount)
-    expect(formalWrites).toEqual([])
-  }
-  expect(f.invoke.mock.calls.filter(([channel]) => channel === 'generation:begin')).toHaveLength(1)
-})
+
 
 
 it('field freezes the author config and refuses changed local drafts before any formal commit', async () => {
   const f = fixture(), original = f.invoke.getMockImplementation()!
   const project = useProjectStore.getState().currentProject!
-  const originalConfig = { ...project.novelConfig, worldSetting: '  作者世界设定。\r\n' }
+  const originalConfig = { ...project.novelConfig, writingStyle: '作者已有设定。' }
   useProjectStore.setState({ currentProject: { ...project, novelConfig: originalConfig } })
   f.invoke.mockImplementation(async (channel, ...args) => {
     const result = await original(channel, ...args)
-    if (channel === 'generation:execute') useProjectStore.setState({ currentProject: { ...project, novelConfig: { ...originalConfig, worldSetting: '作者正在编辑的新设定。' } } })
+    if (channel === 'generation:execute') useProjectStore.setState({ currentProject: { ...project, novelConfig: { ...originalConfig, writingStyle: '作者正在编辑的新设定。' } } })
     return result
   })
-  await expect(new GenerateFieldCommand('worldSetting').execute({ step: {}, ...f })).rejects.toThrow('GENERATION_AUTHOR_DRAFT_CHANGED')
+  await expect(new GenerateFieldCommand('writingStyle').execute({ step: {}, ...f })).rejects.toThrow('GENERATION_AUTHOR_DRAFT_CHANGED')
   const begin = f.invoke.mock.calls.find(([channel]) => channel === 'generation:begin')!
   expect(begin[1]).toMatchObject({ authorInputs: [{ id: 'field:author-config', text: JSON.stringify(originalConfig) }] })
   expect(f.invoke.mock.calls.some(([channel]) => channel === 'db:project-core-commit-generated' || channel === 'project:save')).toBe(false)
-  expect(useProjectStore.getState().currentProject?.novelConfig.worldSetting).toBe('作者正在编辑的新设定。')
+  expect(useProjectStore.getState().currentProject?.novelConfig.writingStyle).toBe('作者正在编辑的新设定。')
 })
 
 it('main style import callback receives the owner handle without a second core write', async () => {

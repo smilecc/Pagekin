@@ -124,33 +124,6 @@ describe('writing skill registry identity and tool exposure', () => {
     expect(toolRegistry.get('skill__scene-craft')).toBeUndefined()
   })
 
-  it('keeps every real built-in Skill in the English tool catalog and execution without Chinese copy', async () => {
-    invoke.mockResolvedValue([])
-    const { skillRegistry } = await import('../skill-registry')
-    const { toolRegistry } = await import('../tool-registry')
-    await skillRegistry.loadAll()
-
-    const builtins = skillRegistry.listBySource('builtin')
-    const prompt = toolRegistry.generateToolPrompt('en-US', tool => tool.source === 'skill')
-
-    expect(builtins.length).toBeGreaterThan(2)
-    expect(prompt).toContain('Reviews a chapter for plot logic')
-    for (const skill of builtins) {
-      const tool = toolRegistry.get(`skill__${skill.metadata.name}`)
-      expect(prompt).toContain(`skill__${skill.metadata.name}`)
-      expect(tool, skill.metadata.name).toBeDefined()
-      const result = await tool!.execute({ args: 'Chapter 1' }, {
-        projectSession: null,
-        selectedModelId: 'model-a',
-        uiLocale: 'zh-CN',
-        writingLanguage: 'en-US',
-      })
-      expect(`${result.content}\n${result.error ?? ''}`, skill.metadata.name)
-        .not.toMatch(/[\u3400-\u9fff]/u)
-    }
-    expect(prompt).not.toMatch(/[\u3400-\u9fff]/u)
-  })
-
 })
 
 
@@ -160,10 +133,10 @@ it('pure builtin data preserves all registry metadata, inspections and localized
   await skillRegistry.loadAll()
   const data = getBuiltinWritingSkills()
   expect(data).toHaveLength(7)
-  expect(createHash('sha256').update(JSON.stringify(data)).digest('hex')).toMatchInlineSnapshot(`"c43b4c0d77da3518c850c00ca15b9b96f317c0a951389578d2780f10046ccd51"`)
+  expect(createHash('sha256').update(JSON.stringify(data)).digest('hex')).toMatchInlineSnapshot(`"845d80fdc66c7f538831f24c081ff348aecaec57f0fe93e1479f82ca7294e9cf"`)
   for (const entry of data) {
     expect(skillRegistry.getById(`builtin:${entry.metadata.name}`)).toMatchObject(entry)
-    for (const language of ['zh-CN', 'en-US'] as const) {
+    for (const language of ['zh-CN'] as const) {
       const inspected = inspectWritingSkillMarkdown(readBuiltinWritingSkill(entry.metadata.name, language)!)
       expect(inspected.metadata).toEqual(entry.writingSkill!.metadata)
       expect(inspected.content).toBe(entry.localizedContent?.[language] ?? entry.content)

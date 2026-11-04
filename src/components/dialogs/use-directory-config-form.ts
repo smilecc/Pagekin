@@ -26,7 +26,7 @@ import { displayedErrorMessage } from '../../i18n/app-errors'
 export interface DirectoryConfigProps {
   isOpen: boolean
   onClose: () => void
-  /** 已有蓝图章节数（影响「追加」模式的默认值） */
+  /** 已有故事规划章节数（影响「追加」模式的默认值） */
   existingCount: number
   /** 返回是否已启动；作者在确认环节取消时返回 false，对话框保持原样、不提示。 */
   onConfirm: (params: DirectoryWorkflowParams) => Promise<boolean>
@@ -64,8 +64,8 @@ async function readHighestBlueprintChapter(
 
 
 /**
- * 生成章节蓝图对话框的表单：范围、每章目标、追加或覆盖、节奏指导、继续未完成的范围、重试角色同步。
- * 生成蓝图对话框用它；没有打开作品时返回 null。
+ * 生成故事规划对话框的表单：范围、每章目标、追加或覆盖、节奏指导、继续未完成的范围、重试角色同步。
+ * 生成故事规划对话框用它；没有打开作品时返回 null。
  */
 export function useDirectoryConfigForm({ isOpen, onClose, existingCount, onConfirm }: DirectoryConfigProps) {
   const text = useLocaleStore(s => s.text)
@@ -237,7 +237,7 @@ export function useDirectoryConfigForm({ isOpen, onClose, existingCount, onConfi
       if (!isProjectSessionCurrent(projectSession)) return
       setPendingCharacterSyncs(remaining)
       setRecoveryError(null)
-      toast.info(text('角色同步修复完成，无需重新生成蓝图。', 'Character sync repaired without regenerating blueprints.'))
+      toast.info(text('角色同步修复完成，无需重新生成故事规划。', 'Character sync repaired without regenerating blueprints.'))
     } catch (error) {
       setRecoveryError(displayedErrorMessage(useLocaleStore.getState().locale, error))
     } finally {
@@ -249,7 +249,7 @@ export function useDirectoryConfigForm({ isOpen, onClose, existingCount, onConfi
     const projectSession = captureProjectSession(currentProject)
     if (!projectSession) {
       toast.warning(text(
-        '项目会话已切换，已取消生成蓝图。',
+        '项目会话已切换，已取消生成故事规划。',
         'The project session changed, so blueprint generation was cancelled.',
       ))
       return
@@ -291,7 +291,7 @@ export function useDirectoryConfigForm({ isOpen, onClose, existingCount, onConfi
     }
     let target: number
     try { target = parsePlanningTargetUnits(Number(targetUnits)) } catch {
-      setLaunchError(text(`每章蓝图目标须为 1–${PLANNING_TARGET_UNITS_LIMIT} 的整数。`, `The blueprint target must be an integer from 1 to ${PLANNING_TARGET_UNITS_LIMIT}.`))
+      setLaunchError(text(`每章故事规划目标须为 1–${PLANNING_TARGET_UNITS_LIMIT} 的整数。`, `The blueprint target must be an integer from 1 to ${PLANNING_TARGET_UNITS_LIMIT}.`))
       return
     }
     const params: DirectoryWorkflowParams = {
@@ -316,7 +316,7 @@ export function useDirectoryConfigForm({ isOpen, onClose, existingCount, onConfi
       setLaunchError(null)
       if (!started) return
       onClose()
-      toast.info(text('已提交：正在生成章节蓝图...', 'Submitted: generating chapter blueprints...'))
+      toast.info(text('已提交：正在生成故事规划...', 'Submitted: generating story plans...'))
     } catch (error) {
       setLaunchError(displayedErrorMessage(useLocaleStore.getState().locale, error))
     } finally {

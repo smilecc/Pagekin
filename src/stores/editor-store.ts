@@ -50,6 +50,8 @@ export function knowledgeDraftDirty(draft: KnowledgeDraft): boolean {
 
 /** 编辑器 Tab 数据 */
 export interface EditorTab {
+  /** Long-form novel configuration opened in its own document tab. */
+  configField?: string
   id: string
   name: string
   /** 知识库页的标签。 */
@@ -238,7 +240,9 @@ export function registerEditorExitSaveHandler(handler: EditorExitSaveHandler): (
 function removeEditorExitSaveHandlers(tab: EditorTab): void {
   exitSaveHandlers.delete(`tab:${tab.id}`)
   if (tab.projectKey && !tab.planningRecovery && BACKGROUND_LEDGER_BY_EDITOR_TYPE[tab.type]) {
-    exitSaveHandlers.delete(exitSaveTypeKey(tab.type, tab.projectKey))
+    if (!useEditorStore.getState().tabs.some(other => other.id !== tab.id && other.type === tab.type && other.projectKey === tab.projectKey)) {
+      exitSaveHandlers.delete(exitSaveTypeKey(tab.type, tab.projectKey))
+    }
   }
 }
 
@@ -267,9 +271,9 @@ function hasBackgroundProjectDraft(
   const content = draftLedgers[ledgerKey]
   if (!content) return false
   try {
-    const parsed = JSON.parse(content) as { projects?: Array<{ projectKey?: unknown }> }
+    const parsed = JSON.parse(content) as { projects?: Array<{ projectKey?: unknown; baseValue?: Record<string, unknown>; draftValue?: Record<string, unknown> }> }
     return Array.isArray(parsed.projects)
-      && parsed.projects.some(project => project.projectKey === tab.projectKey)
+      && parsed.projects.some(project => project.projectKey === tab.projectKey && (!tab.configField || project.baseValue?.[tab.configField] !== project.draftValue?.[tab.configField]))
   } catch {
     return false
   }
@@ -387,7 +391,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     set((state) => ({
       tabs: state.tabs.map(tab => (
         tab.type === type && tab.projectKey === projectKey && !tab.planningRecovery
-          ? { ...tab, dirty }
+          ? { ...tab, dirty: dirty && (tab.configField ? hasBackgroundProjectDraft(state.draftLedgers, tab) : true) }
           : tab
       )),
     }))

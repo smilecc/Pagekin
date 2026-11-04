@@ -18,12 +18,12 @@ const project = {
   id: 'A', sessionLease: 'lease-A', path: session.projectPath, name: 'A', characterStates: '', createdAt: '', updatedAt: '',
   novelConfig: {
     genre: '奇幻', subGenre: '', targetAudience: '青年', totalChapters: 10, wordsPerChapter: 3000,
-    plotStructure: 'three_act', narrativePOV: 'third_limited', coreOutline: '旧大纲', worldSetting: '',
-    goldenFinger: '', protagonistProfile: '', globalGuidance: '',
+    plotStructure: 'three_act', narrativePOV: 'third_limited', coreOutline: '旧大纲',
+      globalGuidance: '',
   },
 }
 const blueprint = {
-  chapterNumber: 2, title: '旧标题', role: '发展', purpose: '推进调查', keyEvents: '找到线索',
+  chapterNumber: 2, title: '旧标题', role: '发展', keyEvents: '找到线索',
   characters: ['林舟'], suspenseHook: '谁在说谎', userGuidance: '', notes: '', notesUpdatedAt: '',
 }
 
@@ -103,7 +103,7 @@ describe('Agent domain proposal confirmation', () => {
   it('loads a Chinese blueprint diff and rejects without invoking a write', async () => {
     useLocaleStore.setState({ locale: 'zh-CN', initialized: true })
     invoke.mockResolvedValue({
-      chapterNumber: 2, title: '旧标题', role: '发展', purpose: '推进调查', keyEvents: '找到线索',
+      chapterNumber: 2, title: '旧标题', role: '发展', keyEvents: '找到线索',
       characters: ['林舟'], suspenseHook: '谁在说谎', userGuidance: '', notes: '', notesUpdatedAt: '',
     })
     await act(async () => root.render(<ConfirmCard toolCall={{
@@ -179,9 +179,9 @@ describe('Agent domain proposal confirmation', () => {
       arguments: {
         changes: { coreOutline: 'The witness hid the blue key.' },
         blueprint_changes: [
-          { chapter_number: 2, changes: { purpose: 'Plant the blue-key clue' } },
-          { chapter_number: 3, changes: { purpose: 'Must remain finalized' } },
-          { chapter_number: 4, changes: { purpose: 'Must remain a work in progress' } },
+          { chapter_number: 2, changes: { keyEvents: 'Plant the blue-key clue' } },
+          { chapter_number: 3, changes: { keyEvents: 'Must remain finalized' } },
+          { chapter_number: 4, changes: { keyEvents: 'Must remain a work in progress' } },
         ],
       },
       status: 'waiting_confirm', source: 'builtin', projectSession: session,
@@ -197,13 +197,13 @@ describe('Agent domain proposal confirmation', () => {
     await expect.element(page.getByText('Must remain finalized')).not.toBeInTheDocument()
     await expect.element(page.getByText('Must remain a work in progress')).not.toBeInTheDocument()
 
-    await act(async () => page.getByRole('checkbox', { name: /Chapter 2.*Purpose/u }).click())
+    await act(async () => page.getByRole('checkbox', { name: /Chapter 2.*Key events/u }).click())
     await page.getByRole('button', { name: 'Approve' }).click()
 
     expect(resolveToolConfirmation).toHaveBeenCalledWith('impact-1', true, {
       blueprintProposals: [{
         name: 'propose_chapter_blueprint',
-        arguments: { chapter_number: 2, changes: { purpose: 'Plant the blue-key clue' } },
+        arguments: { chapter_number: 2, changes: { keyEvents: 'Plant the blue-key clue' } },
       }],
     })
     expect(invoke.mock.calls.map(([channel]) => channel)).toEqual(expect.arrayContaining([
@@ -223,7 +223,7 @@ describe('Agent domain proposal confirmation', () => {
     await act(async () => root.render(<ConfirmCard toolCall={{
       id: 'impact-cancel', toolName: 'propose_novel_config',
       arguments: {
-        changes: { worldSetting: '城市禁止公开使用魔法' },
+        changes: { coreOutline: '主角隐藏魔法痕迹。' },
         blueprint_changes: [{ chapter_number: 2, changes: { keyEvents: '主角隐藏魔法痕迹' } }],
       },
       status: 'waiting_confirm', source: 'builtin', projectSession: session,

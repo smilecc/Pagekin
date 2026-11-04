@@ -75,7 +75,6 @@ function isPromptTemplate(value: unknown): value is AppPromptTemplate {
     && (
       (value as AppPromptTemplate).writingLanguage === undefined
       || (value as AppPromptTemplate).writingLanguage === 'zh-CN'
-      || (value as AppPromptTemplate).writingLanguage === 'en-US'
     )
 }
 

@@ -39,6 +39,8 @@ export type CodeMirrorEditorProps = {
   fitContent?: boolean
   /** 段落首行缩进两字（只是显示，见 paragraph-indent）。 */
   paragraphIndent?: boolean
+  /** 首字装饰仅用于纸面正文；规划等文档可以关闭。 */
+  dropCap?: boolean
 }
 
 type Label = readonly [string, string]
@@ -81,6 +83,7 @@ export default function CodeMirrorEditor({
   paperHead = null,
   fitContent = false,
   paragraphIndent: indentParagraphs = false,
+  dropCap = true,
 }: CodeMirrorEditorProps) {
   const inkThemeName = useThemeStore(s => s.resolvedTheme)
   const uiText = useLocaleStore(s => s.text)
@@ -409,11 +412,11 @@ export default function CodeMirrorEditor({
         }] } : undefined,
       }))
     }
-    if (mode === 'prose') exts.push(...livePreview())
+    if (mode === 'prose') exts.push(...livePreview({ dropCap }))
     if (indentParagraphs) exts.push(paragraphIndent)
     exts.push(paperHeadFacet.of(stablePaperHead))
     return exts
-  }, [mode, stablePaperHead, uiLocale, indentParagraphs])
+  }, [mode, stablePaperHead, uiLocale, indentParagraphs, dropCap])
 
   // AI 菜单处理（流式调用，实时显示生成内容）
   const handleAIAction = async (request: EditorInlineRequest) => {

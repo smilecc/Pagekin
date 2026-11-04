@@ -45,9 +45,9 @@ function inferredFacts(runId: string): ImportGlobalFactsRequest {
     expectedRosterRevision: 0,
     core: {
       genre: '悬疑', subGenre: '本格', targetAudience: '成人', totalChapters: 3, wordsPerChapter: 2400,
-      plotStructure: 'three_act', narrativePov: 'first_person', goldenFinger: '过目不忘', globalGuidance: '克制',
-      coreOutline: '侦探追查旧案', worldSetting: '民国上海', protagonistProfile: '沈默，前巡捕',
-      premise: '旧案重启', worldbuilding: '租界与华界', synopsis: '三章查清真相',
+      plotStructure: 'three_act', narrativePov: 'first_person',  globalGuidance: '克制',
+      coreOutline: '侦探追查旧案',
+       worldbuilding: '租界与华界',
     },
     characterEntries: [{
       name: '沈默', role: 'protagonist', gender: '男', age: '35', appearance: '瘦', personality: '冷静',
@@ -227,7 +227,7 @@ describe('勾选反推的作者原稿走完八个阶段', () => {
     expect(ImportRunRepository.get(RUN_ID)).toMatchObject({ status: 'completed', stage: 'completed', authorInference: true })
     expect(trace).toMatchObject({ published: [1, 2, 3], postprocessed: [1, 2, 3], globalCalls: 1, styleCalls: 1, blueprintCalls: [[1, 2, 3]] })
     expect(ProjectCoreRepository.get()).toMatchObject({
-      genre: '悬疑', coreOutline: '侦探追查旧案', premise: '旧案重启', worldbuilding: '租界与华界', synopsis: '三章查清真相',
+      genre: '悬疑', coreOutline: '侦探追查旧案',  worldbuilding: '租界与华界',
       writingStyle: '短句，白描',
     })
     expect(getProjectDb()!.prepare('SELECT COUNT(*) FROM characters').pluck().get()).toBe(0)
@@ -239,7 +239,7 @@ describe('勾选反推的作者原稿走完八个阶段', () => {
 
   it('已有设定：已有字段与蓝图不动，空的补上，不同的进建议；崩溃重开后续跑不重复调模型', async () => {
     ProjectCoreRepository.update({ genre: '武侠', coreOutline: '作者自己的大纲', writingStyle: '作者的长句' })
-    BlueprintRepository.upsert({ ...inferredBlueprint(2), title: '作者写的第2章蓝图', userGuidance: '作者的微操' })
+    BlueprintRepository.upsert({ ...inferredBlueprint(2), title: '作者写的第2章蓝图', keyEvents: '作者的章节规划' })
     prepareAuthorRun(true)
     const trace = { ...newTrace(), failSecondBlueprintBatchOnce: true }
     const commitRange = vi.spyOn(BlueprintRepository, 'commitRange')
@@ -258,7 +258,7 @@ describe('勾选反推的作者原稿走完八个阶段', () => {
       `import-blueprints-${RUN_ID}-1-1`, `import-blueprints-${RUN_ID}-3-3`,
     ])
     expect(ProjectCoreRepository.get()).toMatchObject({
-      genre: '武侠', coreOutline: '作者自己的大纲', writingStyle: '作者的长句', subGenre: '本格', premise: '旧案重启',
+      genre: '武侠', coreOutline: '作者自己的大纲', writingStyle: '作者的长句', subGenre: '本格',
     })
     expect(ImportRunRepository.getEffectReceipt(RUN_ID, 'global', 'done')?.effectReceipt).toMatchObject({
       suggestions: expect.arrayContaining([
@@ -269,7 +269,7 @@ describe('勾选反推的作者原稿走完八个阶段', () => {
     expect(ImportRunRepository.getEffectReceipt(RUN_ID, 'style', 'done')?.effectReceipt).toMatchObject({
       suggestions: [{ field: 'writingStyle', current: '作者的长句', inferred: '短句，白描' }],
     })
-    expect(BlueprintRepository.getByChapter(2)).toMatchObject({ title: '作者写的第2章蓝图', userGuidance: '作者的微操' })
+    expect(BlueprintRepository.getByChapter(2)).toMatchObject({ title: '作者写的第2章蓝图', keyEvents: '作者的章节规划' })
     expect(BlueprintRepository.getAll().map(item => item.title)).toEqual(['反推蓝图1', '作者写的第2章蓝图', '反推蓝图3'])
   })
 })
@@ -280,7 +280,7 @@ describe('反推蓝图途中作者自己保存了蓝图', () => {
     const trace = newTrace()
     trace.beforeBlueprintCommit = () => {
       if (trace.blueprintCalls.length === 1) {
-        BlueprintRepository.upsert({ ...inferredBlueprint(1), title: '作者刚存的第1章', purpose: '作者自己的目的', keyEvents: '作者写的事件' })
+        BlueprintRepository.upsert({ ...inferredBlueprint(1), title: '作者刚存的第1章', keyEvents: '作者写的事件' })
       }
     }
 
@@ -288,7 +288,7 @@ describe('反推蓝图途中作者自己保存了蓝图', () => {
 
     expect(ImportRunRepository.get(RUN_ID)).toMatchObject({ status: 'completed', authorInference: true })
     expect(trace.blueprintCalls).toEqual([[1, 2, 3]])
-    expect(BlueprintRepository.getByChapter(1)).toMatchObject({ title: '作者刚存的第1章', purpose: '作者自己的目的', keyEvents: '作者写的事件' })
+    expect(BlueprintRepository.getByChapter(1)).toMatchObject({ title: '作者刚存的第1章', keyEvents: '作者写的事件' })
     expect(BlueprintRepository.getAll().map(item => item.title)).toEqual(['作者刚存的第1章', '反推蓝图2', '反推蓝图3'])
   })
 })

@@ -185,17 +185,12 @@ describe('exportNovel project session ownership', () => {
   })
 
   it.each([
-    {
+{
       writingLanguage: 'zh-CN' as const,
       title: '夜航',
       expectedHeading: '第1章 夜航',
-    },
-    {
-      writingLanguage: 'en-US' as const,
-      title: 'Night Flight',
-      expectedHeading: 'Chapter 1 Night Flight',
-    },
-  ])('includes localized chapter titles in TXT exports for $writingLanguage projects', async ({
+    }
+])('includes localized chapter titles in TXT exports for $writingLanguage projects', async ({
     writingLanguage,
     title,
     expectedHeading,
@@ -251,11 +246,9 @@ describe('exportNovel project session ownership', () => {
   })
 
   it.each([
-    { format: 'merged-md' as const, writingLanguage: 'zh-CN' as const, title: '起航', expectedHeading: '# 第1章 起航' },
-    { format: 'split-md' as const, writingLanguage: 'zh-CN' as const, title: '起航', expectedHeading: '# 第1章 起航' },
-    { format: 'merged-md' as const, writingLanguage: 'en-US' as const, title: 'Departure', expectedHeading: '# Chapter 1 Departure' },
-    { format: 'split-md' as const, writingLanguage: 'en-US' as const, title: 'Departure', expectedHeading: '# Chapter 1 Departure' },
-  ])('$format 导出显示 $writingLanguage 项目的权威章标题', async ({
+{ format: 'merged-md' as const, writingLanguage: 'zh-CN' as const, title: '起航', expectedHeading: '# 第1章 起航' },
+{ format: 'split-md' as const, writingLanguage: 'zh-CN' as const, title: '起航', expectedHeading: '# 第1章 起航' }
+])('$format 导出显示 $writingLanguage 项目的权威章标题', async ({
     format,
     writingLanguage,
     title,

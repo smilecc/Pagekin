@@ -323,13 +323,13 @@ describe('portable project archive', () => {
     const root = temporaryRoot(), payload = Buffer.from('x')
     const archivePath = writeArchive(root, archiveWith([{ name: 'a.txt', bytes: payload }]))
     const realParent = stagingParent(root), linkedParent = path.join(root, 'linked-parent')
-    try { fs.symlinkSync(realParent, linkedParent, 'junction') } catch { return }
+    fs.symlinkSync(realParent, linkedParent, 'junction')
     await expect(extractPortableProjectArchive({ archivePath, stagingParentPath: linkedParent }))
       .rejects.toMatchObject({ code: 'PORTABLE_ARCHIVE_SOURCE_UNSAFE' })
 
     const source = path.join(root, 'source.txt'), link = path.join(root, 'source-link.txt')
     fs.writeFileSync(source, payload)
-    fs.symlinkSync(source, link, 'file')
+    fs.symlinkSync(process.platform === 'win32' ? realParent : source, link, process.platform === 'win32' ? 'junction' : 'file')
     const definition = entry('a.txt', payload)
     await expect(writePortableProjectArchive({
       manifest: manifest([definition]), sources: [{ entry: definition, sourcePath: link }], targetPath: path.join(root, 'link.zip'),

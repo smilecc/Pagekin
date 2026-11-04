@@ -12,7 +12,7 @@ import { useProjectStore } from '../../../stores/project-store'
 import { currentProjectSessionForPath, isCurrentProjectSession } from '../../editor/use-chapter-blueprints'
 
 /**
- * 蓝图恢复稿标签的数据与两项操作：保存恢复蓝图（只写本地，按冻结的提交快照重试）与继续生成缺少的章节。
+ * 故事规划恢复稿标签的数据与两项操作：保存恢复故事规划（只写本地，按冻结的提交快照重试）与继续生成缺少的章节。
  * 会话在标签挂载时冻结：作品换了或重新打开后，保存与继续都拒绝，提示作者重新打开恢复稿。
  */
 export function useBlueprintRecovery(tab: EditorTab, projectKey: string) {
@@ -28,7 +28,7 @@ export function useBlueprintRecovery(tab: EditorTab, projectKey: string) {
   const busyRef = useRef(false)
   const [error, setError] = useState('')
   const currentTab = useEditorStore(state => state.tabs.find(item => item.id === tab.id)) ?? tab
-  /** 作者稿不合蓝图契约时说明哪个字段出了什么问题；主进程经 IPC 拒绝时按登记的码说明。 */
+  /** 作者稿不合故事规划契约时说明哪个字段出了什么问题；主进程经 IPC 拒绝时按登记的码说明。 */
   const failureText = useCallback((reason: unknown) => {
     const shown = useLocaleStore.getState().locale
     const diagnostic = structuredContractDiagnostic(reason)
@@ -80,7 +80,7 @@ export function useBlueprintRecovery(tab: EditorTab, projectKey: string) {
         ...submission.request, authorRecovery: { ...submission.request.authorRecovery, leaseEpoch: candidate.leaseEpoch },
       }, projectKey)
       if (!result.success && !pending && isCurrentProjectSession(session)) useEditorStore.getState().setPlanningSaveSnapshot(tab.id, undefined)
-      if (!result.success) throw workflowMainProcessError({ uiLocale: useLocaleStore.getState().locale }, result.error, '保存恢复蓝图失败', 'Could not save the recovered blueprints.')
+      if (!result.success) throw workflowMainProcessError({ uiLocale: useLocaleStore.getState().locale }, result.error, '保存恢复故事规划失败', 'Could not save the recovered blueprints.')
       if (!isCurrentProjectSession(session)) return
       useEditorStore.getState().setPlanningSaveSnapshot(tab.id, { ...submission, status: 'saved' })
       useEditorStore.getState().settleTabSave(tab.id, submission)
@@ -120,6 +120,6 @@ export function useBlueprintRecovery(tab: EditorTab, projectKey: string) {
 
   return {
     context, currentTab, sessionCurrent, busy, error, end, setEnd, save, continuePlanning,
-    planningTargetUnit: currentProject?.novelConfig.writingLanguage === 'en-US' ? text('词', 'words') : text('字', 'characters'),
+    planningTargetUnit: text('字', 'characters'),
   }
 }

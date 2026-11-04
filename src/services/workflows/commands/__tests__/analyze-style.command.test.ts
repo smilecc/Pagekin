@@ -70,9 +70,9 @@ beforeEach(() => {
         plotStructure: 'three_act',
         narrativePOV: 'third_limited',
         coreOutline: '',
-        worldSetting: '',
-        goldenFinger: '',
-        protagonistProfile: '',
+
+
+
         globalGuidance: '',
         writingStyle: '',
       },

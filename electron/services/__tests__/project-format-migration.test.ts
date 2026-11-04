@@ -9,11 +9,23 @@ import { exportVectorStoreForMigration, importVectorStoreForMigration, verifyVec
 import { createCanonicalProjectManifest } from '../../../src/shared/project-format'
 import fs from 'node:fs'
 import path from 'node:path'
+import os from 'node:os'
 import { randomUUID, createHash } from 'node:crypto'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { authorizeSyntheticProjectMigration, isAdmittedProjectMigration, migrateProjectFormat, type ProjectMigrationDependencies, type ProjectSqliteEvidence } from '../project-format-migration'
 
 const roots: string[] = []
+const originalWorkingDirectory = process.cwd()
+let fixtureWorkspace = ''
+beforeAll(() => {
+  // The synthetic permit is scoped to cwd/.runtime; keep that workspace outside live editor watchers.
+  fixtureWorkspace = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-novel-format-workspace-'))
+  process.chdir(fixtureWorkspace)
+})
+afterAll(() => {
+  process.chdir(originalWorkingDirectory)
+  fs.rmSync(fixtureWorkspace, { recursive: true, force: true })
+})
 function installKnownDonorAvatarColumn(db: import('better-sqlite3').Database): void {
   const row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='characters'").get() as { sql: string }
   const marker = "      cs_location TEXT DEFAULT '',"
@@ -218,7 +230,7 @@ describe('fixture-only project physical cutover', () => {
     const options = fixture(), outside = path.join(options.fixtureRoot, 'outside-avatar')
     put(outside, 'private image bytes')
     fs.mkdirSync(path.join(options.legacy, 'avatars'))
-    fs.symlinkSync(outside, path.join(options.legacy, 'avatars', 'linked.png'), 'file')
+    fs.symlinkSync(process.platform === 'win32' ? options.fixtureRoot : outside, path.join(options.legacy, 'avatars', 'linked.png'), process.platform === 'win32' ? 'junction' : 'file')
 
     expect(await migrateProjectFormat(options)).toMatchObject({ code: 'PROJECT_MIGRATION_REQUIRED_ASSET_LINK' })
     expect(fs.readFileSync(outside, 'utf8')).toBe('private image bytes')

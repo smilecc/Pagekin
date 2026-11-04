@@ -68,80 +68,10 @@ export { previousChapterEnding } from '../chapter-materials'
 const MAX_AUTO_CONTINUE_ROUNDS = 7
 const NEXT_CHAPTER_HEAD_MAX_CHARS = 1200
 const CROSS_CHAPTER_REUSE_CJK_NGRAM_CHARS = 8
-const CROSS_CHAPTER_REUSE_ENGLISH_NGRAM_CHARS = 20
 const CROSS_CHAPTER_REUSE_LONG_RUN_CHARS = 80
 const ACTIVE_THREAD_CONTEXT_MAX_CHARS = 1200
 const ACTIVE_THREAD_CONTEXT_MAX_ITEMS = 6
 const STREAM_PREVIEW_INTERVAL_MS = 250
-
-type ChapterHeading = Readonly<{
-  lineIndex: number
-  from: number
-  to: number
-  markdownLevel: number
-}>
-
-function parseChapterHeading(line: string, lineIndex: number): ChapterHeading | null {
-  const match = /^\s*(?:(#{1,6})[\t ]+)?(?:第\s*([1-9]\d*)(?:\s*[–—-]\s*([1-9]\d*))?\s*章|Chapters?[\t ]+([1-9]\d*)(?:[\t ]*[–—-][\t ]*([1-9]\d*))?)(?=[\t ]*(?:[:：.．—-]|$))/iu.exec(line)
-  if (!match) return null
-  // Bare headings must use the production outline's explicit title separator.
-  if (!match[1] && !/^[\t ]*[:：]\s*\S/u.test(line.slice(match[0].length))) return null
-  const from = Number(match[2] ?? match[4])
-  const to = Number(match[3] ?? match[5] ?? from)
-  return {
-    lineIndex,
-    from,
-    to,
-    markdownLevel: match[1]?.length ?? 0,
-  }
-}
-
-/**
- * Project an explicitly chapter-structured synopsis onto one chapter without
- * cutting any selected section. Ambiguous or unlocatable structures stay
- * verbatim so author facts are never discarded on a guess.
- */
-export function synopsisForDraftChapter(synopsis: string, chapterNumber: number): string {
-  // Quoted examples can contain chapter-like headings; do not interpret them.
-  if (/^\s*(?:`{3,}|~{3,})/mu.test(synopsis)) return synopsis.trim()
-  const lines = synopsis.trim().split(/\r?\n/u)
-  const headings = lines
-    .map((line, lineIndex) => parseChapterHeading(line, lineIndex))
-    .filter((heading): heading is ChapterHeading => heading !== null)
-  if (headings.length < 2) return synopsis.trim()
-
-  const firstLevel = headings[0]!.markdownLevel
-  const hasConsistentHeadingStyle = headings.every(heading => heading.markdownLevel === firstLevel)
-  const hasStrictChapterOrder = headings.every((heading, index) => (
-    heading.from <= heading.to
-    && (index === 0 || heading.from > headings[index - 1]!.to)
-  ))
-  const currentHeadings = headings.filter(heading => heading.from <= chapterNumber && chapterNumber <= heading.to)
-  if (!hasConsistentHeadingStyle || !hasStrictChapterOrder || currentHeadings.length !== 1) {
-    return synopsis.trim()
-  }
-
-  const headingsByLine = new Map(headings.map(heading => [heading.lineIndex, heading]))
-  let activeRange: Pick<ChapterHeading, 'from' | 'to'> | null = null
-  const projected: string[] = []
-  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
-    const line = lines[lineIndex]!
-    const chapterHeading = headingsByLine.get(lineIndex)
-    if (chapterHeading) {
-      activeRange = chapterHeading
-    } else {
-      const markdownHeading = /^\s*(#{1,6})\s+/u.exec(line)
-      if (markdownHeading && (firstLevel === 0 || markdownHeading[1]!.length <= firstLevel)) {
-        activeRange = null
-      }
-    }
-    if (
-      activeRange === null
-      || (activeRange.from <= chapterNumber && chapterNumber <= activeRange.to)
-    ) projected.push(line)
-  }
-  return projected.join('\n').trim()
-}
 
 function exactParagraphs(values: readonly string[]): ReadonlySet<string> {
   return new Set(values.flatMap(value => (
@@ -248,39 +178,20 @@ const DEFAULT_DEPENDENCIES: GenerateDraftCommandDependencies = {
   },
 }
 
-type WriterChapterInfo = Pick<ChapterInfo,
-  | 'chapterNumber'
-  | 'title'
-  | 'role'
-  | 'purpose'
-  | 'characters'
-  | 'keyEvents'
-  | 'suspenseHook'
-  | 'userGuidance'
->
+type WriterChapterInfo = Pick<ChapterInfo, 'chapterNumber' | 'title' | 'keyEvents' | 'characters' | 'userGuidance'>
 
-/** Keep workflow metadata out of both initial and continuation writer prompts. */
+/** Only the visible story plan and this writing request are sent to the writer. */
 function toWriterChapterInfo(chapterInfo: ChapterInfo): WriterChapterInfo {
-  return {
-    chapterNumber: chapterInfo.chapterNumber,
-    title: chapterInfo.title,
-    role: chapterInfo.role,
-    purpose: chapterInfo.purpose,
-    characters: chapterInfo.characters,
-    keyEvents: chapterInfo.keyEvents,
-    suspenseHook: chapterInfo.suspenseHook,
-    userGuidance: chapterInfo.userGuidance,
-  }
+  return { chapterNumber: chapterInfo.chapterNumber, title: chapterInfo.title, keyEvents: chapterInfo.keyEvents, characters: [...chapterInfo.characters], userGuidance: chapterInfo.userGuidance }
 }
 
 function hasSubstantialPreviousChapterReuse(
   previousEnding: string,
   draft: string,
-  writingLanguage: WritingLanguage,
+  _writingLanguage: WritingLanguage,
 ): boolean {
-  const ngramCharacters = writingLanguage === 'en-US'
-    ? CROSS_CHAPTER_REUSE_ENGLISH_NGRAM_CHARS
-    : CROSS_CHAPTER_REUSE_CJK_NGRAM_CHARS
+  void _writingLanguage;
+  const ngramCharacters = CROSS_CHAPTER_REUSE_CJK_NGRAM_CHARS
   const normalize = (text: string) => text
     .normalize('NFKC')
     .toLowerCase()
@@ -386,7 +297,6 @@ function chapterLengthContractText(writingLanguage: WritingLanguage, targetUnits
   return promptLanguageText(
     writingLanguage,
     `【本章篇幅合同】\n目标 ${targetUnits} 字（按汉字计，不含标点）；请写到约 ${aimLow}–${targetUnits} 字。${maximum} 字是参考上限，超出时只提示并保留完整正文；少于 ${minimum} 字会被退回。篇幅紧张时，压缩描写与过渡、减少场景数量，而不是删掉必需事件；本章蓝图中的全部作者任务和必需事件都要落实，不得删除、改写或截断，也不要为凑字数增加无关内容。`,
-    `[Chapter length contract]\nTarget: ${targetUnits} words (counted as words, excluding punctuation); aim for about ${aimLow}-${targetUnits} words. ${maximum} words is a reference maximum; longer complete drafts are kept with a notice. Drafts under ${minimum} words are rejected. When space is tight, compress description and transitions and use fewer scenes rather than dropping required events; realize every author task and required event in the chapter blueprint without deleting, rewriting, or truncating them, and do not add unrelated content to fill space.`,
   )
 }
 
@@ -400,11 +310,9 @@ function chapterExecutionContractText(writingLanguage: WritingLanguage, chapterI
 } {
   const executionItems = [
     { zhCN: '必需事件', enUS: 'Required events', value: chapterInfo.keyEvents },
-    { zhCN: '章节钩子', enUS: 'Chapter hook', value: chapterInfo.suspenseHook },
     { zhCN: '作者本章指导', enUS: 'Author guidance for this chapter', value: chapterInfo.userGuidance },
   ]
   const zhItems = executionItems.flatMap(item => item.value?.trim() ? [`- ${item.zhCN}: ${item.value}`] : []).join('\n')
-  const enItems = executionItems.flatMap(item => item.value?.trim() ? [`- ${item.enUS}: ${item.value}`] : []).join('\n')
   const hasPredecessor = chapterInfo.chapterNumber > 1
   const rules = promptLanguageText(
     writingLanguage,
@@ -417,17 +325,8 @@ function chapterExecutionContractText(writingLanguage: WritingLanguage, chapterI
 【前文待核实问题】定稿只发现疑点、提出猜测或写明待核实时，不能把某一解释、原因或哪一方出错写成已确认事实；本章可以通过新线索和调查推进并解决疑点，但须先写出与既有事实相容且足以支持结论的核验过程与证据，证据不足时保留疑点，结论的方向、时间和因果前后必须一致。
 ${chapterTimeContinuity('zh-CN')}` : ''}
 【操作边界】本合同不扩大本次请求的操作范围：续写及无进展恢复只接续已有正文，不重写旧文；已达目标篇幅时只补完断句并收束。压缩只删减既有正文，不新增情节或修补缺失事件。`,
-    `[Current-chapter execution contract]
-[Author tasks for this chapter] Follow the author text according to its meaning: events and outcomes explicitly required in this chapter must be realized through manuscript action or outcome. Ongoing states, knowledge boundaries, prohibitions, and style requests are narrative constraints; do not add or repeatedly confirm actions, dialogue, or explanations merely to prove compliance. Follow the reveal timing specified by the author; do not present what is reserved for later chapters as already completed. Still carry out explicitly requested recollections, flashbacks, actions, reveals, or repetition. Each later action must continue from the item ownership, character knowledge, and plan-completion state actually established in the prose.
-[Events this chapter may advance] New actions and outcomes consistent with established facts are allowed. Ordinary events need no added cost.${hasPredecessor ? `
-[Established finalized facts] When the chapter blueprint, chapter plans, or the wording of required events conflict with facts established in finalized chapters (including the author's latest corrections in them), the finalized facts prevail: realize the item consistently and never retroactively portray a withdrawn, cancelled, or superseded plan as executed. Preserve identities, item ownership, character knowledge, payments and recoveries, and event times from prior prose. Keep the order and result of paying, recovering, or losing money or property consistent; do not describe the same amount or item as both recovered and still lost.
-[Prior plans and current decisions] Characters' waiting, paused, or withdrawn plans describe their prior intention, not an author prohibition; this chapter may first show a new decision grounded in established facts, the character's reason, and continuity evidence, then advance or replace the plan without violating explicit author prohibitions, required on-page events, or completed facts.
-[Required events in this chapter] Events required by the author or this chapter blueprint to happen in this chapter must happen through concrete action and actual consequence here; merely repeating, confirming, or accounting for an outcome already completed in an earlier chapter cannot replace the action or outcome required in this chapter.
-[Unverified prior questions] If a finalized chapter only discovers a discrepancy, raises a suspicion, or leaves a question for verification, do not present an explanation, cause, or which side is wrong as confirmed. This chapter may pursue new clues and resolve the question, but first show a verification process and evidence sufficient for a conclusion consistent with established facts; otherwise keep it unresolved. The conclusion's direction, timing, and causality must remain consistent throughout.
-${chapterTimeContinuity('en-US')}` : ''}
-[Operation boundary] This contract does not expand the current request's scope: continuation and no-progress recovery only append to existing prose without rewriting it; at the target length, only finish the truncated sentence and close. Condensing only cuts existing prose and must not add plot or repair missing events.`,
   )
-  return { rules, authorItems: promptLanguageText(writingLanguage, zhItems, enItems) }
+  return { rules, authorItems: promptLanguageText(writingLanguage, zhItems) }
 }
 
 /** 自动续写与压缩修订共用的作者资料块：本章蓝图、全局写作要求、文风、小说配置事实与章节材料。 */
@@ -457,25 +356,6 @@ ${material.writingStyle || '（无）'}
 - 作者明确事实与指导、实际前文、本章关键因果和本章篇幅优先。不得用文风改写这些内容或仅为兑现文风增加场景、动作或事件；不得把作者明确事实或要求降格为推测。
 
 【小说配置事实】
-${material.novelConfigFacts}
-
-${material.chapterMaterials}
-
-${reconciliation}${chapterExecutionContractText(writingLanguage, material.chapterInfo).authorItems}`,
-    `[Current chapter blueprint]
-${JSON.stringify(material.chapterInfo, null, 2)}
-
-[Project-wide writing guidance]
-${material.globalGuidance}
-
-[Writing style]
-${material.writingStyle || '(none)'}
-
-[Writing-style applicability]
-- Writing style selects expression only; it adds no facts or events, and not every item must be forced into the manuscript.
-- Explicit author facts and guidance, actual prior prose, the chapter's key causality, and its target length take priority. Do not use style guidance to rewrite them, relabel explicit author facts or requirements as guesses, or add scenes, actions, or events merely to satisfy style guidance.
-
-[Novel configuration facts]
 ${material.novelConfigFacts}
 
 ${material.chapterMaterials}
@@ -555,8 +435,7 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
     const writerChapterInfo = toWriterChapterInfo(this.chapterInfo)
     const targetChars = normalizeChapterWordsTarget(this.chapterInfo.wordsTarget, novelConfig.wordsPerChapter)
     const knowledgeQueryHint = this.chapterInfo.knowledgeQueryHint?.trim() ?? ''
-    const searchQuery = [knowledgeQueryHint, this.chapterInfo.title, this.chapterInfo.keyEvents,
-      this.chapterInfo.characters.join(' ')].filter(Boolean).join(' ')
+    const searchQuery = [knowledgeQueryHint, this.chapterInfo.title, this.chapterInfo.keyEvents, this.chapterInfo.characters.join(' ')].filter(Boolean).join(' ')
     const authorInputs = [{ id: 'draft:chapter-info', text: JSON.stringify(writerChapterInfo) },
       { id: 'draft:author-config', text: JSON.stringify(novelConfig) },
       { id: 'draft:target-units', text: String(targetChars) }]
@@ -601,8 +480,8 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
       'Building chapter context...',
     ))
 
-    const { coreOutline, worldSetting, goldenFinger, protagonistProfile } = novelConfig
-    const authoredConfigFacts = [coreOutline, worldSetting, goldenFinger, protagonistProfile]
+    const { coreOutline } = novelConfig
+    const authoredConfigFacts = [coreOutline]
       .filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
     const architecture = await this.readArchitecture(
       expectedProjectPath,
@@ -620,16 +499,16 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
       projectPrompts,
     ].filter(Boolean).join('\n\n')
 
-    const characterProfiles = await this.readCharacterProfiles(
+    const { text: characterProfiles, names: planningCharacterNames } = await this.readCharacterProfiles(
       expectedProjectPath,
       projectSession,
       writingLanguage,
+      `${this.chapterInfo.title}\n${this.chapterInfo.keyEvents}`,
       this.chapterInfo.characters,
     )
     let futureBlueprintsStr = promptLanguageText(
       writingLanguage,
       '（无后续蓝图）',
-      '(no future chapter blueprints)',
     )
     try {
       const { loadDirectoryBlueprints } = await import('../directory-workflow')
@@ -641,7 +520,6 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
         futureBlueprintsStr = futureBlueprintsArr.map(b => promptLanguageText(
           writingLanguage,
           `第${b.chapterNumber}章 ${b.title}：${b.keyEvents}`,
-          `Chapter ${b.chapterNumber}: ${b.title} — ${b.keyEvents}`,
         )).join('\n')
       }
     } catch { /* 忽略 */ }
@@ -661,10 +539,7 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
       'globalGuidance',
       'writingStyle',
       'coreOutline',
-      'worldSetting',
-      'goldenFinger',
-      'protagonistProfile',
-    ])
+      ])
     const novelConfigFacts = Object.fromEntries(
       Object.entries(novelConfig).filter(([key]) => !promptOnlyConfigKeys.has(key)),
     )
@@ -694,16 +569,15 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
           rendered: promptLanguageText(
             writingLanguage,
             `[${index + 1}] (${result.fileName}, 相关度 ${(result.score * 100).toFixed(0)}%)\n${result.text}`,
-            `[${index + 1}] (${result.fileName}, relevance ${(result.score * 100).toFixed(0)}%)\n${result.text}`,
           ),
           deduplicateAgainstFinalized: true,
         }))
       } else {
-        const emptyContext = promptLanguageText(writingLanguage, '（知识库中无相关内容）', '(no relevant knowledge-base context)')
+        const emptyContext = promptLanguageText(writingLanguage, '（知识库中无相关内容）')
         knowledgeReferences = [{ text: emptyContext, rendered: emptyContext }]
       }
     } catch {
-      const unavailableContext = promptLanguageText(writingLanguage, '（知识库检索不可用）', '(knowledge-base search unavailable)')
+      const unavailableContext = promptLanguageText(writingLanguage, '（知识库检索不可用）')
       knowledgeReferences = [{ text: unavailableContext, rendered: unavailableContext }]
     }
     const chapterLengthContract = chapterLengthContractText(writingLanguage, targetChars)
@@ -722,7 +596,6 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
       .withUserGuidance(this.chapterInfo.userGuidance?.trim() || promptLanguageText(
         writingLanguage,
         '（无微操指导）',
-        '(no author guidance)',
       ))
 
     let finalizedSources: FinalizedMaterialSource[] = []
@@ -732,7 +605,7 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
         expectedProjectPath,
         this.chapterInfo.chapterNumber,
         projectSession,
-        this.chapterInfo.characters,
+        planningCharacterNames,
       )
       finalizedSources = finalized.sources
       callbacks.log(uiText(
@@ -743,6 +616,7 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
         expectedProjectPath,
         projectSession,
         writingLanguage,
+        planningCharacterNames,
       )
       callbacks.log(uiText(
         `  已加载相关活跃叙事线索（${activeThreads.count} 条）`,
@@ -800,7 +674,7 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
         relevanceTerms: [
           this.chapterInfo.title,
           this.chapterInfo.keyEvents,
-          ...this.chapterInfo.characters,
+          ...planningCharacterNames,
         ],
       })
     } catch (error) {
@@ -1440,20 +1314,16 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
             params.writingLanguage,
             '上一轮续写达到输出上限且没有增加足够的新正文，已被全部丢弃。\n'
               + '这是本次任务唯一一次无进展恢复机会：请直接推进下一事件、动作或对话，禁止复述已写末尾。\n\n',
-            'The previous continuation reached the output limit without adding enough new prose, so it was discarded in full.\n'
-              + 'This is the only no-progress recovery attempt: advance directly to the next event, action, or line of dialogue without repeating the existing ending.\n\n',
           )
         : ''
       const lengthInstruction = remaining > 0
         ? promptLanguageText(
             params.writingLanguage,
             `- 本次续写补足约 ${allowance} 字即可，新增部分绝不超过 ${ceiling} 字；接近时按本章结束状态收束，停在完整句子和自然段落末尾。`,
-            `- Add about ${allowance} words in this continuation and never more than ${ceiling}; as you approach that length, close at the chapter's ending state and stop at the end of a complete sentence and paragraph.`,
           )
         : promptLanguageText(
             params.writingLanguage,
             `- 本章已达到目标篇幅：只补完被截断的句子并收束当前场景，新增部分约 ${allowance} 字以内、绝不超过 ${ceiling} 字，不要展开新事件。`,
-            `- The chapter has reached its target length: only finish the truncated sentence and close the current scene in about ${allowance} words or fewer, never more than ${ceiling}; do not start new events.`,
           )
       const authorMaterial = draftAuthorMaterialBlock(params.writingLanguage, params)
       const lengthContract = chapterLengthContractText(params.writingLanguage, params.targetChars)
@@ -1474,22 +1344,6 @@ ${lengthContract}
 ${authorMaterial}
 
 【本章已写正文全文】
-${visibleDraft}`,
-        `${recoveryInstruction}Continue the current chapter seamlessly.
-
-[Requirements]
-- Output only new manuscript prose; do not repeat existing text.
-- Read the full existing manuscript below and continue naturally from its ending, preserving the same scene logic or making a justified transition.
-${lengthInstruction}
-- Do not output a title, explanation, summary, Markdown, reasoning, or an interface continuation prompt.
-- Avoid repeating complete sentences, paragraphs, action sequences, or imagery from the existing manuscript.
-- Complete only the current chapter blueprint; do not advance later chapters.
-
-${lengthContract}
-
-${authorMaterial}
-
-[Full existing manuscript for this chapter]
 ${visibleDraft}`,
       )
 
@@ -1669,22 +1523,6 @@ ${lengthContract}
 
 【待压缩正文】
 ${params.candidate.text}`,
-      `Condense the chapter manuscript below into the acceptable length and output the complete revised manuscript.
-
-[Current length] The manuscript to condense is about ${originalUnits} words, above the ceiling. Condense it to about ${aimUnits} words (reference maximum ${ceilUnits} words), which means cutting about ${cutUnits} words, roughly ${cutPercent}% of the text. Method: condense paragraph by paragraph, trimming description, repeated actions, and repeated introspection in every paragraph rather than cutting only one part.
-
-[Requirements]
-- Aim for between ${range.minimum} and ${range.maximum} words; complete events and author facts take priority, and a longer complete manuscript is retained. Following the length contract below, aim for about ${Math.round(params.targetChars * 0.85)}-${params.targetChars} words.
-- Keep every required event, author task, and plot fact from the chapter blueprint, keep character identities and relationships, and keep the chapter ending and hook.
-- Shorten only by cutting redundant description, repeated actions, repeated introspection, and wordy dialogue; do not add plot, characters, setting, or facts, and do not change event order or causality.
-- Output only the complete revised manuscript; do not output a title, explanation, summary, Markdown, reasoning, or an interface continuation prompt.
-
-${authorMaterial}
-
-${lengthContract}
-
-[Manuscript to condense]
-${params.candidate.text}`,
     )
     let outcome: GenerationOutcome
     try {
@@ -1729,20 +1567,14 @@ ${params.candidate.text}`,
   private async readArchitecture(
     projectPath: string,
     projectSession: ProjectSessionContext,
-    chapterNumber: number,
+    _chapterNumber: number,
     authoredConfigFacts: readonly string[],
   ): Promise<string> {
+    void _chapterNumber
     const core = await ipc.invokeWithProjectSession(projectSession, 'db:project-core-get', projectPath)
     const duplicates = exactParagraphs(authoredConfigFacts)
     const parts: string[] = []
-    if (core?.premise) parts.push(withoutExactParagraphDuplicates(core.premise, duplicates))
     if (core?.worldbuilding) parts.push(withoutExactParagraphDuplicates(core.worldbuilding, duplicates))
-    if (core?.synopsis) {
-      parts.push(withoutExactParagraphDuplicates(
-        synopsisForDraftChapter(core.synopsis, chapterNumber),
-        duplicates,
-      ))
-    }
     return parts.filter(Boolean).join('\n\n---\n\n')
   }
 
@@ -1767,7 +1599,6 @@ ${params.candidate.text}`,
           parts.push(promptLanguageText(
             writingLanguage,
             `## 项目专属指导（${f.name.replace(/\.md$/, '')}）\n${result.content.trim()}`,
-            `## Project-specific guidance (${f.name.replace(/\.md$/, '')})\n${result.content.trim()}`,
           ))
         }
       }
@@ -1779,19 +1610,25 @@ ${params.candidate.text}`,
     projectPath: string,
     projectSession: ProjectSessionContext,
     writingLanguage: WritingLanguage,
-    relevantCharacterNames: readonly string[],
-  ): Promise<string> {
+    planningText: string,
+    explicitNames: readonly string[],
+  ): Promise<{ text: string; names: string[] }> {
     try {
       const roster = await ipc.invokeWithProjectSession(projectSession, 'db:character-roster-read', projectPath)
       if (roster.status !== 'ready' && roster.status !== 'empty') {
-        return promptLanguageText(
+        return { names: [], text: promptLanguageText(
           writingLanguage,
           '（角色资料来源未知或待修复；未作为作者事实注入）',
-          '(character-profile provenance is unknown or needs repair; it was not injected as author fact)',
-        )
+        ) }
       }
       const profiles: string[] = []
-      const relevantNames = new Set(relevantCharacterNames.map(name => name.trim()).filter(Boolean))
+      const relevantNames = new Set([...explicitNames.map(name => name.trim()).filter(Boolean), ...[
+        ...roster.entries.map(card => card.name),
+        ...(roster.aliases ?? []).map(alias => alias.name),
+      ].filter(name => name.trim() && planningText.includes(name))])
+      if (explicitNames.length === 0 && planningText.includes('主角')) {
+        for (const card of roster.entries) if (card.role === 'protagonist') relevantNames.add(card.name)
+      }
       const selected = new Set<typeof roster.entries[number]>()
       for (const name of relevantNames) {
         const named = roster.entries.filter(card => card.name === name)
@@ -1823,7 +1660,6 @@ ${params.candidate.text}`,
           facts.push(promptLanguageText(
             writingLanguage,
             `relationship（legacy 来源未知）: ${legacyRelationshipNotes}`,
-            `relationship (legacy provenance unknown): ${legacyRelationshipNotes}`,
           ))
         }
         for (const field of CHARACTER_STATE_TEXT_FIELDS) {
@@ -1835,13 +1671,12 @@ ${params.candidate.text}`,
         }
         profiles.push(`${card.name} (${card.role || 'unknown'})${facts.length ? ` | ${facts.join(' | ')}` : ''}`)
       }
-      return profiles.length > 0 ? profiles.join('\n') : ''
+      return { text: profiles.join('\n'), names: [...selected].map(card => card.name) }
     } catch {
-      return promptLanguageText(
+      return { names: [], text: promptLanguageText(
         writingLanguage,
         '（角色资料读取失败；未把旧 currentState 或 characters_arch 当作作者事实）',
-        '(character profiles unavailable; legacy currentState and characters_arch were not treated as author facts)',
-      )
+      ) }
     }
   }
 
@@ -2003,6 +1838,7 @@ ${params.candidate.text}`,
     projectPath: string,
     projectSession: ProjectSessionContext,
     writingLanguage: WritingLanguage,
+    planningCharacterNames: readonly string[],
   ): Promise<{ text: string; count: number }> {
     let threads: NarrativeThreadView[] = []
     try {
@@ -2013,7 +1849,7 @@ ${params.candidate.text}`,
           chapterNumber: this.chapterInfo.chapterNumber,
           title: this.chapterInfo.title,
           keyEvents: this.chapterInfo.keyEvents,
-          characters: [...this.chapterInfo.characters],
+          characters: [...planningCharacterNames],
         },
         projectPath,
       )
@@ -2024,7 +1860,6 @@ ${params.candidate.text}`,
     const header = promptLanguageText(
       writingLanguage,
       '【当前相关活跃叙事线索】',
-      '[Relevant active narrative threads]',
     )
     const lines: string[] = []
     let usedChars = header.length + 1
@@ -2033,7 +1868,6 @@ ${params.candidate.text}`,
       const line = promptLanguageText(
         writingLanguage,
         `- ${thread.title} [${thread.status}]（目标第${thread.targetStartChapter}–${thread.targetEndChapter}章；作者意图：${thread.authorIntent}${source ? `；来源第${source.chapterNumber}章：${source.evidence}` : ''}）`,
-        `- ${thread.title} [${thread.status}] (target Chapters ${thread.targetStartChapter}–${thread.targetEndChapter}; author intent: ${thread.authorIntent}${source ? `; source Chapter ${source.chapterNumber}: ${source.evidence}` : ''})`,
       )
       const nextLength = line.length + (lines.length > 0 ? 1 : 0)
       if (usedChars + nextLength > ACTIVE_THREAD_CONTEXT_MAX_CHARS) break

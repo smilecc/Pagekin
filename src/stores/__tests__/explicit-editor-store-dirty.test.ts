@@ -73,9 +73,9 @@ function project(): ProjectData {
       plotStructure: 'three_act',
       narrativePOV: 'third_limited',
       coreOutline: '原大纲',
-      worldSetting: '',
-      goldenFinger: '',
-      protagonistProfile: '',
+
+
+
       globalGuidance: '',
     },
     characterStates: '',

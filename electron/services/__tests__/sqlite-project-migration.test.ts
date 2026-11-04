@@ -260,7 +260,7 @@ describe('real SQLite schema probe and WAL staging backup', () => {
     expect(target.prepare('SELECT rowid,core_outline,world_setting,protagonist_profile FROM project_core').get())
       .toEqual({ rowid: 7, core_outline: null, world_setting: null, protagonist_profile: null })
     expect(target.prepare('SELECT id,generation,stale_from_chapter FROM continuity_projection_meta').all()).toEqual([{ id: 'main', generation: 0, stale_from_chapter: null }])
-    expect(ProjectCoreRepository.get(target)).toMatchObject({ coreOutline: null, worldSetting: null, protagonistProfile: null })
+    expect(ProjectCoreRepository.get(target)).toMatchObject({ coreOutline: null,   })
     ProjectCoreRepository.update({ projectName: '导入后编辑' }, target)
     expect(target.prepare('SELECT project_name,core_outline,world_setting,protagonist_profile FROM project_core').get())
       .toEqual({ project_name: '导入后编辑', core_outline: null, world_setting: null, protagonist_profile: null })

@@ -10,7 +10,7 @@ interface DangerConfirmProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
-  /** 后果，例如「将删除全部章节、蓝图与设定」。 */
+  /** 后果，例如「将删除全部章节、故事规划与设定」。 */
   consequence: string
   /** 能否恢复，例如「删除后无法恢复，项目备份不受影响」。 */
   recoverability: string

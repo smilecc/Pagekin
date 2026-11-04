@@ -111,8 +111,8 @@ function plotTreeErrorMessage(
   }
   if (error instanceof PlotTreeSourceError) {
     return text(
-      '请先添加章节蓝图、定稿或叙事线索，再生成剧情树。',
-      'Add a chapter blueprint, finalized chapter, or narrative thread before generating a plot tree.',
+      '请先添加故事规划、定稿或叙事线索，再生成剧情树。',
+      'Add a story plan, finalized chapter, or narrative thread before generating a plot tree.',
     )
   }
   const raw = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
@@ -583,7 +583,7 @@ export function usePlotThreads(projectKey: string, {
     if (source.type === 'blueprint') {
       openBuiltinEditor(
         'chapter-card-editor',
-        text('章节蓝图', 'Chapter blueprint'),
+        text('故事规划', 'Story planning'),
         'chapter-card',
         undefined,
         source.chapterNumber,

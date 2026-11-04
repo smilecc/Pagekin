@@ -22,6 +22,7 @@ const browserApiPort = Number(process.env.AI_NOVEL_VITEST_BROWSER_API_PORT || 0)
 const packageJson = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
 
 export default defineConfig({
+  server: { watch: { ignored: ['**/.runtime/**'] } },
   plugins: [tailwindcss(), react()],
   optimizeDeps: {
     include: ['zustand/middleware'],

@@ -6,7 +6,7 @@ import type { WorkflowRun } from '../../../stores/workflow-store'
 const failedOutline = (errorCode: string, error: string) => ({
   id: '运行', title: '生成故事架构', type: 'generate_architecture', status: 'failed', uiLocale: 'zh-CN', writingLanguage: 'zh-CN',
   projectPath: 'C:/projects/失乐园', projectSession: null, currentStepIndex: 0, error, errorCode,
-  steps: [{ id: 'synopsis', name: '情节大纲', description: '', status: 'failed', logs: [], error, errorCode }],
+  steps: [{ id: 'worldbuilding', name: '世界观', description: '', status: 'failed', logs: [], error, errorCode }],
 }) as unknown as WorkflowRun
 
 it('来源在途中变了的大纲失败：给出去架构页重新生成的入口，不提供必然被拒的断点续写', () => {

@@ -481,7 +481,6 @@ const UNREGISTERED: Record<string, readonly string[]> = {
     'PROJECT_SCHEMA_IMPORT_SOURCE_SECRET_INVALID',
     // #474 B2：名单与蓝图提交的请求形状、幂等回执、冻结输入、回读与库内事实的校验，草稿生成请求与目标字数的参数校验，
     // 导入断点阶段的通道参数。界面按自己的流程构造这些请求，作者照常操作碰不到；碰到说明代码缺陷或作品库被外部改坏。
-    'BLUEPRINT_CHARACTER_SYNC_EVIDENCE_MISMATCH',
     'BLUEPRINT_CHARACTER_SYNC_INPUT_INVALID',
     'BLUEPRINT_CHARACTER_SYNC_OPERATION_ID_REQUIRED',
     'BLUEPRINT_CHARACTER_SYNC_OPERATION_MISSING',

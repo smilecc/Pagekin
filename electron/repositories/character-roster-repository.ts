@@ -770,44 +770,38 @@ function sortedEntries(entries: CharacterRosterEntry[]): CharacterRosterEntry[] 
  */
 export function renderCharacterRosterMarkdown(
   entries: CharacterRosterEntry[],
-  writingLanguage: WritingLanguage = DEFAULT_WRITING_LANGUAGE,
+  _writingLanguage: WritingLanguage = DEFAULT_WRITING_LANGUAGE,
 ): string {
+  void _writingLanguage;
   const canonical = sortedEntries(entries)
   if (canonical.length === 0) return ''
-  const english = writingLanguage === 'en-US'
 
   const blocks = canonical.map(entry => {
-    const roleLabel = english
-      ? CHARACTER_ROLE_LABELS[entry.role].enUS
-      : CHARACTER_ROLE_LABELS[entry.role].zhCN
-    const lines = [`## ${roleLabel}${english ? ': ' : '：'}${entry.name}`]
+    const roleLabel = CHARACTER_ROLE_LABELS[entry.role].zhCN
+    const lines = [`## ${roleLabel}${'：'}${entry.name}`]
     const fields: Array<[string, string]> = [
-      [english ? 'Gender' : '性别', entry.gender],
-      [english ? 'Age' : '年龄', entry.age],
-      [english ? 'Appearance' : '外貌', entry.appearance],
-      [english ? 'Personality' : '性格', entry.personality],
-      [english ? 'Background' : '背景', entry.background],
-      [english ? 'Abilities' : '能力', entry.abilities],
-      [english ? 'Motivation' : '动机', entry.motivation],
-      [english ? 'Arc' : '弧光', entry.arc],
-      [english ? 'Notes' : '备注', entry.notes],
+      ['性别', entry.gender],
+      ['年龄', entry.age],
+      ['外貌', entry.appearance],
+      ['性格', entry.personality],
+      ['背景', entry.background],
+      ['能力', entry.abilities],
+      ['动机', entry.motivation],
+      ['弧光', entry.arc],
+      ['备注', entry.notes],
     ]
     for (const [label, value] of fields) {
-      if (value) lines.push(`- ${label}${english ? ': ' : '：'}${value}`)
+      if (value) lines.push(`- ${label}${'：'}${value}`)
     }
     for (const relationship of entry.relationships) {
-      lines.push(english
-        ? `- Relationship: ${relationship.target} (${relationship.relation})`
-        : `- 关系：${relationship.target}（${relationship.relation}）`)
+      lines.push(`- 关系：${relationship.target}（${relationship.relation}）`)
     }
     if (entry.legacyRelationshipNotes) {
-      lines.push(english
-        ? `- Relationship notes: ${entry.legacyRelationshipNotes}`
-        : `- 关系备注：${entry.legacyRelationshipNotes}`)
+      lines.push(`- 关系备注：${entry.legacyRelationshipNotes}`)
     }
     return lines.join('\n')
   })
-  return [english ? '# Character graph' : '# 角色图谱', ...blocks].join('\n\n')
+  return ['# 角色图谱', ...blocks].join('\n\n')
 }
 
 function readMeta(db: BetterSqlite3.Database): CharacterRosterMetaRow {
@@ -902,7 +896,7 @@ function readSnapshot(db: BetterSqlite3.Database): CharacterRosterSnapshot {
   const localizedProjection = renderCharacterRosterMarkdown(entries, writingLanguage)
   const previousLanguageProjection = renderCharacterRosterMarkdown(
     entries,
-    writingLanguage === 'en-US' ? 'zh-CN' : 'en-US',
+    'en-US',
   )
   // A project may change writing language after a ready roster was committed.
   // Keep that exact historical projection readable; the next roster commit

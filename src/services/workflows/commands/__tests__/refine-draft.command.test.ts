@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createHumanConfirmedReviewSnapshot,
   parseHumanConfirmedReviewSnapshot,
-  renderHumanConfirmedReviewBrief,
   serializeHumanConfirmedReviewSnapshot,
   type HumanConfirmedReviewSnapshotInput,
 } from '../../../../shared/human-confirmed-review'
@@ -302,9 +301,8 @@ afterEach(() => {
 
 describe('RefineDraftCommand bounded visible completion', () => {
   it.each([
-    ['zh-CN', '文风仅用于选择表达方式', '作者明确事实与指导、实际前文、本章关键因果和本章篇幅优先'],
-    ['en-US', 'Writing style selects expression only', 'actual prior prose'],
-  ] as const)('keeps the complete style profile optional in the %s final refinement request', async (
+['zh-CN', '文风仅用于选择表达方式', '作者明确事实与指导、实际前文、本章关键因果和本章篇幅优先']
+] as const)('keeps the complete style profile optional in the %s final refinement request', async (
     writingLanguage,
     applicabilityBoundary,
     priorityBoundary,
@@ -367,69 +365,6 @@ describe('RefineDraftCommand bounded visible completion', () => {
         revisionPath: 'ai-novel://revision/9',
       }),
     ])
-  })
-
-  it('sends English built-in instructions for direct refinement, review, and confirmed-review refinement', async () => {
-    useProjectStore.setState((state) => ({
-      currentProject: state.currentProject
-        ? {
-            ...state.currentProject,
-            novelConfig: {
-              ...state.currentProject.novelConfig,
-              writingLanguage: 'en-US',
-            },
-          }
-        : null,
-    }))
-    const observed = new Map<string, string>()
-    const confirmedSource = 'Original café sign: “夜航 Café”.'
-    const confirmedContent = confirmedReviewContent({
-      sourceDraft: { ...CONFIRMED_SOURCE_DRAFT, content: confirmedSource },
-    })
-    const completeWithLease = vi.fn<GenerationRuntimeEnvironment['completeWithLease']>(async request => {
-      observed.set(request.purpose, request.messages.map(message => message.content).join('\n'))
-      throw new Error('captured request')
-    })
-    stubIpc(vi.fn(async (channel: string) => {
-      if (channel === 'db:draft-get-meta') {
-        return { id: 1, chapterNumber: 1, version: 1, status: 'draft', source: 'write' }
-      }
-      if (channel === 'db:draft-get-full') {
-        return { ...CONFIRMED_SOURCE_DRAFT, content: confirmedSource }
-      }
-      if (channel === 'db:review-get-full') {
-        return {
-          id: CONFIRMATION_REVIEW_ID,
-          baseDraftId: 1,
-          reviewIndex: 2,
-          contentId: 7,
-          createdAt: '2026-08-22T00:00:00.000Z',
-          content: confirmedContent,
-          sourceDraft: { ...CONFIRMED_SOURCE_DRAFT, content: confirmedSource },
-        }
-      }
-      if (channel === 'kb:search' || channel === 'db:character-get-all') return []
-      if (channel === 'db:project-core-get') return {}
-      throw new Error(`unexpected IPC: ${channel}`)
-    }))
-    const context = { ...workflowContext(), writingLanguage: 'en-US' as const }
-    const commands = [
-      command(completeWithLease, confirmedSource),
-      chapterReviewCommand(completeWithLease, confirmedSource),
-      reviewCommand(completeWithLease, confirmedSource, { confirmedReviewContent: confirmedContent }),
-    ]
-    for (const target of commands) {
-      await expect(target.execute({ step: {}, context, callbacks: callbacks() })).rejects.toThrow()
-    }
-
-    expect(observed.get('refine-draft')).toContain('Revise the chapter manuscript')
-    expect(observed.get('review-chapter')).toContain('Review the chapter for objectively verifiable continuity')
-    expect(observed.get('refine-from-review')).toContain('Resolve the selected issues established by the sources')
-    for (const request of observed.values()) {
-      expect(request).not.toContain('你是一位功力深厚的文学编辑')
-      expect(request).not.toContain('你是一位严谨的小说质量监督编辑')
-      expect(request).not.toContain('你是一位严谨的小说编辑')
-    }
   })
 
   it('merges an overlap after length and persists one complete revision only after the final stop', async () => {
@@ -748,46 +683,6 @@ describe('RefineFromReviewCommand bounded visible completion', () => {
     await expect(target.execute({ step: {}, context, callbacks: callbacks() }))
       .rejects.toThrow('Review-based revision requires a saved human-confirmed review snapshot')
     expect(createRuntime).not.toHaveBeenCalled()
-  })
-
-  it('sends the same English confirmed-review brief shown by the project-language preview', async () => {
-    const persistedConfirmation = confirmedReviewContent({
-      sourceDraft: { ...CONFIRMED_SOURCE_DRAFT, content: 'Original reviewed chapter. '.repeat(100) },
-      authorGuidance: 'Preserve the opening suspense.',
-      items: [{
-        category: 'continuity',
-        severity: 'error',
-        description: 'Keep the character at the harbor until departure.',
-        quote: 'She waited beside the harbor light.',
-        decision: 'apply',
-        origin: 'author',
-      }],
-    })
-    const confirmedSnapshot = parseHumanConfirmedReviewSnapshot(persistedConfirmation)
-    if (!confirmedSnapshot) throw new Error('Expected a valid confirmed-review fixture')
-    const previewBrief = renderHumanConfirmedReviewBrief(confirmedSnapshot, 'en-US')
-    const source = 'Original reviewed chapter. '.repeat(100)
-    const revision = 'Corrected reviewed chapter. '.repeat(100)
-    const completeWithLease = vi.fn<GenerationRuntimeEnvironment['completeWithLease']>()
-      .mockResolvedValue({ content: revision, finishReason: 'stop' })
-    stubIpc(successfulRevisionIpc({ reviewContent: persistedConfirmation, currentDraftContent: source }))
-
-    await reviewCommand(completeWithLease, source, {
-      confirmedReviewContent: persistedConfirmation,
-    }).execute({
-      step: {},
-      context: { ...workflowContext(), writingLanguage: 'en-US' },
-      callbacks: callbacks(),
-    })
-
-    const prompt = completeWithLease.mock.calls[0]?.[0].messages
-      .map(message => message.content)
-      .join('\n') ?? ''
-    expect(previewBrief).toContain('[Confirmed review items included in this revision]')
-    expect(previewBrief).toContain('[Confirmed author guidance]')
-    expect(prompt).toContain(previewBrief)
-    expect(prompt).not.toContain('【已确认纳入本次修稿的审稿项】')
-    expect(prompt).not.toContain('【作者补充修稿指导】')
   })
 
   it('uses the persisted confirmation row as the only refinement input, records that row on the pending revision, and preserves the draft before merge', async () => {
@@ -1133,7 +1028,7 @@ describe('ReviewChapterCommand reasoning stage', () => {
       contentRevision: 8,
     }).execute({
       step: {},
-      context: { ...workflowContext(), writingLanguage: 'en-US', uiLocale: 'zh-CN' },
+      context: { ...workflowContext(), writingLanguage: 'zh-CN', uiLocale: 'zh-CN' },
       callbacks: callbacks(),
     }).catch(cause => cause)
 
@@ -1191,9 +1086,9 @@ describe('ReviewChapterCommand reasoning stage', () => {
   })
 
   it.each([
-    ['zh-CN', 'default'], ['zh-CN', 'custom'],
-    ['en-US', 'default'], ['en-US', 'custom'],
-  ] as const)('sends evidence and classification boundaries in %s/%s ordinary and rebuilt review requests', async (writingLanguage, templateSource) => {
+['zh-CN', 'default'],
+['zh-CN', 'custom']
+] as const)('sends evidence and classification boundaries in %s/%s ordinary and rebuilt review requests', async (writingLanguage, templateSource) => {
     const authorFact = 'AUTHOR_FACT_SENTINEL'
     const worldFact = 'WORLD_FACT_SENTINEL'
     const source = 'DRAFT_CONTENT_SENTINEL'
@@ -1203,7 +1098,7 @@ describe('ReviewChapterCommand reasoning stage', () => {
     useProjectStore.setState(state => ({
       currentProject: state.currentProject ? {
         ...state.currentProject,
-        novelConfig: { ...state.currentProject.novelConfig, writingLanguage, protagonistProfile: authorFact },
+        novelConfig: { ...state.currentProject.novelConfig, writingLanguage, globalGuidance: authorFact },
       } : null,
     }))
     const completeWithLease = vi.fn<GenerationRuntimeEnvironment['completeWithLease']>()
@@ -1296,9 +1191,9 @@ describe('ReviewChapterCommand reasoning stage', () => {
               writingStyle: 'AUTHOR_WRITING_STYLE：短句，克制，不使用全知视角。',
               narrativePOV: 'first_person',
               coreOutline: 'AUTHOR_CORE_OUTLINE：潮门真相只在终章揭晓。',
-              worldSetting: 'AUTHOR_WORLD_SETTING：月桂港每天只有一次退潮。',
-              goldenFinger: 'AUTHOR_GOLDEN_FINGER：主角只能听见潮汐钟。',
-              protagonistProfile: 'AUTHOR_PROTAGONIST：顾舟不会游泳。',
+
+
+
             },
           }
         : null,
@@ -1361,9 +1256,6 @@ describe('ReviewChapterCommand reasoning stage', () => {
     expect(reviewRequest).toContain('AUTHOR_WRITING_STYLE')
     expect(reviewRequest).toContain('first_person')
     expect(reviewRequest).toContain('AUTHOR_CORE_OUTLINE')
-    expect(reviewRequest).toContain('AUTHOR_WORLD_SETTING')
-    expect(reviewRequest).toContain('AUTHOR_GOLDEN_FINGER')
-    expect(reviewRequest).toContain('AUTHOR_PROTAGONIST')
     expect(reviewRequest).toContain('【本章作者指导｜约束】')
     expect(reviewRequest).toContain('【后续蓝图/计划｜非既定历史】')
     expect(reviewRequest).toContain('FUTURE_BLUEPRINT_PLAN')

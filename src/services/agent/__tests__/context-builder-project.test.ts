@@ -34,20 +34,7 @@ afterEach(() => {
 })
 
 describe('agent context project isolation', () => {
-  it('builds every built-in tool description in English without Chinese fallback', () => {
-    toolRegistry.registerAll(builtinTools)
-
-    const prompt = toolRegistry.generateToolPrompt(
-      'en-US',
-      tool => tool.source === 'builtin',
-    )
-
-    for (const tool of builtinTools) expect(prompt).toContain(`#### ${tool.name}`)
-    expect(prompt).toContain('Inside <tool_call>, emit exactly one JSON object; do not use <name> or <arguments> child tags.')
-    expect(prompt).not.toMatch(/[\u3400-\u9fff]/u)
-  })
-
-  it('uses the current UI language and only exposes project-independent tools when no project is open', async () => {
+  it('only exposes project-independent tools when no project is open', async () => {
     useLocaleStore.setState({ locale: 'en-US' })
     useProjectStore.setState({ currentProject: null })
     const executionContext = createAgentExecutionContext(null, useLocaleStore.getState().locale)
@@ -89,17 +76,16 @@ describe('agent context project isolation', () => {
 
     expect(Object.isFrozen(executionContext)).toBe(true)
     expect(executionContext.writingLanguage).toBe('en-US')
-    expect(prompt).toContain('You are an experienced long-form fiction-writing assistant')
-    expect(prompt).toContain('## Tool system')
-    expect(prompt).toContain('inspect_writing_skill')
-    expect(prompt).toContain('install_writing_skill')
+    expect(prompt).toContain('你是一位经验丰富的长篇小说写作助手')
+    expect(prompt).toContain('## 工具系统')
+    expect(prompt).toContain(inspectWritingSkillTool.userFacingName ?? inspectWritingSkillTool.name)
+    expect(prompt).toContain(installWritingSkillTool.userFacingName ?? installWritingSkillTool.name)
     expect(prompt).toContain('global_mcp_probe')
     expect(prompt).toContain('skill__global_probe')
     expect(prompt).not.toContain('no_project_probe')
-    expect(prompt).not.toMatch(/[\u3400-\u9fff]/u)
   })
 
-  it('keeps a frozen no-project English boundary if a Chinese project opens before prompt construction', async () => {
+  it('keeps a frozen no-project boundary if a project opens before prompt construction', async () => {
     useProjectStore.setState({ currentProject: null })
     const executionContext = createAgentExecutionContext(null, 'en-US')
     toolRegistry.register({
@@ -133,12 +119,11 @@ describe('agent context project isolation', () => {
 
     const prompt = await buildAgentSystemPrompt('fast', executionContext)
 
-    expect(prompt).toContain('You are an experienced long-form fiction-writing assistant')
+    expect(prompt).toContain('你是一位经验丰富的长篇小说写作助手')
     expect(prompt).not.toContain('迟到的中文项目')
-    expect(prompt).toContain('## Tool system')
+    expect(prompt).toContain('## 工具系统')
     expect(prompt).toContain('global_mcp_probe')
     expect(prompt).not.toContain('no_project_probe')
-    expect(prompt).not.toMatch(/[\u3400-\u9fff]/u)
   })
 
   it('keeps a project writing language independent from the UI locale', async () => {
@@ -160,14 +145,14 @@ describe('agent context project isolation', () => {
   })
 
   it('hydrates an assistant identity override before the first cold-start request', async () => {
-    const builtin = getBuiltinPromptTemplate('assistant_writing_identity', 'en-US')!
+    const builtin = getBuiltinPromptTemplate('assistant_writing_identity', 'zh-CN')!
     useProjectStore.setState({
       currentProject: {
         id: 'cold-start',
         sessionLease: 'lease-cold-start',
         name: 'Cold Start',
         path: 'C:\\novels\\cold-start',
-        novelConfig: { writingLanguage: 'en-US' },
+        novelConfig: { writingLanguage: 'zh-CN' },
       } as never,
     })
     vi.stubGlobal('window', {
@@ -176,15 +161,15 @@ describe('agent context project isolation', () => {
           if (channel === 'prompt:load-global') return { templates: [], diagnostics: [] }
           if (channel === 'fs:check-exists') return true
           if (channel === 'fs:list-dir') return [{
-            name: 'assistant_writing_identity.en-US.json',
-            path: 'C:\\novels\\cold-start\\.vela\\prompts\\assistant_writing_identity.en-US.json',
+            name: 'assistant_writing_identity.zh-CN.json',
+            path: 'C:\\novels\\cold-start\\.vela\\prompts\\assistant_writing_identity.zh-CN.json',
             isDir: false,
           }]
           if (channel === 'fs:read-file') return {
             success: true,
             content: JSON.stringify({
               ...builtin,
-              writingLanguage: 'en-US',
+              writingLanguage: 'zh-CN',
               systemRole: 'You are the cold-start continuity editor.',
             }),
           }
@@ -200,14 +185,14 @@ describe('agent context project isolation', () => {
         projectPath: 'C:\\novels\\cold-start',
       },
       selectedModelId: 'model-1',
-      uiLocale: 'en-US',
-      writingLanguage: 'en-US',
+      uiLocale: 'zh-CN',
+      writingLanguage: 'zh-CN',
     })
 
     expect(prompt).toContain('You are the cold-start continuity editor.')
   })
 
-  it('uses the language-specific project assistant role and guidance without exposing hidden contracts', async () => {
+  it('uses the custom project assistant role and guidance without exposing hidden contracts', async () => {
     const projectSession = {
       projectId: 'english-custom',
       leaseId: 'lease-english-custom',
@@ -219,7 +204,7 @@ describe('agent context project isolation', () => {
         sessionLease: projectSession.leaseId,
         name: 'Night Flight',
         path: projectSession.projectPath,
-        novelConfig: { writingLanguage: 'en-US' },
+        novelConfig: { writingLanguage: 'zh-CN' },
       } as never,
     })
     vi.stubGlobal('window', {
@@ -233,11 +218,11 @@ describe('agent context project isolation', () => {
       },
     })
     await loadProjectCustomPrompts(projectSession)
-    const builtin = getBuiltinPromptTemplate('assistant_writing_identity', 'en-US')
+    const builtin = getBuiltinPromptTemplate('assistant_writing_identity', 'zh-CN')
     expect(builtin).toBeDefined()
     await expect(saveProjectCustomPrompt(projectSession, {
       ...builtin!,
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
       systemRole: 'You are the author’s continuity partner.',
       taskGuidance: 'Question every unexplained change in motive.',
     })).resolves.toBe(true)
@@ -245,56 +230,13 @@ describe('agent context project isolation', () => {
     const prompt = await buildAgentSystemPrompt('fast', {
       projectSession,
       selectedModelId: 'model-1',
-      uiLocale: 'en-US',
-      writingLanguage: 'en-US',
+      uiLocale: 'zh-CN',
+      writingLanguage: 'zh-CN',
     })
 
     expect(prompt).toContain('You are the author’s continuity partner.')
     expect(prompt).toContain('Question every unexplained change in motive.')
-    expect(prompt).toContain('[Immutable system contract]')
-    expect(prompt).not.toMatch(/[\u3400-\u9fff]/u)
-  })
-
-  it('uses English identity, context labels, and tool protocol for an English project', async () => {
-    useProjectStore.setState({
-      currentProject: {
-        id: 'english',
-        name: 'Night Flight',
-        path: 'C:\\novels\\english',
-        novelConfig: {
-          writingLanguage: 'en-US',
-          genre: '科幻',
-          targetAudience: '全龄',
-          plotStructure: 'three_act',
-          narrativePOV: 'third_limited',
-          coreOutline: 'A pilot investigates a forged maintenance log.',
-        },
-      } as never,
-    })
-    toolRegistry.register({
-      name: 'test_chinese_description',
-      description: '这段中文描述不能进入英文模型提示词',
-      descriptionEn: 'Registered application tool.',
-      source: 'builtin',
-      inputSchema: {
-        type: 'object',
-        properties: { chapter: { type: 'number', description: '章节编号', descriptionEn: 'Chapter number' } },
-        required: ['chapter'],
-      },
-      requiresConfirmation: false,
-      isReadOnly: true,
-      execute: async () => ({ success: true, content: 'ok' }),
-    })
-
-    const prompt = await buildAgentSystemPrompt('fast')
-
-    expect(prompt).toContain('You are an experienced long-form fiction-writing assistant')
-    expect(prompt).toContain('## Tool system')
-    expect(prompt).toContain('test_chinese_description')
-    expect(prompt).toContain('Genre: Science fiction')
-    expect(prompt).toContain('Target readers: All ages')
-    expect(prompt).toContain('Point of view: Third-person limited')
-    expect(prompt).not.toMatch(/[\u3400-\u9fff]/u)
+    expect(prompt).toContain('【不可变系统合同】')
   })
 
   it('excludes preserved tabs from another project even if an old tab is still active', async () => {

@@ -1,20 +1,16 @@
-export const WRITING_LANGUAGES = ['zh-CN', 'en-US'] as const
+export const WRITING_LANGUAGES = ['zh-CN'] as const
 
-export type WritingLanguage = typeof WRITING_LANGUAGES[number]
-
+// Transport values may contain a language supplied by an external caller.
+export type WritingLanguage = 'zh-CN' | 'en-US'
 export const DEFAULT_WRITING_LANGUAGE: WritingLanguage = 'zh-CN'
 
-export function resolveWritingLanguage(value: unknown): WritingLanguage {
-  return WRITING_LANGUAGES.includes(value as WritingLanguage)
-    ? value as WritingLanguage
-    : DEFAULT_WRITING_LANGUAGE
+export function resolveWritingLanguage(_value?: unknown): WritingLanguage {
+  void _value;
+  return DEFAULT_WRITING_LANGUAGE
 }
 
-/** Select built-in copy by project writing language without inspecting user content. */
-export function writingLanguageText(
-  language: WritingLanguage,
-  zhCNText: string,
-  enUSText: string,
-): string {
-  return language === 'en-US' ? enUSText : zhCNText
+/** All built-in model-facing instructions use Chinese. */
+export function writingLanguageText(_language: WritingLanguage, zhCNText: string, _unused?: string): string {
+  void _language; void _unused;
+  return zhCNText
 }

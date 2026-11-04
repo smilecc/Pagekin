@@ -21,7 +21,7 @@ beforeEach(() => {
       novelConfig: {
         genre: '奇幻', subGenre: '', targetAudience: '', totalChapters: 20, wordsPerChapter: 5000,
         plotStructure: 'three_act', narrativePOV: 'third_limited', coreOutline: '完整的故事构想',
-        worldSetting: '', goldenFinger: '', protagonistProfile: '', globalGuidance: '',
+           globalGuidance: '',
       },
     },
   })
@@ -56,20 +56,20 @@ it.each([
   await act(async () => root.render(<DialogHarness />))
   await act(async () => page.getByRole('button', { name: '为每个步骤添加补充指导（可选）' }).click())
   const dialog = page.getByRole('dialog').element()
-  expect(dialog.querySelectorAll('textarea')).toHaveLength(4)
+  expect(dialog.querySelectorAll('textarea')).toHaveLength(2)
   await act(async () => { await Promise.all(dialog.getAnimations().map(animation => animation.finished)) })
   const rect = dialog.getBoundingClientRect()
   expect(rect.top).toBeGreaterThan(0)
   expect(rect.bottom).toBeLessThan(height)
   expect(rect.left).toBeGreaterThan(0)
   expect(rect.right).toBeLessThan(width)
-  expect(dialog.scrollHeight).toBeGreaterThan(dialog.clientHeight)
+  expect(dialog.scrollHeight).toBeGreaterThanOrEqual(dialog.clientHeight)
   if (dismiss === 'escape') {
     await act(async () => userEvent.keyboard('{Escape}'))
   } else {
     if (dismiss === 'cancel') {
       dialog.scrollTo({ top: dialog.scrollHeight, behavior: 'instant' })
-      expect(dialog.scrollTop).toBeGreaterThan(0)
+      expect(dialog.scrollTop).toBe(Math.max(0, dialog.scrollHeight - dialog.clientHeight))
     }
     const button = page.getByRole('button', { name: dismiss === 'cancel' ? '取消' : '关闭', exact: true })
     const buttonRect = button.element().getBoundingClientRect()

@@ -46,6 +46,7 @@ export interface ExportProjectSnapshot {
   novelConfig: Readonly<{
     genre: string
     targetAudience: string
+    coreOutline?: string
     writingLanguage: WritingLanguage
   }>
 }
@@ -216,11 +217,10 @@ function renderMarkdownChapter(
   chapterNumber: number,
   title: string,
   content: string,
-  writingLanguage: WritingLanguage,
+  _writingLanguage: WritingLanguage,
 ): string {
-  const chapterTitle = writingLanguage === 'en-US'
-    ? `Chapter ${chapterNumber}${title ? ` ${title}` : ''}`
-    : `第${chapterNumber}章${title ? ` ${title}` : ''}`
+  void _writingLanguage;
+  const chapterTitle = `第${chapterNumber}章${title ? ` ${title}` : ''}`
   const heading = `# ${chapterTitle}`
   const firstLineEnd = content.indexOf('\n')
   const firstLine = content
@@ -299,15 +299,7 @@ export async function exportNovel(
 
         // 可选：包含大纲
         if (options.includeOutline) {
-          const core = await ipc.invokeWithProjectSession(
-            projectSession,
-            'db:project-core-get',
-            projectSession.projectPath,
-          )
-          if (!isProjectSessionCurrent(projectSession)) return staleExportResult(uiLocale)
-          if (core?.synopsis) {
-            content += core.synopsis + '\n\n---\n\n'
-          }
+          if (project.novelConfig.coreOutline?.trim()) content += project.novelConfig.coreOutline + '\n\n---\n\n'
         }
 
         // 章节内容

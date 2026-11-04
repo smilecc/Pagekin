@@ -565,7 +565,7 @@ describe('审稿侧页与运行侧页', () => {
 })
 
 describe('写作此章、标签顶替与跨作品的请求', () => {
-  it('写作此章（定稿后打开下一章、Ctrl K）落到这一章的单章视图并弹出写作弹层，不再落到蓝图', async () => {
+  it('写作此章（定稿后打开下一章、Ctrl K）落到这一章的单章视图并弹出写作弹层，不再落到故事规划', async () => {
     await mount()
     await act(async () => stageNavigate({ kind: 'chapter', chapterNumber: 3, write: blueprintWritePrefill(BLUEPRINT) }))
     await expect.element(page.getByRole('dialog', { name: '本次写作选项' })).toBeVisible()
@@ -573,7 +573,7 @@ describe('写作此章、标签顶替与跨作品的请求', () => {
     expect(useStageStore.getState().writeRequest).toBeNull()
   })
 
-  it('这一章已经有稿：打开它的单章视图，写作请求落空，不会留到蓝图页再弹出', async () => {
+  it('这一章已经有稿：打开它的单章视图，写作请求落空，不会留到故事规划页再弹出', async () => {
     backend.addDraft({ status: 'draft' })
     await mount()
     await act(async () => stageNavigate({ kind: 'chapter', chapterNumber: 3, write: blueprintWritePrefill(BLUEPRINT) }))
@@ -581,33 +581,33 @@ describe('写作此章、标签顶替与跨作品的请求', () => {
     expect(useStageStore.getState().writeRequest).toBeNull()
   })
 
-  it('这一章还没有蓝图：单章视图提示先去蓝图规划，写作请求落空，不会等蓝图补上后在别处弹出', async () => {
+  it('这一章还没有故事规划：单章视图提示先去故事规划规划，写作请求落空，不会等故事规划补上后在别处弹出', async () => {
     await mount()
     await act(async () => stageNavigate({ kind: 'chapter', chapterNumber: 5, write: blueprintWritePrefill({ ...BLUEPRINT, chapterNumber: 5 }) }))
-    await expect.element(page.getByText('这一章还没有蓝图')).toBeVisible()
+    await expect.element(page.getByText('这一章还没有故事规划')).toBeVisible()
     expect([activeTab()?.type, activeTab()?.chapterNumber, useStageStore.getState().writeRequest]).toEqual(['chapter', 5, null])
   })
 
-  it('读本章蓝图失败：写明读取失败并可重试，不当成没有蓝图，写作请求留着；重试读到后弹出写作弹层', async () => {
+  it('读本章故事规划失败：写明读取失败并可重试，不当成没有故事规划，写作请求留着；重试读到后弹出写作弹层', async () => {
     const base = backend.invoke.getMockImplementation()!
     let failing = true
     backend.invoke.mockImplementation(async (channel: string, ...args: unknown[]) => channel === 'db:blueprint-get' && failing
       ? Promise.reject(new Error('数据库忙')) : base(channel, ...args))
     await mount()
     await act(async () => stageNavigate({ kind: 'chapter', chapterNumber: 3, write: blueprintWritePrefill(BLUEPRINT) }))
-    await expect.element(page.getByText('读取本章蓝图失败')).toBeVisible()
-    await expect.element(page.getByText('写作此章按本章蓝图写，读到之后才能开始。')).toBeVisible()
-    expect(page.getByText('这一章还没有蓝图').elements()).toHaveLength(0)
+    await expect.element(page.getByText('读取本章故事规划失败')).toBeVisible()
+    await expect.element(page.getByText('写作此章按本章故事规划写，读到之后才能开始。')).toBeVisible()
+    expect(page.getByText('这一章还没有故事规划').elements()).toHaveLength(0)
     expect(useStageStore.getState().writeRequest?.chapterNumber).toBe(3)
     failing = false
     await act(async () => page.getByRole('button', { name: '重新读取' }).click())
     await expect.element(page.getByRole('dialog', { name: '本次写作选项' })).toBeVisible()
   })
 
-  it('没有蓝图的待写章已经开着，之后再来的写作请求也落空', async () => {
+  it('没有故事规划的待写章已经开着，之后再来的写作请求也落空', async () => {
     await mount()
     await act(async () => stageNavigate({ kind: 'chapter', chapterNumber: 5 }))
-    await expect.element(page.getByText('这一章还没有蓝图')).toBeVisible()
+    await expect.element(page.getByText('这一章还没有故事规划')).toBeVisible()
     await act(async () => stageNavigate({ kind: 'chapter', chapterNumber: 5, write: blueprintWritePrefill({ ...BLUEPRINT, chapterNumber: 5 }) }))
     await vi.waitFor(() => expect(useStageStore.getState().writeRequest).toBeNull())
   })

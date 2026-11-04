@@ -21,14 +21,12 @@ const FIELD_NAMES: Record<ImportFillField, Pair> = {
   wordsPerChapter: ['每章字数', 'Words per chapter'],
   plotStructure: ['故事结构', 'Story structure'],
   narrativePov: ['叙事视角', 'Point of view'],
-  goldenFinger: ['金手指', 'Core hook'],
+
   globalGuidance: ['全局写作要求', 'Global guidance'],
-  coreOutline: ['核心大纲', 'Core outline'],
-  worldSetting: ['世界观（设定）', 'World (setup)'],
-  protagonistProfile: ['主角人设', 'Protagonist'],
-  premise: ['故事前提', 'Premise'],
-  worldbuilding: ['世界观（架构）', 'World (architecture)'],
-  synopsis: ['情节大纲', 'Plot outline'],
+  coreOutline: ['大纲', 'Outline'],
+
+  worldbuilding: ['世界观', 'World'],
+
   writingStyle: ['文风', 'Writing style'],
 }
 

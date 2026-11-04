@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
-import { Check, CircleDashed, GitBranch, History, Library, Settings, type LucideIcon } from 'lucide-react'
+import { Check, CircleDashed, GitBranch, History, Library, Settings, SlidersHorizontal, type LucideIcon } from 'lucide-react'
 import { useLocaleStore } from '../../stores/locale-store'
 import type { ResourcePage, WorkStage } from '../../stores/navigation/navigation-intents'
 import { chapterLabel } from '../../shared/chapter-label'
@@ -14,19 +14,18 @@ const RESOURCE_ICONS: Record<ResourcePage, LucideIcon> = { plot: GitBranch, know
 
 /** 未开始时说明这一步做什么，开始后给出进度。 */
 function stageMeta(status: StageStatus, text: Text): string {
-  const todo = status.progress.state === 'todo'
   switch (status.stage) {
+    case 'outline': case 'world': case 'cast': case 'style': case 'guidance':
+      return ''
     case 'setup':
       return status.missing.length === 0 ? text('完成', 'Done') : text(`还差 ${status.missing.length} 项`, `${status.missing.length} left`)
     case 'architecture':
-      return todo ? text('前提、角色、世界观、大纲', 'Premise, cast, world, outline') : `${status.filled} / ${status.total}`
+      return ''
     case 'blueprint':
-      if (todo) return text('逐章规划', 'Plan each chapter')
-      return status.total > status.planned
+      return status.total > 0
         ? text(`${status.planned} / ${status.total} 章`, `${status.planned} / ${status.total} ${pluralEn(status.total, 'chapter')}`)
-        : text(`${status.planned} 章`, `${status.planned} ${pluralEn(status.planned, 'chapter')}`)
+        : ''
     case 'manuscript':
-      if (todo) return text('写作、审稿、修稿、定稿', 'Write, review, revise, finalize')
       return status.total > 0
         ? text(`${status.finalized} / ${status.total} 定稿`, `${status.finalized} / ${status.total} final`)
         : text(`${status.finalized} 章定稿`, `${status.finalized} final`)
@@ -84,9 +83,11 @@ export default function StageSpine({ stages, chapters, location: activeLocation,
       <div className="stage-spine-label" aria-hidden="true">{text('创作流程', 'Writing flow')}</div>
       <ol className="stage-stages">
         {stages.map(status => row(status.stage, currentStage === status.stage, () => onStage(status.stage), <>
-          <StageMark progress={status.progress} />
+          {status.stage === 'architecture'
+            ? <SlidersHorizontal className="stage-row-icon" size={20} strokeWidth={1.5} aria-hidden="true" />
+            : <StageMark progress={status.progress} />}
           <span className="stage-row-name">{text(...STAGE_NAMES[status.stage])}</span>
-          <span className="stage-row-meta">{stageMeta(status, text)}</span>
+          {stageMeta(status, text) && <span className="stage-row-meta">{stageMeta(status, text)}</span>}
         </>, { 'data-state': status.progress.state, 'data-stage': status.stage }))}
       </ol>
 

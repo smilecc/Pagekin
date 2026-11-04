@@ -152,7 +152,7 @@ describe('剧情与伏笔', () => {
     await click('清除剧情树…')
     const dialog = document.querySelector('[role="dialog"]')!
     expect(dialog.textContent).toContain('清除剧情树？')
-    expect(dialog.textContent).toContain('蓝图、定稿和伏笔线索都不受影响')
+    expect(dialog.textContent).toContain('故事规划、定稿和伏笔线索都不受影响')
     expect(called('db:plot-tree-clear')).toHaveLength(0)
 
     await click('取消')

@@ -10,10 +10,11 @@ import { useProjectStore } from './project-store'
 import {
   CHARACTER_DRAFT_TAB,
   CONFIG_DRAFT_TAB,
+  getProjectEditorDraft,
   createEmptyProjectEditorDraftLedger,
   parseProjectEditorDraftLedger,
 } from './project-editor-draft-ledger'
-import type { ProjectSessionContext } from '../shared/ipc-channels'
+import type { NovelConfig, ProjectSessionContext } from '../shared/ipc-channels'
 import {
   projectSessionContextFromProject,
   sameProjectPathKey,
@@ -77,7 +78,12 @@ export function discardAndCloseEditorTab(
     if (tab.type === 'character') {
       useCharacterStore.getState().discardDraft(projectKey, expectedProjectSession)
     } else if (tab.type === 'config') {
-      useProjectStore.getState().discardNovelConfigDraft(projectKey, expectedProjectSession)
+      if (tab.configField) {
+        const draft = getProjectEditorDraft(parseProjectEditorDraftLedger<NovelConfig>(editor.draftLedgers[CONFIG_DRAFT_TAB.id]), projectKey)
+        if (draft) useProjectStore.getState().updateNovelConfig({ [tab.configField]: draft.baseValue[tab.configField as keyof NovelConfig] }, expectedProjectSession)
+      } else {
+        useProjectStore.getState().discardNovelConfigDraft(projectKey, expectedProjectSession)
+      }
     } else if (tab.type === 'chapter-card' && !tab.planningRecovery) {
       const ledger = parseChapterCardDraftLedger(
         useEditorStore.getState().draftLedgers[CHAPTER_CARD_TAB_ID],

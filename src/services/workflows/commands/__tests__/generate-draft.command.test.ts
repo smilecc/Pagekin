@@ -24,7 +24,6 @@ import type {
   GenerationOutcome,
   GenerationTask,
 } from '../../../generation/generation-harness'
-import { EN_US_BUILTIN_PROMPTS } from '../../../prompt-language'
 import { BUILTIN_PROMPTS, clearProjectCustomPrompts } from '../../../prompt-templates'
 import { composeDraftVisibleContinuation, DRAFT_VISIBLE_TEXT_VERSION } from '../../../../shared/draft-visible-text'
 import { stripDraftShortOutlineBlock } from '../../../../shared/draft-short-outline'
@@ -36,7 +35,6 @@ import {
   countDraftUnits,
   previousChapterEnding,
   sanitizeDraftText,
-  synopsisForDraftChapter,
   type GenerateDraftCommandDependencies,
 } from '../generate-draft.command'
 import { assembleChapterMaterials } from '../../chapter-materials'
@@ -60,53 +58,6 @@ describe('generate draft command text cleanup', () => {
     expect([first, second]).toEqual(original)
     expect(composeDraftVisibleContinuation(first, second)).not.toContain('内部推理')
     expect(composeDraftVisibleContinuation(first, second)).toContain('钟楼终于亮起灯。')
-  })
-  it.each(['```', '~~~'])('keeps quoted chapter examples inside %s fences verbatim', (fence) => {
-    const synopsis = `全局说明\n${fence}text\n## 第1章：示例\n作者不可丢事实甲\n## 第2章：示例\n作者不可丢事实乙\n${fence}\n全局尾部`
-    expect(synopsisForDraftChapter(synopsis, 2)).toBe(synopsis)
-  })
-
-  it('keeps global sections and the exact current chapter from an explicit Chinese chapter outline', () => {
-    const synopsis = `# 全书总纲
-潮门只能由守钟人开启。
-
-## 第1章：失钟
-顾舟遗失潮汐钟。
-
-## 第2章：回港
-顾舟在退潮前回到月桂港。
-
-## 第3章：潮门
-顾舟找到潮门。
-
-## 全局禁则
-潮门真相只能在终章揭晓。`
-
-    const projected = synopsisForDraftChapter(synopsis, 2)
-
-    expect(projected).toContain('潮门只能由守钟人开启')
-    expect(projected).toContain('## 第2章：回港')
-    expect(projected).toContain('潮门真相只能在终章揭晓')
-    expect(projected).not.toContain('顾舟遗失潮汐钟')
-    expect(projected).not.toContain('顾舟找到潮门')
-  })
-
-  it('keeps an ambiguous chapter outline verbatim instead of guessing which facts to drop', () => {
-    const synopsis = `## 第1章：甲
-事实甲。
-
-### 第2章：乙
-事实乙。`
-
-    expect(synopsisForDraftChapter(synopsis, 2)).toBe(synopsis)
-  })
-
-  it('does not treat ordinary prose mentioning a later chapter as a chapter heading', () => {
-    const synopsis = `全局说明：第2章发生的事将在未来改变潮门归属。
-
-普通正文仍属于全局大纲，不含 Markdown 章节标题。`
-
-    expect(synopsisForDraftChapter(synopsis, 2)).toBe(synopsis)
   })
 
   it('removes thinking residue and continue UI prompts from draft text', () => {
@@ -173,39 +124,9 @@ describe('built-in author-guidance prompt boundaries', () => {
   it('keeps global guidance compact and out of the chapter-outline role in both languages', () => {
     const zh = BUILTIN_PROMPTS.find(template => template.key === 'generate_global_config')
     const zhField = BUILTIN_PROMPTS.find(template => template.key === 'generate_novel_config_field')
-    const en = EN_US_BUILTIN_PROMPTS.generate_global_config
-    const enField = EN_US_BUILTIN_PROMPTS.generate_novel_config_field
 
     expect(`${zh?.content}\n${zh?.systemSuffix}`).toMatch(/globalGuidance[\s\S]*禁止逐章/u)
     expect(zhField?.systemSuffix).toMatch(/globalGuidance[\s\S]*禁止逐章/u)
-    expect(`${en.content}\n${en.systemSuffix}`).toMatch(/globalGuidance[\s\S]*must not enumerate chapters/i)
-    expect(en.content).toContain('no more than 600 characters')
-    expect(enField.systemSuffix).toMatch(/globalGuidance[\s\S]*must not enumerate chapters/i)
-  })
-
-  it('keeps generic draft conventions subordinate to the current chapter brief', () => {
-    const zhFirst = BUILTIN_PROMPTS.find(template => template.key === 'first_chapter_draft')
-    const zhNext = BUILTIN_PROMPTS.find(template => template.key === 'next_chapter_draft')
-    const enFirst = EN_US_BUILTIN_PROMPTS.first_chapter_draft
-    const enNext = EN_US_BUILTIN_PROMPTS.next_chapter_draft
-
-    expect(`${zhFirst?.content}\n${zhFirst?.systemSuffix}`).toContain('仅当【本章信息】明确要求时才展现主角的金手指')
-    expect(zhFirst?.content).toContain('不得仅为展示信息而让角色公开说出只由其私下感知、尚未转述的内容')
-    expect(zhFirst?.content).not.toContain('全部改成"角色对话 + 神态描写 + 动作互动"')
-    expect(zhFirst?.content).toContain('{{chapter_info}}')
-    expect(zhFirst?.content).toContain('{{global_guidance}}')
-    expect(zhFirst?.systemSuffix).toContain('{{user_guidance}}')
-    expect(`${zhFirst?.content}\n${zhFirst?.systemSuffix}`).not.toContain('留置一个强力钩子')
-    expect(`${zhNext?.content}\n${zhNext?.systemSuffix}`).toContain('不因此成为已发生事件')
-    expect(`${zhNext?.content}\n${zhNext?.systemSuffix}`).not.toContain('上述事件已经发生完毕')
-    expect(`${zhNext?.content}\n${zhNext?.systemSuffix}`).not.toContain('必须卡在一个剧情的小高潮点或突发变故上')
-    expect(`${enFirst.content}\n${enFirst.systemSuffix}`).toContain('only when the chapter brief explicitly requires it')
-    expect(enFirst.content).toContain('Do not turn private perception into public dialogue merely to expose information')
-    expect(enFirst.content).toContain('{{chapter_info}}')
-    expect(enFirst.content).toContain('{{global_guidance}}')
-    expect(enFirst.systemSuffix).toContain('{{user_guidance}}')
-    expect(`${enNext.content}\n${enNext.systemSuffix}`).toContain('do not thereby become completed events')
-    expect(`${enNext.content}\n${enNext.systemSuffix}`).not.toContain('Those events have already happened')
   })
 })
 
@@ -363,6 +284,33 @@ const FINALIZED_FACT_PRECEDENCE = {
 } as const
 
 describe('GenerateDraftCommand generation runtime boundary', () => {
+  it('injects explicitly selected character profiles when the plan only uses pronouns and titles', async () => {
+    const runtime = fakeRuntime(() => outcome('港口发生新的行动。'.repeat(60), 'stop'))
+    const f = setup({ runtime, wordsTarget: 500, characters: ['林岚', '顾舟'], keyEvents: '她找到师父，两人约定返回码头。',
+      characterCards: [
+        { name: '林岚', role: 'protagonist', personality: 'SELECTED_LIN_PROFILE', currentState: {} },
+        { name: '顾舟', role: 'supporting', personality: 'SELECTED_GU_PROFILE', currentState: {} },
+        { name: '王五', role: 'supporting', personality: 'UNRELATED_PROFILE', currentState: {} },
+      ] })
+    await f.command.execute({ step: {}, context: f.context, callbacks: f.callbacks })
+    const requests = JSON.stringify(runtime.complete.mock.calls)
+    expect(requests).toContain('SELECTED_LIN_PROFILE')
+    expect(requests).toContain('SELECTED_GU_PROFILE')
+    expect(requests).not.toContain('UNRELATED_PROFILE')
+  })
+  it('uses current worldbuilding and planning prose without removed premise or synopsis inputs', async () => {
+    const runtime = fakeRuntime(() => outcome('港口发生新的行动。'.repeat(60), 'stop'))
+    const f = setup({ runtime, wordsTarget: 500, premise: 'REMOVED_PREMISE', synopsis: 'REMOVED_SYNOPSIS', worldbuilding: 'CURRENT_WORLD港口禁止夜航。',
+      characters: [], keyEvents: '林岚检查港口封条，并找到新的线索。',
+      characterCards: [{ name: '林岚', role: 'protagonist', personality: 'CURRENT_CAST谨慎细致', currentState: {} }] })
+    await f.command.execute({ step: {}, context: f.context, callbacks: f.callbacks })
+    const requests = JSON.stringify(runtime.complete.mock.calls)
+    expect(requests).toContain('CURRENT_WORLD')
+    expect(requests).toContain('CURRENT_CAST')
+    expect(requests).not.toContain('REMOVED_PREMISE')
+    expect(requests).not.toContain('REMOVED_SYNOPSIS')
+  })
+
   const projectPath = 'C:\\novels\\generation-runtime'
   const editorState = useEditorStore.getState()
 
@@ -390,9 +338,9 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
     globalGuidance?: string
     writingStyle?: string
     coreOutline?: string
-    worldSetting?: string
-    goldenFinger?: string
-    protagonistProfile?: string
+
+
+
     writingLanguage?: 'zh-CN' | 'en-US'
     uiLocale?: 'zh-CN' | 'en-US'
     chapterNumber?: number
@@ -538,7 +486,7 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
       if (channel === 'db:character-get-all') return options.characterCards ?? []
       if (channel === 'db:character-roster-read') return {
         status: 'ready',
-        entries: options.characterCards ?? [],
+        entries: options.characterCards ?? (options.characters ?? []).map(name => ({ name, role: 'supporting' })),
         aliases: options.characterAliases ?? [],
       }
       if (channel === 'db:draft-get-latest') return options.sourceDraft ?? null
@@ -581,9 +529,9 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
           globalGuidance: options.globalGuidance,
           writingStyle: options.writingStyle,
           coreOutline: options.coreOutline,
-          worldSetting: options.worldSetting,
-          goldenFinger: options.goldenFinger,
-          protagonistProfile: options.protagonistProfile,
+
+
+
         },
       } as never,
       refreshFileTree: vi.fn().mockResolvedValue(undefined),
@@ -677,7 +625,7 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
         if ((args[0] as { task: GenerationTask }).task.purpose === 'chapter-draft-short-outline')
           return { outcome: outcome('目标：读信；前驱：信已送到；行动与结果：本章读完信；结尾：保留原约束。', 'stop'), run: view }
         if (edit) useProjectStore.setState(state => ({ currentProject: { ...state.currentProject!,
-          novelConfig: { ...state.currentProject!.novelConfig, worldSetting: '作者刚补写的世界设定' } } }))
+          novelConfig: { ...state.currentProject!.novelConfig, coreOutline: '作者修改后的大纲' } } }))
         const result = outcome(raw, 'stop')
         result.receipt.visibleArtifact = { artifactId: '正文片', attemptId: '物理请求', revision: 1, textHash: hash(raw) }
         return { outcome: result, run: view }
@@ -865,7 +813,7 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
       if (channel === 'generation:read') return view
       if (channel === 'generation:read-context') return { draftSave: { kind: 'absent' }, handle, operation: 'chapter-draft', chapterNumber: 1,
         authorInputs: [
-          { id: 'draft:chapter-info', text: JSON.stringify({ chapterNumber: 1, title: '第一章', role: '开端', purpose: '建立冲突', characters: [], keyEvents: '开端' }) },
+          { id: 'draft:chapter-info', text: JSON.stringify({ chapterNumber: 1, title: '第一章', keyEvents: '开端', characters: [] }) },
           { id: 'draft:author-config', text: JSON.stringify(useProjectStore.getState().currentProject!.novelConfig) },
           { id: 'draft:target-units', text: '900' },
         ], selectedDraftIds: [], selectedFinalizedDraftIds: [], selectedBlueprintChapterNumbers: [1, 2, 3, 4, 5, 6],
@@ -913,7 +861,7 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
       if (channel === 'generation:read-context') return { handle, operation: 'chapter-draft', chapterNumber: 1,
         draftSave: { kind: ++reads === changedAt ? 'changed' : 'absent' },
         authorInputs: [
-          { id: 'draft:chapter-info', text: JSON.stringify({ chapterNumber: 1, title: '第一章', role: '开端', purpose: '建立冲突', characters: [], keyEvents: '开端' }) },
+          { id: 'draft:chapter-info', text: JSON.stringify({ chapterNumber: 1, title: '第一章', keyEvents: '开端', characters: [] }) },
           { id: 'draft:author-config', text: JSON.stringify(useProjectStore.getState().currentProject!.novelConfig) },
           { id: 'draft:target-units', text: '900' },
         ], selectedDraftIds: [], selectedFinalizedDraftIds: [], selectedBlueprintChapterNumbers: [1, 2, 3, 4, 5, 6],
@@ -952,7 +900,7 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
       if (channel === 'generation:read') return view
       if (channel === 'generation:read-context') return { draftSave: { kind: 'absent' }, handle, operation: 'chapter-draft', chapterNumber: 1,
         authorInputs: [
-          { id: 'draft:chapter-info', text: JSON.stringify({ chapterNumber: 1, title: '第一章', role: '开端', purpose: '建立冲突', characters: [], keyEvents: '开端' }) },
+          { id: 'draft:chapter-info', text: JSON.stringify({ chapterNumber: 1, title: '第一章', keyEvents: '开端', characters: [] }) },
           { id: 'draft:author-config', text: JSON.stringify(useProjectStore.getState().currentProject!.novelConfig) },
           { id: 'draft:target-units', text: '900' },
         ], selectedDraftIds: [], selectedFinalizedDraftIds: [], selectedBlueprintChapterNumbers: [1, 2, 3, 4, 5, 6],
@@ -1007,7 +955,7 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
       if (channel === 'generation:read') return view
       if (channel === 'generation:read-context') return { draftSave: { kind: 'absent' }, handle, operation: 'chapter-draft', chapterNumber: 1,
         authorInputs: [
-          { id: 'draft:chapter-info', text: JSON.stringify({ chapterNumber: 1, title: '第一章', role: '开端', purpose: '建立冲突', characters: [], keyEvents: '开端' }) },
+          { id: 'draft:chapter-info', text: JSON.stringify({ chapterNumber: 1, title: '第一章', keyEvents: '开端', characters: [] }) },
           { id: 'draft:author-config', text: JSON.stringify(useProjectStore.getState().currentProject!.novelConfig) },
           { id: 'draft:target-units', text: '900' },
         ], selectedDraftIds: [], selectedFinalizedDraftIds: [], selectedBlueprintChapterNumbers: [1, 2, 3, 4, 5, 6],
@@ -1076,7 +1024,7 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
     f.invoke.mockImplementation(async (channel, ...args) => {
       if (channel === 'generation:read-context') return { draftSave: { kind: 'absent' }, handle, modelId: '合成模型', operation: 'chapter-draft', chapterNumber: 1,
         batchId: scenario.recoveryBatch, authorInputs: [
-          { id: 'draft:chapter-info', text: JSON.stringify({ chapterNumber: 1, title: '第一章', role: '开端', purpose: '建立冲突', characters: [], keyEvents: '开端' }) },
+          { id: 'draft:chapter-info', text: JSON.stringify({ chapterNumber: 1, title: '第一章', keyEvents: '开端', characters: [] }) },
           { id: 'draft:author-config', text: JSON.stringify(useProjectStore.getState().currentProject!.novelConfig) },
           { id: 'draft:target-units', text: '100' },
         ], selectedDraftIds: [], selectedFinalizedDraftIds: [], selectedBlueprintChapterNumbers: [1, 2, 3, 4, 5, 6],
@@ -1290,29 +1238,9 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
     expect(invoke.mock.calls.some(([channel]) => channel === 'db:recovery-candidate-record')).toBe(false)
   })
 
-  it('uses the frozen English UI locale for draft start and save logs', async () => {
-    const runtime = fakeRuntime(() => outcome('Draft prose. '.repeat(250), 'stop'))
-    const { context, callbacks, command } = setup({
-      runtime,
-      writingLanguage: 'zh-CN',
-      uiLocale: 'en-US',
-      wordsTarget: 500,
-    })
-
-    await command.execute({ step: {}, context, callbacks })
-
-    const visibleLogs = vi.mocked(callbacks.log).mock.calls.flat().join('\n')
-    expect(visibleLogs).toContain('Building chapter context')
-    expect(visibleLogs).toContain('Calling AI to generate the chapter draft')
-    expect(visibleLogs).toContain('Draft saved automatically as version v1')
-    expect(visibleLogs).not.toMatch(/拼装章节上下文|调用 AI 生成章节草稿|草稿已自动入库/u)
-  })
-
   it.each([
     { uiLocale: 'zh-CN', writingLanguage: 'zh-CN', expected: '你是一位经验丰富的小说作者', unexpected: 'You are an experienced fiction writer' },
     { uiLocale: 'en-US', writingLanguage: 'zh-CN', expected: '你是一位经验丰富的小说作者', unexpected: 'You are an experienced fiction writer' },
-    { uiLocale: 'zh-CN', writingLanguage: 'en-US', expected: 'You are an experienced fiction writer', unexpected: '你是一位经验丰富的小说作者' },
-    { uiLocale: 'en-US', writingLanguage: 'en-US', expected: 'You are an experienced fiction writer', unexpected: '你是一位经验丰富的小说作者' },
   ] as const)(
     'sends $writingLanguage built-in instructions through the provider request in a $uiLocale interface',
     async ({ uiLocale, writingLanguage, expected, unexpected }) => {
@@ -1407,34 +1335,12 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
     expect(runtime.complete).toHaveBeenCalledOnce()
   })
 
-  it('sends the English length contract with word counting, a tighter aim, and a reference maximum', async () => {
-    let observedTask: GenerationTask | undefined
-    const runtime = fakeRuntime((_attempt, task) => {
-      observedTask = task
-      return outcome('word '.repeat(900), 'stop')
-    })
-    const { context, callbacks, command } = setup({ runtime, writingLanguage: 'en-US', wordsTarget: 900 })
-
-    await command.execute({ step: {}, context, callbacks })
-
-    const user = observedTask?.messages.find(message => message.role === 'user')?.content ?? ''
-    expect(user).toContain('[Chapter length contract]\nTarget: 900 words (counted as words, excluding punctuation); aim for about 765-900 words. 1170 words is a reference maximum; longer complete drafts are kept with a notice. Drafts under 630 words are rejected.')
-    expect(user).toContain('compress description and transitions and use fewer scenes rather than dropping required events')
-    expect(user).not.toContain('acceptable range')
-  })
-
   it.each([
     {
       writingLanguage: 'zh-CN' as const,
       heading: '【本章执行合同】',
-      labels: ['必需事件', '章节钩子', '作者本章指导'],
+      labels: ['必需事件', '作者本章指导'],
       semanticChecks: ['按作者原文含义遵循', '正文动作或结果落实', '叙述约束', '不要仅为证明遵守而新增或反复确认', '按原文揭示时点', '作者明确要求的回顾、回忆、动作、揭示或反复仍按原文执行'],
-    },
-    {
-      writingLanguage: 'en-US' as const,
-      heading: '[Current-chapter execution contract]',
-      labels: ['Required events', 'Chapter hook', 'Author guidance for this chapter'],
-      semanticChecks: ['Follow the author text according to its meaning', 'manuscript action or outcome', 'narrative constraints', 'do not add or repeatedly confirm', 'reveal timing specified by the author', 'explicitly requested recollections, flashbacks, actions, reveals, or repetition'],
     },
   ].flatMap(language => [1, 2].map(chapterNumber => ({ ...language, chapterNumber }))))('places one $writingLanguage chapter $chapterNumber execution contract before the length contract', async ({
     writingLanguage,
@@ -1449,7 +1355,6 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
       return outcome('正'.repeat(900), 'stop')
     })
     const keyEvents = '顾弦把潮印实际交给陆霁。潮印此后由陆霁保管。'
-    const suspenseHook = '本章只听到记录机倒带声；第二章才揭示来源。'
     const userGuidance = '四拍灯码暂时只有陆霁知道；不要让她重复解释；用克制语气叙述。'
     const { context, callbacks, command } = setup({
       runtime,
@@ -1457,7 +1362,6 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
       chapterNumber,
       wordsTarget: 900,
       keyEvents,
-      suspenseHook,
       userGuidance,
       previousFinalizedContent: chapterNumber === 2 ? '上一章正文已完成。'.repeat(100) : undefined,
     })
@@ -1469,7 +1373,7 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
     const user = messages[1]!.content
     const executionCardIndex = user.indexOf(`- ${labels[0]}:`)
     const lengthContractIndex = user.indexOf(
-      writingLanguage === 'en-US' ? '[Chapter length contract]' : '【本章篇幅合同】',
+      '【本章篇幅合同】',
     )
     expect(messages.map(message => message.role)).toEqual(['system', 'user'])
     expect(system.includes(heading)).toBe(true)
@@ -1478,28 +1382,25 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
     expect(executionCardIndex).toBeGreaterThanOrEqual(0)
     expect(lengthContractIndex).toBeGreaterThan(executionCardIndex)
     expect(user.slice(executionCardIndex, lengthContractIndex)).toContain(`- ${labels[0]}: ${keyEvents}`)
-    expect(user.slice(executionCardIndex, lengthContractIndex)).toContain(`- ${labels[1]}: ${suspenseHook}`)
-    expect(user.slice(executionCardIndex, lengthContractIndex)).toContain(`- ${labels[2]}: ${userGuidance}`)
+    expect(user.slice(executionCardIndex, lengthContractIndex)).toContain(`- ${labels[1]}: ${userGuidance}`)
     for (const instruction of semanticChecks) {
       expect(system).toContain(instruction)
       expect(user).not.toContain(instruction)
     }
-    for (const authorText of [keyEvents, suspenseHook, userGuidance]) expect(system).not.toContain(authorText)
+    for (const authorText of [keyEvents, userGuidance]) expect(system).not.toContain(authorText)
     expect(system).toContain(
-      writingLanguage === 'en-US'
-        ? 'Each later action must continue from the item ownership, character knowledge, and plan-completion state actually established in the prose.'
-        : '后一项动作必须承接正文实际形成的物品持有、人物知情和计划完成状态。',
+      '后一项动作必须承接正文实际形成的物品持有、人物知情和计划完成状态。',
     )
     expect(system).toContain(
-      writingLanguage === 'en-US' ? 'New actions and outcomes consistent with established facts are allowed. Ordinary events need no added cost.' : '可以写与既有事实相容的新行动和结果；普通无代价情节无需增加代价。',
+      '可以写与既有事实相容的新行动和结果；普通无代价情节无需增加代价。',
     )
     if (chapterNumber === 1) {
-      expect(system).not.toContain(writingLanguage === 'en-US' ? 'This chapter follows directly on the previous chapter' : '本章紧接上一章结尾')
+      expect(system).not.toContain('本章紧接上一章结尾')
     }
     expect(runtime.complete).toHaveBeenCalledOnce()
   })
 
-  it('retains all three author fields in the final task when a custom draft template omits chapter_info', async () => {
+  it('retains planning text and per-run author guidance in the final task when a custom draft template omits chapter_info', async () => {
     clearProjectCustomPrompts()
     let observedTask: GenerationTask | undefined
     const runtime = fakeRuntime((_attempt, task) => {
@@ -1508,13 +1409,11 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
     })
     const builtin = BUILTIN_PROMPTS.find(template => template.key === 'first_chapter_draft')!
     const keyEvents = '顾弦把潮印交给陆霁。'
-    const suspenseHook = '来源留待下一章揭示。'
     const userGuidance = '保持克制，潮印由陆霁保管。'
     const { context, callbacks, command } = setup({
       runtime,
       wordsTarget: 900,
       keyEvents,
-      suspenseHook,
       userGuidance,
       customDraftTemplate: {
         ...builtin,
@@ -1530,11 +1429,10 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
     const user = observedTask?.messages.find(message => message.role === 'user')?.content ?? ''
     expect(user).toContain('自定义正文任务。')
     expect(user).toContain(`- 必需事件: ${keyEvents}`)
-    expect(user).toContain(`- 章节钩子: ${suspenseHook}`)
     expect(user).toContain(`- 作者本章指导: ${userGuidance}`)
   })
 
-  it('omits the execution card when all three author fields are empty', async () => {
+  it('omits the execution card when planning text and per-run author guidance are empty', async () => {
     let observedTask: GenerationTask | undefined
     const runtime = fakeRuntime((_attempt, task) => {
       observedTask = task
@@ -1545,7 +1443,6 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
       writingLanguage: 'zh-CN',
       wordsTarget: 900,
       keyEvents: '',
-      suspenseHook: '  ',
       userGuidance: '',
     })
 
@@ -1557,27 +1454,6 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
     expect(user).not.toContain('【本章执行合同】')
     expect(user).toContain('【本章篇幅合同】')
     expect(runtime.complete).toHaveBeenCalledOnce()
-  })
-
-  it('sends English continuation-stage instructions for an English project', async () => {
-    let observedTask: GenerationTask | undefined
-    const runtime = fakeRuntime((_attempt, task) => {
-      observedTask = task
-      return outcome('Continuation prose. '.repeat(250), 'stop')
-    })
-    const { context, callbacks, command } = setup({
-      runtime,
-      writingLanguage: 'en-US',
-      chapterNumber: 2,
-      wordsTarget: 500,
-      previousFinalizedContent: 'The previous chapter is finalized.',
-    })
-
-    await command.execute({ step: {}, context, callbacks })
-
-    const requestText = observedTask?.messages.map(message => message.content).join('\n') ?? ''
-    expect(requestText).toContain('You are serializing the latest chapter.')
-    expect(requestText).not.toContain('你正在连载写作最新章节')
   })
 
   it('freezes one lease and one budget across initial and continuation attempts after model/config changes', async () => {
@@ -2075,9 +1951,7 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
 
   it.each([
     { writingLanguage: 'zh-CN', source: 'finalized' },
-    { writingLanguage: 'en-US', source: 'finalized' },
     { writingLanguage: 'zh-CN', source: 'candidate' },
-    { writingLanguage: 'en-US', source: 'candidate' },
   ] as const)('sends the full $writingLanguage $source predecessor in drafting and continuation', async ({ writingLanguage, source }) => {
     const previous = [
       'The wooden door opens only from inside. 木门只能从里面打开。',
@@ -2187,7 +2061,7 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
     const previousFinalizedContent = '上一章仍在港口。'.repeat(100) + 'PREVIOUS_TAIL_钥匙仍由林舟保管。'
     const runtime = fakeRuntime(() => outcome('港口发生新的行动。'.repeat(60), 'stop'))
     const { context, callbacks, command } = setup({
-      runtime, chapterNumber, wordsTarget: 500, blueprints, worldSetting,
+      runtime, chapterNumber, wordsTarget: 500, blueprints, worldbuilding: worldSetting,
       ...(chapterNumber === 2 ? { previousFinalizedContent } : {}),
       knowledgeResults: [{ text: 'OPTIONAL_REFERENCE_港口背景。', score: 0.9, fileName: 'port.txt' }],
     })
@@ -2336,39 +2210,6 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
     })
   })
 
-  it('distinguishes author hard constraints from finalized state changes in English', async () => {
-    let observedTask: GenerationTask | undefined
-    const runtime = fakeRuntime((_attempt, task) => {
-      observedTask = task
-      return outcome('New chapter prose. '.repeat(200), 'stop')
-    })
-    const { context, callbacks, command } = setup({
-      runtime,
-      writingLanguage: 'en-US',
-      chapterNumber: 2,
-      wordsTarget: 500,
-      continuity: [{
-        draftId: 41,
-        chapterNumber: 1,
-        chapterTitle: 'Transfer',
-        chapterNotes: '',
-        facts: [{
-          category: 'character-state',
-          entities: ['Maya'],
-          statement: 'Maya transferred the key.',
-          sourceChapter: 1,
-          evidence: 'Maya put the key in Eli’s hand.',
-        }],
-      }],
-    })
-
-    await command.execute({ step: {}, context, callbacks })
-
-    const prompt = observedTask?.messages.find(message => message.role === 'user')?.content ?? ''
-    expect(prompt).toContain('Finalized excerpts establish only their exact text')
-    expect(prompt).toContain('summaries, and currentState are not author facts')
-  })
-
   it('puts an explicit knowledge hint before more than eight generated query terms', async () => {
     const runtime = fakeRuntime(() => outcome('新章正文。'.repeat(125), 'stop'))
     const { invoke, context, callbacks, command } = setup({
@@ -2420,11 +2261,6 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
       forbiddenReplay: '不得引用、摘要、回放或重演',
       presentHeadings: ['【有来源的历史与候选】', '【定稿原文 · 第1章', '【本章写作方向与核心任务】', '【后续计划边界'],
       prunedSections: ['【剧情记忆库与前置断点上下文】', '[全局剧情进展]', '[角色状态监控]', '[近期三章简要]', '上一章已完成的结尾状态', '【后续章节大纲预告】', '【知识库资料'] },
-    { writingLanguage: 'en-US' as const,
-      completedBoundary: '1. The [Finalized manuscript · Chapter N] passages (and any author-selected [Unfinalized candidate · Chapter N] passages) under [Sourced history and candidates] are prose written before this chapter; the end of the latest one is the previous chapter\'s completed state. [Chapter brief] and [Future-plan boundary] do not thereby become completed events.',
-      forbiddenReplay: 'Do not quote, summarize, replay, or restage',
-      presentHeadings: ['[Sourced history and candidates]', '[Finalized manuscript · Chapter 1', '[Chapter brief]', '[Future-plan boundary'],
-      prunedSections: ['[Story memory and previous stopping point]', 'Overall progress:', 'Character states:', 'Recent chapters:', 'Completed ending state of the previous chapter', '[Upcoming chapter blueprints', '[Knowledge-base context]'] },
   ])('marks previous prose as completed history and prunes empty context sections in $writingLanguage', async ({
     writingLanguage,
     completedBoundary,
@@ -2518,70 +2354,11 @@ describe('GenerateDraftCommand generation runtime boundary', () => {
     expect(completePrompt).toContain(coreOutline)
   })
 
-  it.each(['## ', ''])('bounds an explicit long chapter outline with heading prefix %j while retaining author facts', async (headingPrefix) => {
-    const worldbuilding = [
-      '世界规则开始：月桂港每天只有一次退潮。',
-      // 必需材料现在也受预算（决定 1B），这份世界设定会同时进入架构与作者资料，
-      // 所以长度要留在材料容量之内，同时仍然长到足以验证架构侧的精确去重。
-      '港务规则必须服从潮汐钟。'.repeat(300),
-      '世界观尾部关键事实：顾舟不会游泳。',
-    ].join('\n')
-    const synopsis = (outsideChapterSize: number) => `# 全书总纲
-全局关键事实：潮门真相只能在终章揭晓。
-
-${headingPrefix}第1章：失钟
-第一章非当前内容开始。${'旧案延展。'.repeat(outsideChapterSize)}第一章非当前内容结束。
-
-${headingPrefix}第2章：回港
-当前章关键事实：顾舟必须在退潮前拿回潮汐钟。
-
-${headingPrefix}第3章：潮门
-第三章非当前内容开始。${'后续延展。'.repeat(outsideChapterSize)}第三章非当前内容结束。
-
-## 全局禁则
-全局尾部关键事实：任何人不得提前知道潮门来源。`
-    const run = async (outline: string) => {
-      const runtime = fakeOutcomes(outcome(`${'正文'.repeat(250)}。`, 'stop'))
-      const { context, callbacks, command } = setup({
-        runtime,
-        chapterNumber: 2,
-        wordsTarget: 500,
-        previousFinalizedContent: '第一章定稿原文。',
-        worldbuilding,
-        worldSetting: worldbuilding,
-        coreOutline: '作者核心事实：顾舟必须查清潮门来源。',
-        synopsis: outline,
-      })
-
-      await command.execute({ step: {}, context, callbacks })
-      return runtime.complete.mock.calls[0]?.[0].messages
-        .find(message => message.role === 'user')?.content ?? ''
-    }
-
-    const shortPrompt = await run(synopsis(2))
-    const longPrompt = await run(synopsis(4_000))
-
-    expect(longPrompt).toContain('全局关键事实：潮门真相只能在终章揭晓')
-    expect(longPrompt).toContain('当前章关键事实：顾舟必须在退潮前拿回潮汐钟')
-    expect(longPrompt).toContain('全局尾部关键事实：任何人不得提前知道潮门来源')
-    expect(longPrompt).toContain('世界观尾部关键事实：顾舟不会游泳')
-    expect(longPrompt).toContain('作者核心事实：顾舟必须查清潮门来源')
-    expect(longPrompt).not.toContain('第一章非当前内容开始')
-    expect(longPrompt).not.toContain('第三章非当前内容开始')
-    expect(longPrompt.length).toBe(shortPrompt.length)
-    expect(longPrompt.match(/世界观尾部关键事实：顾舟不会游泳/gu)).toHaveLength(1)
-  })
-
   it.each([
     {
       writingLanguage: 'zh-CN' as const,
       ...FINALIZED_FACT_PRECEDENCE['zh-CN'],
       continuationContext: '【本章已写正文全文】',
-    },
-    {
-      writingLanguage: 'en-US' as const,
-      ...FINALIZED_FACT_PRECEDENCE['en-US'],
-      continuationContext: '[Full existing manuscript for this chapter]',
     },
   ])('puts the $writingLanguage finalized-fact precedence rule in initial and continuation requests', async ({
     writingLanguage, heading, unresolved, verification, planDecision, supportedDecision, authorBoundary, noRetroactiveExecution,
@@ -2796,12 +2573,12 @@ ${headingPrefix}第3章：潮门
   })
 
   describe('new runs draft from author and finalized material plus a short outline', () => {
-    it.each(['zh-CN', 'en-US'] as const)('starts with the %s draft and preserves required material through continuation', async writingLanguage => {
+    it.each(['zh-CN'] as const)('starts with the %s draft and preserves required material through continuation', async writingLanguage => {
       const runtime = fakeRuntime(attempt => attempt === 1 ? outcome('初'.repeat(100), 'length', 1) : outcome(`${'续'.repeat(400)}。`, 'stop', 2),
         () => { throw new Error('new runs must not ask for generated planning') })
       const source = '林澄写下核查安排。\n\n作者更正：林澄撤回先前核查安排，等待新的通行许可。'
       const { context, callbacks, command } = setup({ runtime, wordsTarget: 500, writingLanguage, chapterNumber: 2,
-        keyEvents: '核查遇阻；承担代价', worldSetting: '铜钥匙始终由林澄保管。', previousFinalizedContent: source })
+        keyEvents: '核查遇阻；承担代价', globalGuidance: '铜钥匙始终由林澄保管。', previousFinalizedContent: source })
 
       await command.execute({ step: {}, context, callbacks })
 
@@ -2825,13 +2602,13 @@ ${headingPrefix}第3章：潮门
       expect(decision?.promptHash).toBe(createHash('sha256').update(stripDraftShortOutlineBlock(initial, '目标：读信；前驱：信已送到；行动与结果：本章读完信；结尾：保留原约束。')!).digest('hex'))
     })
 
-    it.each(['zh-CN', 'en-US'] as const)('preserves %s source and requirements in the single condense request without generated planning', async writingLanguage => {
+    it.each(['zh-CN'] as const)('preserves %s source and requirements in the single condense request without generated planning', async writingLanguage => {
       const draft = writingLanguage === 'zh-CN' ? `${'长'.repeat(2700)}。` : `${'long '.repeat(2700).trim()}.`
       const condensed = writingLanguage === 'zh-CN' ? `${'缩'.repeat(2000)}。` : `${'short '.repeat(2000).trim()}.`
       const runtime = fakeRuntime(attempt => attempt === 1 ? outcome(draft, 'stop', 1) : outcome(condensed, 'stop', 2))
       const source = '作者更正：林澄撤回先前核查安排，等待新的通行许可。'
       const { context, callbacks, command } = setup({ runtime, wordsPerChapter: 2000, wordsTarget: 2000, chapterNumber: 2,
-        writingLanguage, keyEvents: '核查遇阻；承担代价', worldSetting: '铜钥匙始终由林澄保管。', previousFinalizedContent: source })
+        writingLanguage, keyEvents: '核查遇阻；承担代价', globalGuidance: '铜钥匙始终由林澄保管。', previousFinalizedContent: source })
 
       await expect(command.execute({ step: {}, context, callbacks })).resolves.toBe(condensed)
 
@@ -2841,9 +2618,7 @@ ${headingPrefix}第3章：潮门
       const { heading } = FINALIZED_FACT_PRECEDENCE[writingLanguage]
       expect(initialTask!.messages[0]!.content.includes(heading)).toBe(true)
       expect(initialTask!.messages[0]!.content).toBe(condenseTask!.messages[0]!.content)
-      expect(condenseTask!.messages[0]!.content).toContain(writingLanguage === 'en-US'
-        ? 'Condensing only cuts existing prose and must not add plot or repair missing events.'
-        : '压缩只删减既有正文，不新增情节或修补缺失事件。')
+      expect(condenseTask!.messages[0]!.content).toContain('压缩只删减既有正文，不新增情节或修补缺失事件。')
       for (const [task] of runtime.complete.mock.calls) {
         expect(task.messages.map(message => message.role)).toEqual(['system', 'user'])
         const system = task.messages[0]!.content
@@ -2860,7 +2635,7 @@ ${headingPrefix}第3章：潮门
       }
     })
 
-    it.each(['zh-CN', 'en-US'] as const)('does not introduce a cost requirement for a cost-free %s chapter', async writingLanguage => {
+    it.each(['zh-CN'] as const)('does not introduce a cost requirement for a cost-free %s chapter', async writingLanguage => {
       const runtime = fakeOutcomes(outcome('本章正文。'.repeat(125), 'stop'))
       const { context, callbacks, command } = setup({ runtime, wordsTarget: 500, writingLanguage, chapterNumber: 2,
         keyEvents: '读信', previousFinalizedContent: '上一章末尾，信刚送到。' })
@@ -2869,10 +2644,8 @@ ${headingPrefix}第3章：潮门
       const prompt = runtime.complete.mock.calls[0]![0].messages.map(message => message.content).join('\n')
       expect(prompt).toContain('读信')
       expect(prompt).toContain(FINALIZED_FACT_PRECEDENCE[writingLanguage].newAction)
-      expect(prompt).toContain(writingLanguage === 'en-US'
-        ? 'New actions and outcomes consistent with established facts are allowed. Ordinary events need no added cost.'
-        : '可以写与既有事实相容的新行动和结果；普通无代价情节无需增加代价。')
-      expect(prompt).not.toContain(writingLanguage === 'en-US' ? 'requires a new cost here' : '明确要求本章发生新代价')
+      expect(prompt).toContain('可以写与既有事实相容的新行动和结果；普通无代价情节无需增加代价。')
+      expect(prompt).not.toContain('明确要求本章发生新代价')
       expect(prompt).not.toContain('每条必需事件写出本章新动作、代价和实际后果')
       expect(prompt).not.toContain("describe this chapter's new action, cost, and actual consequence")
     })
@@ -2890,7 +2663,6 @@ ${headingPrefix}第3章：潮门
 
   it.each([
     ['zh-CN', '文风仅用于选择表达方式', '作者明确事实与指导、实际前文、本章关键因果和本章篇幅优先'],
-    ['en-US', 'Writing style selects expression only', 'actual prior prose'],
   ] as const)('keeps the complete style profile optional in %s draft and continuation requests', async (
     writingLanguage,
     applicabilityBoundary,
@@ -2966,9 +2738,9 @@ ${headingPrefix}第3章：潮门
       globalGuidance: longField('GUIDANCE'),
       writingStyle: longField('STYLE'),
       coreOutline: longField('OUTLINE'),
-      worldSetting: longField('WORLD'),
-      goldenFinger: longField('ADVANTAGE'),
-      protagonistProfile: longField('PROTAGONIST'),
+
+
+
     }
     const runtime = fakeOutcomes(
       outcome('初'.repeat(100), 'length', 1),
@@ -2988,7 +2760,7 @@ ${headingPrefix}第3章：潮门
     ))
     expect(requestPrompts).toHaveLength(3)
     for (const prompt of requestPrompts) {
-      for (const name of ['GUIDANCE', 'STYLE', 'OUTLINE', 'WORLD', 'ADVANTAGE', 'PROTAGONIST']) {
+      for (const name of ['GUIDANCE', 'STYLE', 'OUTLINE']) {
         expect(prompt).toContain(`${name}_BEGIN`)
         expect(prompt).toContain(`${name}_PARTIAL_SHOULD_NOT_APPEAR`)
         expect(prompt).toContain(`${name}_AFTER_LIMIT`)
@@ -3102,89 +2874,6 @@ ${headingPrefix}第3章：潮门
       expect.anything(),
       expect.anything(),
     )
-  })
-
-  it('allows one short English carry-over sentence before new action', async () => {
-    const sharedState = 'Boots rang on the steel floor while Gu held the shard and did not look back.'
-    const runtime = fakeRuntime(() => outcome(
-      `${sharedState}\n\n${'She crossed the next threshold and confronted a new conflict. '.repeat(45)}`,
-      'stop',
-    ))
-    const { invoke, context, callbacks, command } = setup({
-      runtime,
-      writingLanguage: 'en-US',
-      chapterNumber: 2,
-      wordsTarget: 500,
-      previousFinalizedContent: `${'Earlier events moved forward. '.repeat(100)}${sharedState}`,
-    })
-
-    await expect(command.execute({ step: {}, context, callbacks })).resolves.toContain(sharedState)
-
-    expect(invoke).toHaveBeenCalledWith(
-      'db:draft-create',
-      expect.objectContaining({ content: expect.stringContaining('next threshold') }),
-      expect.anything(),
-      expect.anything(),
-    )
-  })
-
-  it('allows ordinary English phrases shared with the previous chapter', async () => {
-    const previousEnding = [
-      'No one believed the truce would last.',
-      'He waited beneath the yellow canopy.',
-      'They stopped counting bodies before dawn.',
-      'Smoke circled the fluorescent light above the desk.',
-    ].join(' ')
-    const newOpening = [
-      'The truce held for twenty-seven minutes.',
-      'Maya pulled the yellow ribbon from her bag.',
-      'She resumed counting floor tiles.',
-      'Above her, the fluorescent light flickered once.',
-    ].join(' ')
-    const runtime = fakeRuntime(() => outcome(
-      `${newOpening}\n\n${'Fresh action moved Maya deeper into the archive without revisiting any completed event. '.repeat(34)}`,
-      'stop',
-    ))
-    const { invoke, context, callbacks, command } = setup({
-      runtime,
-      writingLanguage: 'en-US',
-      chapterNumber: 2,
-      wordsTarget: 500,
-      previousFinalizedContent: previousEnding,
-    })
-
-    await expect(command.execute({ step: {}, context, callbacks })).resolves.toContain(newOpening)
-
-    expect(invoke).toHaveBeenCalledWith(
-      'db:draft-create',
-      expect.objectContaining({ content: expect.stringContaining('The truce held') }),
-      expect.anything(),
-      expect.anything(),
-    )
-  })
-
-  it('still rejects an English chapter that copies a continuous passage', async () => {
-    const copiedPassage = [
-      'Maya measured every cracked tile while Eli copied the dimensions into his notebook,',
-      'then they sealed the archive door and hid the only key beneath the broken recorder.',
-    ].join(' ')
-    const runtime = fakeRuntime(() => outcome(
-      `${copiedPassage}\n\n${'New consequences forced them to abandon the room and confront the dean outside. '.repeat(36)}`,
-      'stop',
-    ))
-    const { invoke, context, callbacks, command } = setup({
-      runtime,
-      writingLanguage: 'en-US',
-      uiLocale: 'en-US',
-      chapterNumber: 2,
-      wordsTarget: 500,
-      previousFinalizedContent: `Earlier events led here. ${copiedPassage}`,
-    })
-
-    await expect(command.execute({ step: {}, context, callbacks }))
-      .rejects.toThrow('substantially replays')
-
-    expectNoDraftPersistence(invoke)
   })
 
   it('keeps older facts only when they are relevant to the current chapter entities', async () => {
@@ -3502,7 +3191,7 @@ ${headingPrefix}第3章：潮门
     const runtime = { createRuntime, complete: vi.fn(), execute: vi.fn(), close: vi.fn() }
     const { context, callbacks, command } = setup({
       runtime,
-      premise: '设定'.repeat(15_000),
+      worldbuilding: '设定'.repeat(15_000),
     })
 
     await expect(command.execute({ step: {}, context, callbacks })).resolves.toContain('正文')
@@ -3705,33 +3394,6 @@ ${headingPrefix}第3章：潮门
     expect(callbacks.replaceText).toHaveBeenLastCalledWith(condensed)
   })
 
-  it('localizes the condense revision prompt for English manuscripts', async () => {
-    const draft = `${'word '.repeat(1200).trim()}.`
-    const condensed = `${'short '.repeat(900).trim()}.`
-    const runtime = fakeOutcomes(outcome(draft, 'stop', 1), outcome(condensed, 'stop', 2))
-    const { context, callbacks, command } = setup({ runtime, writingLanguage: 'en-US', wordsTarget: 900 })
-
-    await expect(command.execute({ step: {}, context, callbacks })).resolves.toBe(condensed)
-
-    const condensePrompt = runtime.complete.mock.calls[1]![0].messages.at(-1)!.content
-    expect(condensePrompt).toContain('between 630 and 1170 words')
-    expect(condensePrompt).toContain('[Chapter length contract]')
-    // 篇幅现状块：目标 900、待压缩 1200 词 → 约 801、不超过 945、删 399（33%）。
-    expect(condensePrompt).toContain('[Current length] The manuscript to condense is about 1200 words, above the ceiling. Condense it to about 801 words (reference maximum 945 words), which means cutting about 399 words, roughly 33% of the text.')
-    const order = ['[Current length]', '[Requirements]', '[Current chapter blueprint]', '[Project-wide writing guidance]', '[Writing style]', '[Novel configuration facts]',
-      '[Author material (verbatim', '[Chapter length contract]', '[Manuscript to condense]'].map(marker => condensePrompt.indexOf(marker))
-    expect(order.every(index => index >= 0)).toBe(true)
-    expect(order).toEqual([...order].sort((left, right) => left - right))
-    // 首章压缩复用合同，但不注入依赖前章的事实与时点规则。
-    const enPrecedence = FINALIZED_FACT_PRECEDENCE['en-US']
-    const enRule = runtime.complete.mock.calls[1]![0].messages[0]!.content
-    expect(enRule).toContain('New actions and outcomes consistent with established facts are allowed. Ordinary events need no added cost.')
-    expect(enRule).not.toContain(enPrecedence.timeRuleStart)
-    expect(enRule.split(enPrecedence.heading)).toHaveLength(2)
-    expect(condensePrompt).not.toContain(enPrecedence.heading)
-    expect(condensePrompt).not.toContain('【')
-  })
-
   it.each([
     // 目标 900、待压缩 1300：约 801、不超过 945、删 499（38%）。
     { label: 'target 900 with a 1300-unit draft', target: 900, draftUnits: 1300, condensedUnits: 850, aim: 801, ceil: 945, cut: 499, percent: 38 },
@@ -3805,9 +3467,6 @@ ${headingPrefix}第3章：潮门
     { writingLanguage: 'zh-CN' as const, initial: `${'初'.repeat(2100)}`, addition: '收束。', target: 2000,
       instruction: '- 本章已达到目标篇幅：只补完被截断的句子并收束当前场景，新增部分约 150 字以内、绝不超过 500 字，不要展开新事件。',
       contract: '【本章篇幅合同】' },
-    { writingLanguage: 'en-US' as const, initial: 'word '.repeat(1000).trim(), addition: 'and the door closed.', target: 900,
-      instruction: '- The chapter has reached its target length: only finish the truncated sentence and close the current scene in about 150 words or fewer, never more than 170; do not start new events.',
-      contract: '[Chapter length contract]' },
   ])('limits a $writingLanguage length-truncated continuation at the target to closing the truncated sentence', async ({ writingLanguage, initial, addition, target, instruction, contract }) => {
     const runtime = fakeOutcomes(outcome(initial, 'length', 1), outcome(addition, 'stop', 2))
     const { context, callbacks, command } = setup({ runtime, writingLanguage, wordsPerChapter: target, wordsTarget: target })
@@ -3981,7 +3640,6 @@ ${headingPrefix}第3章：潮门
 
   it.each([
     { writingLanguage: 'zh-CN' as const, opening: '木门只能从里面打开。', middle: '铜钥匙仍由林岚保管。', ending: '她停在走廊尽头。', filler: '初', advance: '续', closing: '终' },
-    { writingLanguage: 'en-US' as const, opening: 'The wooden door opens only from inside.', middle: 'Lin still holds the brass key.', ending: 'She stops at the end of the corridor.', filler: 'opening ', advance: 'advance ', closing: 'closing ' },
   ])('sends the full accumulated $writingLanguage manuscript through continuation and no-progress recovery', async ({
     writingLanguage, opening, middle, ending, filler, advance, closing,
   }) => {
@@ -4053,50 +3711,6 @@ ${headingPrefix}第3章：潮门
     expect((persisted?.[1] as { content: string }).content).toBe(`${initial}\n\n${recovered}`)
     expect(invoke.mock.calls.filter(([channel]) => channel === 'db:draft-create')).toHaveLength(1)
     expect(JSON.stringify(vi.mocked(callbacks.log).mock.calls)).not.toContain(discarded)
-  })
-
-  it('keeps empty context wrappers and private no-progress recovery instructions in English', async () => {
-    const initial = 'opening '.repeat(4000)
-    const discarded = 'opening '.repeat(200)
-    const recovered = `${'advance '.repeat(1000)}.`
-    const runtime = fakeOutcomes(
-      outcome(initial, 'length', 1),
-      outcome(discarded, 'length', 2),
-      outcome(recovered, 'stop', 3),
-    )
-    const authorGuidance = 'Keep “夜航 Café” exactly; do not translate café.'
-    const { context, callbacks, command } = setup({
-      runtime,
-      writingLanguage: 'en-US',
-      chapterNumber: 2,
-      userGuidance: authorGuidance,
-      previousFinalizedContent: 'The previous chapter is finalized.',
-    })
-
-    await command.execute({ step: {}, context, callbacks })
-
-    const prompts = runtime.complete.mock.calls.map(([task]) => (
-      task.messages.find(message => message.role === 'user')?.content ?? ''
-    ))
-    expect(prompts).toHaveLength(3)
-    expect(prompts[0]).toContain(authorGuidance)
-    expect(prompts[0]).toContain('(no future chapter blueprints)')
-    expect(prompts[0]).toContain('[Sourced history and candidates]')
-    expect(prompts[0]).toContain('(no relevant knowledge-base context)')
-    expect(prompts[0]).toContain('(no additional author material)')
-    expect(prompts[1]).toContain('Continue the current chapter seamlessly')
-    expect(prompts[2]).toContain('This is the only no-progress recovery attempt')
-    const system = runtime.complete.mock.calls[0]![0].messages[0]!.content
-    for (const [task] of runtime.complete.mock.calls) {
-      expect(task.messages.map(message => message.role)).toEqual(['system', 'user'])
-      expect(task.messages[0]!.content).toBe(system)
-      expect(system.split('[Current-chapter execution contract]')).toHaveLength(2)
-      expect(system).not.toContain(authorGuidance)
-      expect(system).not.toContain('The previous chapter is finalized.')
-      expect(task.messages[1]!.content).toContain(authorGuidance)
-      expect(task.messages[1]!.content).not.toContain('[Current-chapter execution contract]')
-    }
-    expect(prompts.join('\n')).not.toMatch(/【(?:硬性要求|本章蓝图|后续章节大纲预告|角色状态档案|第\d+章)/u)
   })
 
   it('fails closed after the only no-progress recovery also makes no visible progress', async () => {

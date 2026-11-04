@@ -30,7 +30,7 @@ beforeAll(() => {
 beforeEach(() => {
   projectRoot = fs.mkdtempSync(path.join(testRoot, 'case-'))
   initProjectDatabase(projectRoot)
-  ProjectCoreRepository.init('Plot tree novel', 'en-US')
+  ProjectCoreRepository.init('Plot tree novel', 'zh-CN')
 })
 
 afterEach(() => {
@@ -40,7 +40,7 @@ afterEach(() => {
 
 function seedFacts() {
   const db = getProjectDb()!
-  ProjectCoreRepository.update({ synopsis: 'A courier discovers that the city map is being rewritten.' })
+  ProjectCoreRepository.update({ coreOutline: 'A courier discovers that the city map is being rewritten.' })
   db.prepare(`
     INSERT INTO blueprints (
       chapter_number, title, purpose, key_events, notes, notes_updated_at
@@ -144,7 +144,7 @@ describe('PlotTreeRepository', () => {
     const snapshot: PlotTreeSnapshot = {
       version: 1,
       generatedAt: '2030-01-02T03:04:05.000Z',
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
       sourceRevision: sources.sourceRevision,
       tracks: [{
         id: 'main', title: 'Main plot', role: 'main', startChapter: 1, endChapter: 1,
@@ -167,7 +167,7 @@ describe('PlotTreeRepository', () => {
     const sources = PlotTreeRepository.read()
 
     expect(sources).toMatchObject({
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
       synopsis: { content: 'A courier discovers that the city map is being rewritten.' },
       blueprints: [{
         chapterNumber: 1,
@@ -192,7 +192,7 @@ describe('PlotTreeRepository', () => {
     const snapshot: PlotTreeSnapshot = {
       version: 1,
       generatedAt: '2030-01-02T03:04:05.000Z',
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
       sourceRevision: sources.sourceRevision,
       tracks: [{
         id: 'main-investigation',
@@ -237,49 +237,13 @@ describe('PlotTreeRepository', () => {
     expect(reopened.snapshot).toEqual(snapshot)
   })
 
-  it('keeps a supported previous-language snapshot after the project language changes', () => {
-    seedFacts()
-    const sources = PlotTreeRepository.read()
-    const snapshot: PlotTreeSnapshot = {
-      version: 1,
-      generatedAt: '2030-01-02T03:04:05.000Z',
-      writingLanguage: 'en-US',
-      sourceRevision: sources.sourceRevision,
-      tracks: [{
-        id: 'main', title: 'Main plot', role: 'main', startChapter: 1, endChapter: 1,
-        summary: 'The verified main plot.',
-        events: [{
-          status: 'planned', chapterNumber: 1, summary: 'The opening.',
-          sources: [{ type: 'blueprint', chapterNumber: 1 }],
-        }],
-      }],
-    }
-    PlotTreeRepository.save(snapshot, sources.sourceRevision)
-
-    ProjectCoreRepository.update({ writingLanguage: 'zh-CN' })
-
-    const changed = PlotTreeRepository.read()
-    expect(changed.writingLanguage).toBe('zh-CN')
-    expect(changed.sourceRevision).not.toBe(sources.sourceRevision)
-    expect(changed.snapshot).toEqual(snapshot)
-    expect(() => PlotTreeRepository.save(
-      { ...snapshot, sourceRevision: changed.sourceRevision },
-      changed.sourceRevision,
-    )).toThrow(/写作语言与当前项目不匹配/u)
-
-    getProjectDb()!.prepare(
-      "UPDATE project_core SET plot_tree_snapshot = ? WHERE id = 'main'",
-    ).run(JSON.stringify({ ...snapshot, writingLanguage: 'fr-FR' }))
-    expect(PlotTreeRepository.read().snapshot).toBeNull()
-  })
-
   it('retains a valid snapshot after its referenced source is deleted', () => {
     seedFacts()
     const sources = PlotTreeRepository.read()
     const snapshot: PlotTreeSnapshot = {
       version: 1,
       generatedAt: '2020-01-02T03:04:05.000Z',
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
       tracks: [{
         id: 'main', title: 'Main plot', role: 'main', startChapter: 1, endChapter: 1,
         summary: 'The verified main plot.',
@@ -311,7 +275,7 @@ describe('PlotTreeRepository', () => {
     const snapshot: PlotTreeSnapshot = {
       version: 1,
       generatedAt: '2030-01-02T03:04:05.000Z',
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
       sourceRevision: sources.sourceRevision,
       tracks: [{
         id: 'main', title: 'Main plot', role: 'main', startChapter: 1, endChapter: 6,
@@ -336,7 +300,7 @@ describe('PlotTreeRepository', () => {
 
   it('rejects changed source content when SQLite timestamps stay in the same second', () => {
     const db = getProjectDb()!
-    ProjectCoreRepository.update({ synopsis: 'A courier follows the original map.' })
+    ProjectCoreRepository.update({ coreOutline: 'A courier follows the original map.' })
     db.prepare(`
       INSERT INTO blueprints (chapter_number, title, purpose, key_events)
       VALUES (1, 'The original map', 'Start the investigation', 'Mara follows the old route.')
@@ -347,7 +311,7 @@ describe('PlotTreeRepository', () => {
     const snapshot: PlotTreeSnapshot = {
       version: 1,
       generatedAt: '2030-01-02T03:04:05.000Z',
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
       sourceRevision: sources.sourceRevision,
       tracks: [{
         id: 'main', title: 'Main plot', role: 'main', startChapter: 1, endChapter: 1,
@@ -377,7 +341,7 @@ describe('PlotTreeRepository', () => {
     const valid: PlotTreeSnapshot = {
       version: 1,
       generatedAt: '2030-01-02T03:04:05.000Z',
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
       sourceRevision,
       tracks: [{
         id: 'main', title: 'Main plot', role: 'main', startChapter: 1, endChapter: 2,
@@ -410,7 +374,7 @@ describe('PlotTreeRepository', () => {
     const snapshot: PlotTreeSnapshot = {
       version: 1,
       generatedAt: '2030-01-02T03:04:05.000Z',
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
       sourceRevision: sources.sourceRevision,
       tracks: [{
         id: 'main', title: 'Main plot', role: 'main', startChapter: 1, endChapter: 1,
@@ -421,7 +385,7 @@ describe('PlotTreeRepository', () => {
         }],
       }],
     }
-    ProjectCoreRepository.update({ synopsis: 'The source changed while generation was running.' })
+    ProjectCoreRepository.update({ coreOutline: 'The source changed while generation was running.' })
     getProjectDb()!.prepare(
       "UPDATE project_core SET updated_at = '2031-01-01 00:00:00' WHERE id = 'main'",
     ).run()
@@ -436,7 +400,7 @@ describe('PlotTreeRepository', () => {
     const snapshot: PlotTreeSnapshot = {
       version: 1,
       generatedAt: '2030-01-02T03:04:05.000Z',
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
       sourceRevision: '0'.repeat(64),
       tracks: [{
         id: 'main', title: 'Main plot', role: 'main', startChapter: 1, endChapter: 1,
@@ -456,7 +420,7 @@ describe('PlotTreeRepository', () => {
     const legacySnapshot: PlotTreeSnapshot = {
       version: 1,
       generatedAt: '2029-01-02T03:04:05.000Z',
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
       tracks: [{
         id: 'main', title: 'Legacy plot', role: 'main', startChapter: 1, endChapter: 1,
         summary: 'A legacy snapshot remains visible until refreshed.',
@@ -484,7 +448,7 @@ describe('PlotTreeRepository', () => {
     db.prepare('UPDATE project_core SET plot_tree_snapshot = ? WHERE id = \'main\'').run(JSON.stringify({
       version: 1,
       generatedAt: '2030-01-02T03:04:05.000Z',
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
       tracks: [{
         id: 'main', title: 'Broken plot', role: 'main', startChapter: 2, endChapter: 1,
         summary: 'The invalid structure must stay hidden.',
@@ -503,7 +467,7 @@ describe('PlotTreeRepository', () => {
     const oversized = {
       version: 1,
       generatedAt: '2030-01-02T03:04:05.000Z',
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
       tracks: [{
         id: 'main', title: 'Broken range', role: 'main', startChapter: 1,
         endChapter: 4_294_967_296, summary: 'Must not reach the renderer.',
@@ -531,7 +495,7 @@ describe('PlotTreeRepository', () => {
     const oversized = {
       version: 1,
       generatedAt: '2030-01-02T03:04:05.000Z',
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
       tracks: [{
         id: 'main', title: 'Broken range', role: 'main', startChapter: 1,
         endChapter: 4_294_967_296, summary: 'Must not reach the renderer.',

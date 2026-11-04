@@ -29,8 +29,8 @@ const sentOperations = (text: string) => [
 describe('operation stage registry coverage', () => {
   it('sees operations that commands pick from a typed operation table', () => {
     expect(sentOperations(read('src/services/workflows/commands/generate-field.command.ts'))).toEqual(expect.arrayContaining([
-      'generate-field:core-outline', 'generate-field:world-setting', 'generate-field:golden-finger',
-      'generate-field:protagonist-profile', 'generate-field:global-guidance', 'generate-field:writing-style',
+      'generate-field:core-outline',
+      'generate-field:global-guidance', 'generate-field:writing-style',
     ]))
   })
 

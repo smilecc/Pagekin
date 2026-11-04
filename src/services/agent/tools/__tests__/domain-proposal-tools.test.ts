@@ -4,7 +4,6 @@ import { useProjectStore } from '../../../../stores/project-store'
 import { createAgentExecutionContext } from '../project-context'
 import { buildNovelConfigProposal, proposeNovelConfigTool } from '../propose-novel-config.tool'
 import {
-  buildChapterBlueprintProposal,
   proposeChapterBlueprintTool,
 } from '../propose-chapter-blueprint.tool'
 import { builtinTools } from '..'
@@ -20,8 +19,8 @@ const project = {
   id: 'project-A', sessionLease: 'lease-A', name: 'A', path: 'C:\\novels\\A',
   novelConfig: {
     genre: '奇幻', subGenre: '', targetAudience: '青年', totalChapters: 10, wordsPerChapter: 3000,
-    plotStructure: 'three_act', narrativePOV: 'third_limited', coreOutline: '旧大纲', worldSetting: '',
-    goldenFinger: '', protagonistProfile: '', globalGuidance: '',
+    plotStructure: 'three_act', narrativePOV: 'third_limited', coreOutline: '旧大纲',
+      globalGuidance: '',
   },
   characterStates: '', createdAt: '', updatedAt: '',
 }
@@ -81,7 +80,7 @@ describe('explicit Agent domain proposals', () => {
         confirmed: true,
         blueprintProposals: [{
           name: 'propose_chapter_blueprint',
-          arguments: { chapter_number: 2, changes: { purpose: '埋下蓝钥匙线索' } },
+          arguments: { chapter_number: 2, changes: { keyEvents: '埋下蓝钥匙线索' } },
         }],
       })
       .mockResolvedValueOnce(true)
@@ -102,7 +101,7 @@ describe('explicit Agent domain proposals', () => {
     expect(confirmation.mock.calls[0][0]).toMatchObject({ toolName: 'propose_novel_config' })
     expect(confirmation.mock.calls[1][0]).toMatchObject({
       toolName: 'propose_chapter_blueprint',
-      arguments: { chapter_number: 2, changes: { purpose: '埋下蓝钥匙线索' } },
+      arguments: { chapter_number: 2, changes: { keyEvents: '埋下蓝钥匙线索' } },
     })
     expect(invoke.mock.calls.map(([, channel]) => channel)).toEqual([
       'project:update-config', 'db:blueprint-get', 'db:blueprint-upsert',
@@ -131,7 +130,7 @@ describe('explicit Agent domain proposals', () => {
         confirmed: true,
         blueprintProposals: [{
           name: 'propose_chapter_blueprint',
-          arguments: { chapter_number: 2, changes: { purpose: '埋下蓝钥匙线索' } },
+          arguments: { chapter_number: 2, changes: { keyEvents: '埋下蓝钥匙线索' } },
         }],
       })
       .mockResolvedValueOnce(true)
@@ -193,7 +192,6 @@ describe('explicit Agent domain proposals', () => {
 
   it.each([
     ['简体中文', 'zh-CN'],
-    ['English', 'en-US'],
   ])('normalizes the common language label %s before storing config', async (label, canonical) => {
     invoke.mockResolvedValue({ success: true })
 
@@ -218,7 +216,7 @@ describe('explicit Agent domain proposals', () => {
     expect(result).toMatchObject({ success: false })
     expect(result.error).toContain('Esperanto')
     expect(result.error).toContain('zh-CN')
-    expect(result.error).toContain('en-US')
+    expect(result.error).not.toContain('en-US')
     expect(invoke).not.toHaveBeenCalled()
   })
 
@@ -254,40 +252,6 @@ describe('explicit Agent domain proposals', () => {
     )
   })
 
-  it.each(['作者微操指导', '用户指引'])(
-    'normalizes the product blueprint field alias %s to userGuidance',
-    async (field) => {
-      const guidance = '加强第二章结尾的压迫感'
-      const proposal = buildChapterBlueprintProposal({
-        chapter_number: 2,
-        changes: { [field]: guidance },
-      }, blueprint)
-
-      expect(proposal).toMatchObject({
-        valid: true,
-        changes: { userGuidance: guidance },
-        diffs: [{ field: 'userGuidance', current: '', proposed: guidance }],
-      })
-
-      invoke
-        .mockResolvedValueOnce(blueprint)
-        .mockResolvedValueOnce({ success: true })
-      const result = await proposeChapterBlueprintTool.execute({
-        chapter_number: 2,
-        changes: { [field]: guidance },
-      }, createAgentExecutionContext())
-
-      expect(proposeChapterBlueprintTool.requiresConfirmation).toBe(true)
-      expect(result).toMatchObject({ success: true })
-      expect(invoke).toHaveBeenNthCalledWith(2,
-        expect.objectContaining({ projectId: 'project-A', leaseId: 'lease-A' }),
-        'db:blueprint-upsert',
-        { ...blueprint, userGuidance: guidance },
-        project.path,
-      )
-    },
-  )
-
   it('rejects missing targets, unknown fields, and stale sessions without writing', async () => {
     invoke.mockResolvedValue(null)
     const context = createAgentExecutionContext()
@@ -321,8 +285,4 @@ describe('explicit Agent domain proposals', () => {
 it.each([{narrativePOV:['first_person']},{totalChapters:2**53},{narrativePOV:'first_person',narrativePov:'third_limited'}])('rejects invalid config changes before approval: %j',changes=>{
  expect(buildNovelConfigProposal({changes},project.novelConfig as never).valid).toBe(false)
  expect(buildNovelConfigProposal({changes:{narrativePov:'first_person'}},project.novelConfig as never).valid).toBe(true)
-})
-it('rejects conflicting blueprint aliases before approval',()=>{
- expect(buildChapterBlueprintProposal({chapter_number:2,changes:{作者微操指导:'一',userGuidance:'二'}},blueprint).valid).toBe(false)
- expect(buildChapterBlueprintProposal({chapter_number:2,changes:{作者微操指导:'一'}},blueprint).valid).toBe(true)
 })

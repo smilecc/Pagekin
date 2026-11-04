@@ -95,7 +95,7 @@ export async function runSlot(f: ImportGenerationFixture, runId: string, slot: I
 }
 
 export const globalEffect = (f: ImportGenerationFixture, runId: string): EffectOf => generationRunHandle => {
-  const core = { genre: '现实', subGenre: '冒险', targetAudience: '通用', totalChapters: f.chapters.length, wordsPerChapter: 900, plotStructure: 'three_act', narrativePov: 'third_limited', goldenFinger: '无', globalGuidance: '克制', premise: '海港来信', coreOutline: '寻找来信者', worldSetting: '海港', protagonistProfile: '林岚', worldbuilding: '海港街巷', synopsis: '找到信件' }
+  const core = { genre: '现实', subGenre: '冒险', targetAudience: '通用', totalChapters: f.chapters.length, wordsPerChapter: 900, plotStructure: 'three_act', narrativePov: 'third_limited',  globalGuidance: '克制', premise: '海港来信', coreOutline: '寻找来信者',   worldbuilding: '海港街巷', synopsis: '找到信件' }
   const card = { name: '林岚', role: 'protagonist', gender: '未知', age: '18', appearance: '朴素', personality: '谨慎', background: '港口居民', abilities: '观察', motivation: '寻信', relationships: [], arc: '成长', notes: '待确认' }
   return { effectKey: 'global-facts', kind: 'project-global-facts', payload: { operationId: `novel-import-global-${runId}`, expectedRosterRevision: 0, core, characterEntries: [card], generationRunHandle } }
 }

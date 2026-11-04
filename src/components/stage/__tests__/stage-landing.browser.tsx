@@ -85,7 +85,7 @@ describe('打开作品时的落点', () => {
     const current = session('current')
     await open(current, READY)
     await act(async () => {
-      useStageStore.setState({ work: { session: current, architecture: { premise: true }, blueprints: [] } })
+      useStageStore.setState({ work: { session: current, architecture: { worldbuilding: true, characters: true }, blueprints: [] } })
       useDraftStore.setState({ dataProjectSession: session('stale'), loading: false })
     })
     await act(async () => root!.render(<Landing />))
@@ -95,21 +95,21 @@ describe('打开作品时的落点', () => {
     expect(tabTypes()).toEqual([])
 
     await act(async () => useDraftStore.setState({ loading: false }))
-    expect(tabTypes()).toEqual(['world-building'])
+    expect(tabTypes()).toEqual(['config'])
   })
 
   it('作者在落点之前打开了搜索：落点照常打开，搜索不被关掉', async () => {
     const current = session('current')
     await open(current, READY)
     await act(async () => {
-      useStageStore.setState({ work: { session: current, architecture: { premise: true }, blueprints: [] } })
+      useStageStore.setState({ work: { session: current, architecture: { worldbuilding: true, characters: true }, blueprints: [] } })
       useDraftStore.setState({ dataProjectSession: current, loading: true })
     })
     await act(async () => root!.render(<Landing />))
     await act(async () => useStageStore.setState({ palette: 'commands' }))
 
     await act(async () => useDraftStore.setState({ loading: false }))
-    expect(tabTypes()).toEqual(['world-building'])
+    expect(tabTypes()).toEqual(['config'])
     expect(useStageStore.getState().palette).toBe('commands')
   })
 
@@ -138,19 +138,19 @@ describe('打开作品时的落点', () => {
     return { type: active?.type, chapter: active?.chapterNumber }
   }
 
-  it('大纲没写完、也还没有蓝图与正文：落在架构', async () => {
-    expect(await landWith([], {})).toEqual({ type: 'world-building', chapter: undefined })
+  it('文风尚未填写、也还没有故事规划与正文：落在文风', async () => {
+    expect(await landWith([], {})).toEqual({ type: 'config', chapter: undefined })
   })
 
-  it('大纲没写完但已有蓝图：落在当前该写的那一章，不拉回架构', async () => {
+  it('文风尚未填写但已有故事规划：落在当前该写的那一章，不拉回架构', async () => {
     expect(await landWith(BLUEPRINTS, {})).toEqual({ type: 'chapter', chapter: 1 })
   })
 
-  it('大纲没写完但已有正文：落在写到一半的那一章', async () => {
+  it('文风尚未填写但已有正文：落在写到一半的那一章', async () => {
     expect(await landWith(BLUEPRINTS, { 1: [draft(1, 'finalized')], 2: [draft(2, 'draft')] })).toEqual({ type: 'chapter', chapter: 2 })
   })
 
-  it('大纲没写完、有正文却没有蓝图：落在写到的那一章，不落到空的蓝图页', async () => {
+  it('文风尚未填写、有正文却没有故事规划：落在写到的那一章，不落到空的故事规划页', async () => {
     expect(await landWith([], { 1: [draft(1, 'finalized')] })).toEqual({ type: 'chapter', chapter: 1 })
   })
 
@@ -159,20 +159,20 @@ describe('打开作品时的落点', () => {
       .toEqual({ type: 'chapter', chapter: 2 })
   })
 
-  it('大纲没写完、没有蓝图，一章有定稿、之后又新建了一份空草稿：定稿算写过，落在这一章', async () => {
+  it('文风尚未填写、没有故事规划，一章有定稿、之后又新建了一份空草稿：定稿算写过，落在这一章', async () => {
     expect(await landWith([], { 1: [draft(1, 'finalized'), { ...draft(1, 'draft'), id: 11, version: 2, wordCount: 0 }] }))
       .toEqual({ type: 'chapter', chapter: 1 })
   })
 
-  it('大纲没写完、只有一份空的当前稿、没有蓝图：空稿不算开始，落在架构', async () => {
-    expect(await landWith([], { 1: [{ ...draft(1, 'draft'), wordCount: 0 }] })).toEqual({ type: 'world-building', chapter: undefined })
+  it('文风尚未填写、只有一份空的当前稿、没有故事规划：空稿不算开始，落在文风', async () => {
+    expect(await landWith([], { 1: [{ ...draft(1, 'draft'), wordCount: 0 }] })).toEqual({ type: 'config', chapter: undefined })
   })
 
-  it('上一次打开留下的架构与蓝图数据不算这次的', async () => {
+  it('上一次打开留下的架构与故事规划数据不算这次的', async () => {
     const current = session('current')
     await open(current, READY)
     await act(async () => {
-      useStageStore.setState({ work: { session: session('previous'), architecture: { premise: true }, blueprints: [] } })
+      useStageStore.setState({ work: { session: session('previous'), architecture: { worldbuilding: true, characters: true }, blueprints: [] } })
       useDraftStore.setState({ dataProjectSession: current, loading: false })
     })
     await act(async () => root!.render(<Landing />))
@@ -245,7 +245,7 @@ describe('打开作品时流程脊等各稿的审稿与修稿记录', () => {
     release(0)
     await flush()
     expect(refreshed).toBe(true)
-    expect(spine()).toEqual(['setup', 'architecture', 'blueprint', 'manuscript', '1:final', '2:draft', '3:reviewed', '4:draft'])
+    expect(spine()).toEqual(['outline', 'world', 'cast', 'style', 'guidance', 'architecture', 'blueprint', 'manuscript', '1:final', '2:draft', '3:reviewed', '4:draft'])
   })
 
   it('落点那一章就是有审稿的章：单章视图对同一稿的读取还没回来，流程脊出现时这一章也已是读到的阶段', async () => {
@@ -263,10 +263,10 @@ describe('打开作品时流程脊等各稿的审稿与修稿记录', () => {
 
     release(0)
     await flush()
-    expect(spine()).toEqual(['setup', 'architecture', 'blueprint', 'manuscript', '1:final', '2:final', '3:reviewed', '4:todo'])
+    expect(spine()).toEqual(['outline', 'world', 'cast', 'style', 'guidance', 'architecture', 'blueprint', 'manuscript', '1:final', '2:final', '3:reviewed', '4:todo'])
 
     release(1)
     await flush()
-    expect(spine()).toEqual(['setup', 'architecture', 'blueprint', 'manuscript', '1:final', '2:final', '3:reviewed', '4:todo'])
+    expect(spine()).toEqual(['outline', 'world', 'cast', 'style', 'guidance', 'architecture', 'blueprint', 'manuscript', '1:final', '2:final', '3:reviewed', '4:todo'])
   })
 })

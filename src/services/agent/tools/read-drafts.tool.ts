@@ -4,7 +4,6 @@
 import { buildAgentTool } from '../tool-registry'
 import { ipc } from '../../ipc-client'
 import { agentToolText, assertAgentProjectCurrent, requireAgentProject, agentToolErrorDetail } from './project-context'
-import { containsHan } from '../../../i18n/app-errors'
 
 
 export const readDraftsTool = buildAgentTool({
@@ -81,9 +80,7 @@ export const readDraftsTool = buildAgentTool({
       return {
         success: false,
         content: '',
-        error: !detail || (context?.writingLanguage === 'en-US' && containsHan(detail))
-          ? text('读取草稿失败', 'Could not read drafts')
-          : text(`读取草稿失败：${detail}`, `Could not read drafts: ${detail}`),
+        error: text(`读取草稿失败：${detail}`, `Could not read drafts: ${detail}`),
       }
     }
   },

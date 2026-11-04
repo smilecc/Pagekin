@@ -154,7 +154,7 @@ export function useBatchChapterForm({ isOpen, startChapterNumber, onClose }: Bat
       if (missingChapter >= 0) {
         const chapterNumber = chapterNumbers[missingChapter]
         setError(text(
-          `未找到第${chapterNumber}章蓝图。请先补齐连续蓝图后再启动批量创作。`,
+          `未找到第${chapterNumber}章故事规划。请先补齐连续故事规划后再启动批量创作。`,
           `No blueprint was found for chapter ${chapterNumber}. Complete the consecutive blueprints first.`,
         ))
         return

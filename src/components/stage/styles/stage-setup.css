@@ -414,3 +414,26 @@
     min-height: 68px;
   }
 }
+
+/* The merged architecture uses one page scroll and one persistent save bar. */
+.stage-setup-inner > .arch-page { flex: none; overflow: visible; }
+.stage-setup-inner > .arch-page .arch-inner { padding: 12px 0 0; }
+.stage-bp-plan-editor { min-height: 400px; margin-top: 24px; }
+
+.stage-setup-basics { display: flex; flex-direction: column; gap: var(--s-3); border-top: 1px solid var(--rule); padding-top: var(--s-5); }
+
+.stage-setup-group-head { padding: 12px 0 4px; }
+.stage-setup-group-head h2 { margin: 0; color: var(--ink); font: 600 20px/1.4 var(--font-display); }
+.stage-setup-group-head p { margin: 8px 0 0; color: var(--ink-3); font-size: 13px; }
+.stage-setup-basics .stage-setup-panel { margin: 0; }
+.stage-setup-option .stage-setup-adv-ctl > select,
+.stage-setup-option .stage-setup-adv-ctl > input { width: 210px; }
+@container (max-width: 620px) {
+  .stage-setup-basics .stage-setup-adv-row { flex-wrap: wrap; }
+  .stage-setup-basics .stage-setup-adv-row > div:first-child { flex-basis: 100%; }
+  .stage-setup-option .stage-setup-adv-ctl { max-width: 100%; }
+}
+
+.stage-setup-group-head h1 { margin: 0; color: var(--ink); font: 600 28px/1.3 var(--font-display); }
+.stage-setup-fixed-value { width: 210px; color: var(--ink-2); font-size: var(--fs-13); }
+.stage-setup-basics > .arch-section { margin: 0; }

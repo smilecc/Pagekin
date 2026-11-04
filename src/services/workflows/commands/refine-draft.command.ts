@@ -43,8 +43,7 @@ export class RefineDraftCommand extends ReviewRevisionCommand {
     const guidance = frozen.authorInputs.find(input => input.id === 'merged-guidance')?.text || frozen.config.globalGuidance || ''
     const userPrompt = frozen.authorInputs.find(input => input.id === 'user-prompt')?.text || ''
     const userPromptBlock = userPrompt.trim() ? promptLanguageText(language,
-      `【用户额外修稿指导（最高优先级）】\n${userPrompt}`,
-      `[Additional author revision guidance — highest priority]\n${userPrompt}`) : ''
+      `【用户额外修稿指导（最高优先级）】\n${userPrompt}`) : ''
     // 与写稿/审稿路径同一套准入：定稿历史按身份整段纳入或整段省略，绝不无预算地整段拼接。
     const current = { projectId: projectSession.projectId, epoch: projectSession.leaseId }
     let admission: ReviewRevisionMaterialAdmission
@@ -67,7 +66,7 @@ export class RefineDraftCommand extends ReviewRevisionCommand {
     const builder = new ChapterPromptBuilder(template, language)
       .withDraftContent(frozen.source.content)
       .withChapterInfo({ projectPath: params.context.projectPath, chapterNumber: frozen.source.chapterNumber,
-        title: blueprint?.title ?? '', role: blueprint?.role ?? '', purpose: blueprint?.purpose ?? '',
+        title: blueprint?.title ?? '', role: '', purpose: '',
         characters: blueprint?.characters ?? [], keyEvents: blueprint?.keyEvents ?? '' })
       .withGlobalGuidance(guidance)
       .withGlobalSummary(historySummary)

@@ -77,7 +77,7 @@ function setup(responses: Response[], projections: FinalizedContinuityProjection
     if (operation === 'refine-from-review') return new RefineFromReviewCommand({ ...selected, reviewSourceId: 10,
       confirmedReviewContent: confirmation, userRefinePrompt: '未确认的临时指导' }, dependencies)
     return new RefineDraftCommand({ ...selected, userRefinePrompt: '作者选定的修稿指导', mergedGuidance: '明确合并指导', shortSummary: '未绑定摘要',
-      chapterInfo: { projectPath, chapterNumber: 1, title: '未绑定标题', role: '', purpose: '', keyEvents: '', characters: [] } }, dependencies)
+      chapterInfo: { role: '', purpose: '', characters: [], projectPath, chapterNumber: 1, title: '未绑定标题',   keyEvents: '',  } }, dependencies)
   }
   return { fixture, provider, providerBindCounts, dependencies, backend, invoke, args, command,
     failSaves: (count: number) => { saveFailures = count }, writes: () => writes,
@@ -123,7 +123,7 @@ describe('review/revision consumers using the main contract (synthetic transport
     }
   })
 
-  it.each(['zh-CN', 'en-US'] as const)('limits ordinary time judgments to draft precision while preserving conflict checks in %s', async language => {
+  it.each(['zh-CN'] as const)('limits ordinary time judgments to draft precision while preserving conflict checks in %s', async language => {
     const project = useProjectStore.getState().currentProject!
     useProjectStore.setState({ currentProject: { ...project, novelConfig: { ...project.novelConfig, writingLanguage: language } } })
     const predecessor = language === 'zh-CN'
@@ -195,7 +195,7 @@ describe('review/revision consumers using the main contract (synthetic transport
     }
   })
 
-  it.each(['zh-CN', 'en-US'] as const)('sends temporal checks and separated author constraints through all review consumers in %s', async language => {
+  it.each(['zh-CN'] as const)('sends temporal checks and separated author constraints through all review consumers in %s', async language => {
     const project = useProjectStore.getState().currentProject!
     useProjectStore.setState({ currentProject: { ...project, novelConfig: { ...project.novelConfig, writingLanguage: language } } })
     for (const operation of ['review-chapter', 'refine-from-review', 'recheck'] as const) {
@@ -207,10 +207,10 @@ describe('review/revision consumers using the main contract (synthetic transport
         const result = await original(channel, ...args)
         if (channel === 'review-revision:prepare') {
           const prepared = result as NonNullable<typeof f.fixture.prepared>
-          prepared.context.blueprints = [{ chapterNumber: 1, title: 'Current', keyEvents: '', characters: [],
-            role: '', purpose: '', suspenseHook: '', notes: '', userGuidance: 'CURRENT_AUTHOR_TIME' },
-          { chapterNumber: 2, title: 'Future', keyEvents: 'FUTURE_PLAN', characters: [],
-            role: '', purpose: '', suspenseHook: '', notes: '', userGuidance: '' }]
+          prepared.context.blueprints = [{ chapterNumber: 1, title: 'Current', keyEvents: 'CURRENT_AUTHOR_TIME',
+                 },
+          { chapterNumber: 2, title: 'Future', keyEvents: 'FUTURE_PLAN',
+                 }]
           f.fixture.prepared = structuredClone(prepared)
         }
         return result
@@ -262,7 +262,7 @@ describe('review/revision consumers using the main contract (synthetic transport
       const result = await invoke(channel, ...args)
       if (channel === 'review-revision:prepare') {
         const prepared = result as NonNullable<typeof f.fixture.prepared>
-        prepared.context.config.worldSetting = setting
+        prepared.context.worldbuilding = setting
         prepared.context.predecessor = { draftId: 8, chapterNumber: 0, chapterTitle: '', content: predecessor,
           identity: { projectId: session.projectId, sourceId: 'candidate:8', revision: 1,
             contentHash: hash(predecessor), provenance: 'generated' } }
@@ -297,8 +297,7 @@ describe('review/revision consumers using the main contract (synthetic transport
         if (channel === 'review-revision:prepare') {
           const prepared = result as NonNullable<typeof f.fixture.prepared>
           prepared.context.config.coreOutline = prefix
-          prepared.context.config.worldSetting = setting
-          prepared.context.worldbuilding = prefix
+          prepared.context.worldbuilding = setting
           f.fixture.prepared = structuredClone(prepared)
         }
         return result
@@ -306,8 +305,7 @@ describe('review/revision consumers using the main contract (synthetic transport
       await f.command(operation).execute(f.args)
       const frozen = f.fixture.prepared!.context
       expect(frozen.config.coreOutline).toBe(prefix)
-      expect(frozen.config.worldSetting).toBe(setting)
-      expect(frozen.worldbuilding).toBe(prefix)
+      expect(frozen.worldbuilding).toBe(setting)
       const author = reviewRevisionAuthorMaterial(frozen)
       expect(author.split(prefix)).toHaveLength(2)
       expect(author).toContain(setting)
@@ -333,7 +331,7 @@ describe('review/revision consumers using the main contract (synthetic transport
           prepared.context.predecessor = { draftId: 8, chapterNumber: 0, chapterTitle: '', content: '已选保存前驱：角色仍未定稿。',
             identity: { projectId: session.projectId, sourceId: 'candidate:8', revision: 1,
               contentHash: hash('已选保存前驱：角色仍未定稿。'), provenance: 'generated' } }
-          prepared.context.blueprints = [{ chapterNumber: 1, title: '开门', keyEvents: '本章必须交出印章', characters: [], role: '', purpose: '', suspenseHook: '', userGuidance: '', notes: '' }]
+          prepared.context.blueprints = [{ chapterNumber: 1, title: '开门', keyEvents: '本章必须交出印章',       }]
           if (prepared.context.confirmation) prepared.context.confirmation.snapshot = {
             ...prepared.context.confirmation.snapshot, items: [
               { category: '地点', severity: 'warning', description: '把钟楼改成地下室。', decision: 'apply', origin: 'ai' },
@@ -362,7 +360,7 @@ describe('review/revision consumers using the main contract (synthetic transport
     },
   )
 
-  it.each(['zh-CN', 'en-US'] as const)('uses one default revision task contract with intact source partitions in %s', async writingLanguage => {
+  it.each(['zh-CN'] as const)('uses one default revision task contract with intact source partitions in %s', async writingLanguage => {
     const predecessor = '前驱原文：双方已交还印章。'
     const authorRequest = '作者明确要求：保留城门场景。'
     const f = setup([{ content: revised, finishReason: 'stop' }], [{
@@ -502,7 +500,7 @@ describe('review/revision consumers using the main contract (synthetic transport
     expect(prompt).toContain('明确要求回顾或维持状态时，不另造动作或代价')
   })
 
-  it('renders the unique contiguous evidence-anchor constraint for an English ordinary review', async () => {
+  it('renders the Chinese evidence contract independently of an obsolete language value', async () => {
     useProjectStore.setState({ currentProject: { id: session.projectId, path: projectPath, name: 'Synthetic', sessionLease: session.leaseId,
       novelConfig: { wordsPerChapter: 300, globalGuidance: 'frozen guidance', writingLanguage: 'en-US' } } as never })
     const f = setup([{ content: review, finishReason: 'stop' }])
@@ -510,12 +508,10 @@ describe('review/revision consumers using the main contract (synthetic transport
     await f.command('review-chapter').execute(f.args)
 
     const prompt = f.provider.mock.calls[0]![0].find(message => message.role === 'user')!.content
-    expect(prompt).toContain('[Strict evidence-anchor constraint]')
-    expect(prompt).toContain('one verbatim, contiguous excerpt that occurs exactly once')
-    expect(prompt).toContain('Do not combine multiple locations')
-    expect(prompt).toContain('use separate evidence entries')
-    expect(prompt).toContain('[Author settings take priority] The author-confirmed project configuration and the worldbuilding settings are authoritative facts; author character states apply at their annotated time; historical derived summaries cannot override author facts.')
-    expect(prompt).toContain('even when a blueprint, chapter plan or frozen goal says otherwise.')
+    expect(prompt).toContain('逐字连续、且全文仅出现一次的单一摘录')
+    expect(prompt).toContain('【作者设定优先】')
+    expect(prompt).toContain('【作者确认项目配置】与【世界观设定】是权威事实')
+
   })
 
   it('prepares source hashes, binds only the main context and commits the verified composition reference', async () => {
@@ -565,7 +561,7 @@ describe('review/revision consumers using the main contract (synthetic transport
     expect(f.fixture.materialDecisions[0]?.promptHash).toBe(hash(prompt))
   })
 
-  it('renders the complete-revision contract in English and rejects a zero-unit source before dispatch', async () => {
+  it('renders the complete-revision contract for English source text and rejects a zero-unit source before dispatch', async () => {
     useProjectStore.setState({ currentProject: { id: session.projectId, path: projectPath, name: 'Synthetic', sessionLease: session.leaseId,
       novelConfig: { wordsPerChapter: 300, globalGuidance: 'frozen guidance', writingLanguage: 'en-US' } } as never })
     const english = setup([{ content: revised, finishReason: 'stop' }], [], {
@@ -575,11 +571,11 @@ describe('review/revision consumers using the main contract (synthetic transport
     english.args.context.uiLocale = 'en-US'
     await english.command('refine-from-review').execute(english.args)
     const prompt = english.provider.mock.calls[0]![0].find(message => message.role === 'user')!.content
-    expect(prompt).toContain('[Complete revision task contract]')
-    expect(prompt).toContain('The frozen source contains 919 prose units')
-    expect(prompt).toContain('Aim for 643-1195 prose units (70%-130% of the source)')
-    expect(prompt).toContain('Preserve every unaffected paragraph or line in full')
-    expect(prompt).toContain('Do not summarize, excerpt, collapse repeated passages, or use placeholders')
+    expect(prompt).toContain('【完整修稿任务合同】')
+    expect(prompt).toContain('冻结源稿共 919 个正文单位')
+    expect(prompt).toContain('643-1195 个正文单位（源稿的 70%-130%）')
+    expect(prompt).toContain('所有未受影响的段落或行必须完整保留')
+    expect(prompt).toContain('不得摘要、节选、合并重复段落或使用占位符')
     expect(english.fixture.materialDecisions[0]?.promptHash).toBe(hash(prompt))
 
     useProjectStore.setState({ currentProject: { id: session.projectId, path: projectPath, name: 'Synthetic', sessionLease: session.leaseId,

@@ -102,7 +102,7 @@ export function useArchitectureConfirmForm({
 
   const toggleStep = (key: ArchStepKey) =>
     setChecked(prev => ({ ...prev, [key]: !prev[key] }))
-  const setAll = (value: boolean) => setChecked({ premise: value, characters: value, worldbuilding: value, synopsis: value })
+  const setAll = (value: boolean) => setChecked({ premise: false, characters: value, worldbuilding: value, synopsis: false })
 
   const selectedSteps = (Object.keys(checked) as ArchStepKey[]).filter(k => checked[k])
   const noneSelected = selectedSteps.length === 0
@@ -215,7 +215,7 @@ export function useArchitectureConfirmForm({
         return
       }
 
-      // 前置校验 2：如果勾选了角色名单（意味着将重新生成角色卡），则必须确保蓝图为空
+      // 前置校验 2：如果勾选了角色名单（意味着将重新生成角色卡），则必须确保故事规划为空
       if (selectedSteps.includes('characters') && archStatus.characters) {
         const charGuard = await guardCharacterRegeneration()
         if (!charGuard.ok) {

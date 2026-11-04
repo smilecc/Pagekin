@@ -1,9 +1,8 @@
-import { useState } from 'react'
-import { ArrowRight, Ellipsis, Sparkles } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { Ellipsis, Sparkles } from 'lucide-react'
 import { ARCH_STEP_NAMES, type ArchStepKey } from '../../../services/architecture-step-selection'
 import { useCharacterStore } from '../../../stores/character-store'
 import { useLocaleStore } from '../../../stores/locale-store'
-import { navigate } from '../../../stores/navigation/navigation-intents'
 import { openBuiltinEditor } from '../../../stores/open-builtin-editor'
 import { useProjectStore } from '../../../stores/project-store'
 import { clearArchSection } from '../../editor/clear-arch-section'
@@ -39,7 +38,7 @@ const openCast = (text: (zh: string, en: string) => string) => openBuiltinEditor
  * 架构阶段：故事前提、角色名单、世界观、情节大纲四节。编辑一节打开它的文档标签，角色名单打开名单页；
  * 数据与操作来自 useArchitectureOverview。
  */
-export default function StageArchitecture({ projectKey }: { projectKey: string }) {
+export default function StageArchitecture({ projectKey, beforeSections, afterSections }: { projectKey: string; beforeSections?: ReactNode; afterSections?: ReactNode }) {
   const text = useLocaleStore(s => s.text)
   const overview = useArchitectureOverview(projectKey)
   const badges = Object.fromEntries(SECTION_ORDER.map(key => [key, sectionBadge(key, overview)])) as Record<ArchStepKey, ReturnType<typeof sectionBadge>>
@@ -95,7 +94,7 @@ export default function StageArchitecture({ projectKey }: { projectKey: string }
           <div className="arch-heading">
             <p className="arch-eyebrow">{text('架构', 'Architecture')}{filled !== null && <span className="arch-progress"> · {text(`${filled} / ${total} 已确认`, `${filled} / ${total} confirmed`)}</span>}</p>
             <h1 className="arch-title">{text('故事的骨架', 'The bones of the story')}</h1>
-            <p className="arch-lede">{text('前提、角色、世界观和情节大纲。四节都确认后，就可以逐章规划蓝图。', 'Premise, cast, world and outline. Once all four are confirmed, plan the chapters in the blueprint.')}</p>
+            <p className="arch-lede">{text('完善大纲、角色和世界观，再到故事规划安排各章情节。', 'Develop the outline, cast and world, then arrange chapter events in Story planning.')}</p>
           </div>
           <div className="arch-header-actions">
             <Menu
@@ -107,27 +106,14 @@ export default function StageArchitecture({ projectKey }: { projectKey: string }
                 ...(action === 'next' ? [{ id: 'generate', label: text('AI 生成架构…', 'Generate with AI…'), onSelect: () => overview.openGenerateDialog() }] : []),
               ] }]}
             />
-            {action === 'next'
-              ? (
-                <Button variant="primary" onClick={() => navigate({ kind: 'stage', stage: 'blueprint' })}>
-                  {text('下一步：章节蓝图', 'Next: chapter blueprint')}<ArrowRight size={14} aria-hidden />
-                </Button>
-              )
-              : (
-                <>
-                  <Button variant="secondary" disabled title={text('四节都确认后才能进入蓝图', 'Confirm all four sections first')}>
-                    {text('下一步：章节蓝图', 'Next: chapter blueprint')}<ArrowRight size={14} aria-hidden />
-                  </Button>
-                  <Button variant="primary" disabled={filled === null} onClick={() => overview.openGenerateDialog()}>
-                    <Sparkles size={14} aria-hidden />
-                    {action === 'generate' ? text('AI 生成架构', 'Generate architecture') : text('继续生成架构', 'Continue architecture')}
-                  </Button>
-                </>
-              )}
+            <Button variant="primary" disabled={filled === null} onClick={() => overview.openGenerateDialog()}>
+              <Sparkles size={14} aria-hidden />{text('AI 生成架构', 'Generate architecture')}
+            </Button>
           </div>
         </header>
 
         <div className="arch-sections">
+          {beforeSections}
           {SECTION_ORDER.map(key => (
             <ArchitectureSection
               key={key}
@@ -145,6 +131,7 @@ export default function StageArchitecture({ projectKey }: { projectKey: string }
               onReload={reload}
             />
           ))}
+          {afterSections}
         </div>
       </div>
 
@@ -153,7 +140,7 @@ export default function StageArchitecture({ projectKey }: { projectKey: string }
         open={clearing !== null}
         onOpenChange={open => { if (!open) setClearing(null) }}
         title={text(`清空「${clearingName}」？`, `Clear ${clearingName}?`)}
-        consequence={text(`将删除「${clearingName}」的全部文本。其他三节、蓝图和正文不受影响。`, `All text in ${clearingName} will be deleted. The other sections, blueprints and chapters are not affected.`)}
+        consequence={text(`将删除「${clearingName}」的全部文本。其他架构内容、故事规划和正文不受影响。`, `All text in ${clearingName} will be deleted. The other sections, blueprints and chapters are not affected.`)}
         recoverability={text('清空后无法撤销；做过项目备份的，可以从备份恢复。', 'This cannot be undone. If you made a project backup, you can restore from it.')}
         confirmLabel={text('清空此节', 'Clear section')}
         cancelLabel={text('取消', 'Cancel')}

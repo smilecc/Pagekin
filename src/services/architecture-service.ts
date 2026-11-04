@@ -7,11 +7,9 @@
 
 import type { NovelConfig, ProjectSessionContext } from '../shared/ipc-channels'
 import { CANONICAL_PROJECT_DIRECTORY } from '../shared/project-format'
-import { outlineProgress } from '../shared/plot-outline-checkpoint'
 import type { PlotOutlineRangeSource } from '../shared/plot-outline-contract'
 import { resolveWritingLanguage } from '../shared/writing-language'
 import { ipc } from './ipc-client'
-import { judgeArchCore } from './architecture-step-selection'
 
 /** 读架构生成的分批检查点 partial_arch.json；没有、读不到或读失败都按没有检查点（undefined）。 */
 export async function readArchCheckpoint(projectSession: ProjectSessionContext): Promise<Record<string, unknown> | undefined> {
@@ -62,31 +60,28 @@ export async function checkArchStatus(
   if (!core) return status
 
   // 长度 > 50 才算真正已生成，前端可以直接用长度判断
-  status.premise = (core.premise?.length ?? 0) > 50
+  status.premise = false
   status.characters = roster.status === 'ready'
   status.worldbuilding = (core.worldbuilding?.length ?? 0) > 50
-  status.synopsis = (core.synopsis?.length ?? 0) > 50
+  status.synopsis = false
 
   return status
 }
 
 /**
- * 流程脊的架构四节是否已确认：与架构页徽标同一判定（judgeArchCore），角色名单要结构化名单就绪。
+ * 流程侧栏只读取现有角色名单与世界观；大纲、文风和要求由配置字段判断。
  */
 export async function checkArchConfirmed(
   projectSession: ProjectSessionContext,
-  novelConfig?: Pick<NovelConfig, 'totalChapters' | 'writingLanguage'>,
+  _novelConfig?: Pick<NovelConfig, 'totalChapters' | 'writingLanguage'>,
 ): Promise<Record<string, boolean>> {
+  void _novelConfig
   const { projectPath } = projectSession
-  const [core, roster, checkpoint] = await Promise.all([
+  const [core, roster] = await Promise.all([
     ipc.invokeWithProjectSession(projectSession, 'db:project-core-get', projectPath),
     ipc.invokeWithProjectSession(projectSession, 'db:character-roster-read', projectPath),
-    readArchCheckpoint(projectSession),
   ])
-  if (!core) return { premise: false, characters: false, worldbuilding: false, synopsis: false }
-  const { synopsis, totalChapters, writingLanguage } = archOutlineSource(core, novelConfig)
-  const progress = outlineProgress(synopsis, checkpoint, writingLanguage, totalChapters)
-  return { ...judgeArchCore(core, progress.kind).confirmed, characters: roster.status === 'ready' }
+  return { characters: roster.status === 'ready', worldbuilding: Boolean(core?.worldbuilding?.trim()) }
 }
 
 /**

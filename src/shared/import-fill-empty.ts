@@ -28,14 +28,12 @@ const FILL_RULES: Record<ImportFillField, { kind: FillKind; suggest: boolean }> 
   wordsPerChapter: { kind: 'count', suggest: true },
   plotStructure: { kind: 'text', suggest: true },
   narrativePov: { kind: 'text', suggest: true },
-  goldenFinger: { kind: 'text', suggest: true },
+
   globalGuidance: { kind: 'text', suggest: true },
   coreOutline: { kind: 'text', suggest: true },
-  worldSetting: { kind: 'text', suggest: true },
-  protagonistProfile: { kind: 'text', suggest: true },
-  premise: { kind: 'text', suggest: true },
+
   worldbuilding: { kind: 'text', suggest: true },
-  synopsis: { kind: 'text', suggest: true },
+
   writingStyle: { kind: 'text', suggest: true },
 }
 

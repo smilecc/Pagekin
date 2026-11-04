@@ -36,31 +36,6 @@ afterEach(() => {
 })
 
 describe('read_project_state language boundary', () => {
-  it('describes and returns an English project state entirely in English', async () => {
-    expect(readProjectStateTool.descriptionEn).toBe(
-      'Read the project-wide state, including novel configuration and recent chapter notes, to understand the overall project context.',
-    )
-    expect(readProjectStateTool.inputSchema.properties.include_config.descriptionEn)
-      .toBe('Include the complete novel configuration')
-    expect(readProjectStateTool.inputSchema.properties.include_summary.descriptionEn)
-      .toBe('Include recent chapter notes')
-
-    const result = await readProjectStateTool.execute({}, createAgentExecutionContext())
-
-    expect(result).toMatchObject({ success: true })
-    expect(result.content).toContain('# Project status: "Signal Harbor"')
-    expect(result.content).toContain('## Novel configuration')
-    expect(result.content).toContain('## Recent chapter notes')
-    expect(result.content).toContain('### Chapter 2 The Broken Beacon')
-    const configJson = result.content.match(/```json\n([\s\S]+?)\n```/u)?.[1]
-    expect(JSON.parse(configJson ?? '{}')).toMatchObject({
-      genre: 'Science fiction',
-      targetAudience: 'All ages',
-      plotStructure: 'Three-act',
-      narrativePOV: 'Third-person limited',
-    })
-    expect(result.content).not.toMatch(/[\u3400-\u9fff]/u)
-  })
 
   it('keeps the existing Chinese project-state copy', async () => {
     useProjectStore.setState({

@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
-import { BookOpen, ListChecks, MoreHorizontal, Sparkles } from 'lucide-react'
-import { blueprintWritePrefill } from '../../../services/workflows/chapter-write-launch'
+import { useMemo, useState } from 'react'
+import { BookOpen, Plus, MoreHorizontal, Sparkles } from 'lucide-react'
 import type { DirectoryWorkflowParams } from '../../../services/workflows/directory-workflow'
 import { openPlanningRecoveryDraft } from '../../../stores/editor-store'
 import { useLocaleStore } from '../../../stores/locale-store'
-import { useStageStore } from '../../../stores/navigation/stage-store'
 import { isCurrentProjectSession, currentProjectSessionForPath, useChapterBlueprints } from '../../editor/use-chapter-blueprints'
 import { Button } from '../../ui/Button'
 import { DangerConfirm } from '../../ui/DangerConfirm'
@@ -13,21 +11,20 @@ import { Menu } from '../../ui/Menu'
 import { Notice } from '../../ui/Notice'
 import { InkDialog } from '../InkDialog'
 import { useStageView } from '../use-stage-work'
-import WriteChapterPopover from '../write/WriteChapterPopover'
 import BatchWriteDialog from './BatchWriteDialog'
 import BlueprintCard from './BlueprintCard'
 import BlueprintPlanList from './BlueprintPlanList'
 import GenerateBlueprintsDialog from './GenerateBlueprintsDialog'
 import { pluralEn } from '../../../shared/plural-en'
 
-/** 等作者确认的一步：覆盖已有蓝图、生成前的架构警告、清空全部、删除此章、清除误导入正文。 */
+/** 等作者确认的一步：覆盖已有故事规划、生成前的架构警告、清空全部、删除此章、清除误导入正文。 */
 type Ask =
   | { kind: 'overwrite' | 'warning'; message?: string; resolve: (ok: boolean) => void }
   | { kind: 'delete'; chapterNumber: number }
   | { kind: 'clear' | 'legacy' }
 
 /**
- * 蓝图阶段：章节规划列表与单章蓝图编辑。主操作是写下一章（拆分按钮带写作弹层）；没有可写的章时主操作是 AI 生成蓝图。
+ * 故事规划阶段：目录、章节名、出场角色与规划正文。正文写作由章节视图负责。
  * 数据来自 useChapterBlueprints；未保存提示只在顶栏，⌘S 走同一个退出前保存。
  */
 export default function StageBlueprint({ projectKey, initialChapterNumber, selectRequest }: {
@@ -39,7 +36,6 @@ export default function StageBlueprint({ projectKey, initialChapterNumber, selec
   const plan = useChapterBlueprints({ projectKey, initialChapterNumber, selectRequest })
   const { chapters } = useStageView()
   const rows = useMemo(() => new Map(chapters.map(row => [row.number, row])), [chapters])
-  const writeRequest = useStageStore(s => s.writeRequest)
   const [generateOpen, setGenerateOpen] = useState(false)
   const [batchOpen, setBatchOpen] = useState(false)
   const [ask, setAsk] = useState<Ask | null>(null)
@@ -48,12 +44,6 @@ export default function StageBlueprint({ projectKey, initialChapterNumber, selec
   const count = plan.blueprints.length
   const selected = plan.selected
   const deleting = ask?.kind === 'delete' ? ask.chapterNumber : null
-
-  // 写作请求只由那一章的写作按钮接手；那一章现在写不了时丢掉请求，免得以后突然弹出。
-  useEffect(() => {
-    if (plan.loading || !writeRequest || writeRequest.chapterNumber === next?.chapterNumber) return
-    useStageStore.setState({ writeRequest: null })
-  }, [plan.loading, writeRequest, next])
 
   const confirmWith = (kind: 'overwrite' | 'warning', message?: string) =>
     new Promise<boolean>(resolve => setAsk({ kind, message, resolve }))
@@ -81,13 +71,13 @@ export default function StageBlueprint({ projectKey, initialChapterNumber, selec
   const openRecovery = () => {
     const session = currentProjectSessionForPath(projectKey)
     if (plan.planningRecovery && session && isCurrentProjectSession(session)) {
-      openPlanningRecoveryDraft(plan.planningRecovery, projectKey, text('蓝图恢复稿', 'Blueprint recovery draft'))
+      openPlanningRecoveryDraft(plan.planningRecovery, projectKey, text('故事规划恢复稿', 'Blueprint recovery draft'))
     }
   }
 
   // 只有第一次读取（含换作品）才整页换成读取中；之后的重新加载保留页面、打开的弹层与对话框，作者的输入不丢。
   if (plan.loading && !plan.projectDataReady) {
-    return <div className="stage-bp-loading" role="status">{text('正在读取章节蓝图…', 'Loading chapter blueprints…')}</div>
+    return <div className="stage-bp-loading" role="status">{text('正在读取故事规划…', 'Loading story plans…')}</div>
   }
 
   if (!plan.projectMatches) {
@@ -95,7 +85,7 @@ export default function StageBlueprint({ projectKey, initialChapterNumber, selec
       <EmptyState
         icon={<BookOpen aria-hidden />}
         heading={text('这个标签属于另一部作品', 'This tab belongs to another book')}
-        description={text('切回原来的作品后继续编辑蓝图。', 'Switch back to that book to keep editing its blueprints.')}
+        description={text('切回原来的作品后继续编辑故事规划。', 'Switch back to that book to keep editing its blueprints.')}
         action={null}
       />
     )
@@ -103,11 +93,11 @@ export default function StageBlueprint({ projectKey, initialChapterNumber, selec
 
   const generateButton = (
     <Button
-      variant={next ? 'secondary' : 'primary'}
+      variant="primary"
       disabled={!plan.projectDataReady || Boolean(plan.authorityError)}
       onClick={() => setGenerateOpen(true)}
     >
-      <Sparkles size={15} aria-hidden />{text('AI 生成蓝图', 'Generate blueprints')}
+      <Sparkles size={15} aria-hidden />{text('AI 生成故事规划', 'Generate blueprints')}
     </Button>
   )
 
@@ -115,54 +105,39 @@ export default function StageBlueprint({ projectKey, initialChapterNumber, selec
     <div className="stage-bp" aria-busy={plan.loading}>
       <header className="stage-bp-head">
         <div className="stage-bp-heading">
-          <div className="stage-bp-kicker">
-            <span className="stage-bp-numeral" aria-hidden="true">iii</span>
-            <span className="stage-bp-eyebrow">{text('第三步 · 蓝图', 'Step three · Blueprint')}</span>
-          </div>
-          <h1 className="stage-bp-h1">{text('逐章规划', 'Chapter by chapter')}</h1>
+          <h1 className="stage-bp-h1">{text('故事规划', 'Story planning')}</h1>
         </div>
         <div className="stage-bp-actions">
           <Menu
-            label={text('更多蓝图操作', 'More blueprint actions')}
+            label={text('更多故事规划操作', 'More blueprint actions')}
             icon={<MoreHorizontal size={16} aria-hidden />}
             align="end"
             groups={[
               { id: 'edit', items: [
-                { id: 'add', label: text('新建章节', 'New chapter'), onSelect: plan.addChapter,
-                  disabled: !plan.projectDataReady || plan.nextWriteChapter === null || Boolean(plan.authorityError) },
                 { id: 'save-all', label: text('保存全部', 'Save all'), onSelect: () => void plan.saveAll(), disabled: !plan.dirty || plan.saving },
-                { id: 'reload', label: text('重新加载蓝图', 'Reload blueprints'), onSelect: () => void plan.reload() },
+                { id: 'reload', label: text('重新加载故事规划', 'Reload blueprints'), onSelect: () => void plan.reload() },
+                { id: 'batch', label: text('批量创作…', 'Batch write…'), onSelect: () => setBatchOpen(true), disabled: !next },
               ] },
               { id: 'danger', tone: 'danger', label: text('危险', 'Danger'), items: [
-                { id: 'clear', label: text('清空全部蓝图…', 'Clear all blueprints…'), onSelect: () => setAsk({ kind: 'clear' }),
+                { id: 'clear', label: text('清空全部故事规划…', 'Clear all blueprints…'), onSelect: () => setAsk({ kind: 'clear' }),
                   disabled: plan.saving || count === 0 || !plan.projectDataReady },
               ] },
             ]}
           />
+          <Button variant="secondary" onClick={plan.addChapter} disabled={!plan.projectDataReady || plan.nextWriteChapter === null || Boolean(plan.authorityError)}>
+            <Plus size={15} aria-hidden />{text('新建章节', 'New chapter')}
+          </Button>
           {count > 0 && generateButton}
-          {next && (
-            <Button variant="secondary" onClick={() => setBatchOpen(true)}>
-              <ListChecks size={15} aria-hidden />{text('批量创作', 'Batch write')}
-            </Button>
-          )}
-          {next && (
-            <WriteChapterPopover
-              key={next.chapterNumber}
-              chapterNumber={next.chapterNumber}
-              blueprint={blueprintWritePrefill(next)}
-              label={text(`写第 ${next.chapterNumber} 章`, `Write chapter ${next.chapterNumber}`)}
-            />
-          )}
         </div>
       </header>
 
       {plan.planningRecovery && (
         <Notice
           tone="info"
-          title={text('有一份蓝图恢复稿', 'A blueprint recovery draft is available')}
+          title={text('有一份故事规划恢复稿', 'A blueprint recovery draft is available')}
           actions={<Button variant="secondary" size="sm" onClick={openRecovery}>{text('编辑恢复稿', 'Edit recovery draft')}</Button>}
         >
-          {text('上次生成蓝图时中断，恢复出了一部分。列表里仍是原来的蓝图；保存恢复稿才会替换，也可以在恢复稿里接着生成缺少的章节。',
+          {text('上次生成故事规划时中断，恢复出了一部分。列表里仍是原来的故事规划；保存恢复稿才会替换，也可以在恢复稿里接着生成缺少的章节。',
             'The last blueprint generation stopped partway. The list still shows the original blueprints; saving the recovery draft replaces them, and you can generate the missing chapters from there.')}
         </Notice>
       )}
@@ -190,9 +165,9 @@ export default function StageBlueprint({ projectKey, initialChapterNumber, selec
         <div className="stage-bp-empty">
           <EmptyState
             icon={<BookOpen aria-hidden />}
-            heading={text('还没有章节蓝图', 'No chapter blueprints yet')}
-            description={text('按情节大纲让 AI 逐章规划；也可以在「更多蓝图操作」里自己新建第一章。',
-              'Let AI plan each chapter from the plot outline, or add the first chapter yourself from “More blueprint actions”.')}
+            heading={text('还没有故事规划', 'No story plans yet')}
+            description={text('根据大纲、世界观与角色名单生成各章规划，也可以点击「新建章节」开始编写。',
+              'Generate chapter plans from the outline, worldbuilding and characters, or choose “New chapter” to start planning yourself.')}
             action={generateButton}
           />
         </div>
@@ -208,7 +183,6 @@ export default function StageBlueprint({ projectKey, initialChapterNumber, selec
           {selected && (
             <BlueprintCard
               blueprint={selected}
-              row={rows.get(selected.chapterNumber)}
               saving={plan.saving}
               onField={plan.updateField}
               onSave={() => void plan.saveOne()}
@@ -233,10 +207,10 @@ export default function StageBlueprint({ projectKey, initialChapterNumber, selec
       <DangerConfirm
         open={ask?.kind === 'overwrite'}
         onOpenChange={open => { if (!open) settle(false) }}
-        title={text('覆盖已有蓝图？', 'Overwrite existing blueprints?')}
-        consequence={text(`将从第 1 章起重新生成，已有的 ${count} 章蓝图会被新蓝图替换。草稿与正文不受影响。`,
+        title={text('覆盖已有故事规划？', 'Overwrite existing blueprints?')}
+        consequence={text(`将从第 1 章起重新生成，已有的 ${count} 章故事规划会被新故事规划替换。草稿与正文不受影响。`,
           `Generation restarts from chapter 1 and replaces the ${count} existing ${pluralEn(count, 'blueprint')}. Drafts and manuscript chapters are not affected.`)}
-        recoverability={text('被替换的蓝图无法恢复。只想补空缺时，选「保留，只补空缺」。', 'Replaced blueprints cannot be recovered. To fill gaps only, keep existing blueprints instead.')}
+        recoverability={text('被替换的故事规划无法恢复。只想补空缺时，选「保留，只补空缺」。', 'Replaced blueprints cannot be recovered. To fill gaps only, keep existing blueprints instead.')}
         confirmLabel={text('覆盖并生成', 'Overwrite and generate')}
         cancelLabel={text('取消', 'Cancel')}
         onConfirm={() => settle(true)}
@@ -256,8 +230,8 @@ export default function StageBlueprint({ projectKey, initialChapterNumber, selec
       <DangerConfirm
         open={ask?.kind === 'clear'}
         onOpenChange={open => { if (!open) setAsk(null) }}
-        title={text('清空全部蓝图？', 'Clear all blueprints?')}
-        consequence={text(`将删除全部 ${count} 章蓝图。草稿与正文章节会保留。`, `The ${count} chapter ${pluralEn(count, 'blueprint')} will be deleted. Drafts and manuscript chapters remain.`)}
+        title={text('清空全部故事规划？', 'Clear all blueprints?')}
+        consequence={text(`将删除全部 ${count} 章故事规划。草稿与正文章节会保留。`, `The ${count} chapter ${pluralEn(count, 'blueprint')} will be deleted. Drafts and manuscript chapters remain.`)}
         recoverability={text('清空后无法恢复。想留底请先在设置的「项目备份」里导出存档。', 'This cannot be undone. Export an archive from Project backup in Settings first if you may need them.')}
         confirmLabel={text('清空全部', 'Clear all')}
         cancelLabel={text('取消', 'Cancel')}
@@ -266,8 +240,8 @@ export default function StageBlueprint({ projectKey, initialChapterNumber, selec
       <DangerConfirm
         open={deleting !== null}
         onOpenChange={open => { if (!open) setAsk(null) }}
-        title={text(`删除第 ${deleting ?? ''} 章蓝图？`, `Delete the chapter ${deleting ?? ''} blueprint?`)}
-        consequence={text('只删除这一章的蓝图，草稿与正文保留。', 'Only this chapter’s blueprint is deleted. Drafts and manuscript text remain.')}
+        title={text(`删除第 ${deleting ?? ''} 章故事规划？`, `Delete the chapter ${deleting ?? ''} blueprint?`)}
+        consequence={text('只删除这一章的故事规划，草稿与正文保留。', 'Only this chapter’s blueprint is deleted. Drafts and manuscript text remain.')}
         recoverability={text('删除后无法恢复。', 'This cannot be undone.')}
         confirmLabel={text('删除此章', 'Delete chapter')}
         cancelLabel={text('取消', 'Cancel')}
@@ -277,8 +251,8 @@ export default function StageBlueprint({ projectKey, initialChapterNumber, selec
         open={ask?.kind === 'legacy'}
         onOpenChange={open => { if (!open) setAsk(null) }}
         title={text('清除误导入正文？', 'Clear incorrectly imported text?')}
-        consequence={text('将永久清除草稿、定稿、审稿和摘要等正文产物；角色、故事架构、章节蓝图与知识库会保留。只是缺下一章蓝图时，请取消并先补蓝图。',
-          'Drafts, final manuscript text, reviews and summaries are permanently cleared. Characters, story architecture, chapter blueprints and the knowledge base are kept. If only the next blueprint is missing, cancel and add it first.')}
+        consequence={text('将永久清除草稿、定稿、审稿和摘要等正文产物；角色、故事架构、故事规划与知识库会保留。只是缺下一章故事规划时，请取消并先补故事规划。',
+          'Drafts, final manuscript text, reviews and summaries are permanently cleared. Characters, story architecture, story plans and the knowledge base are kept. If only the next blueprint is missing, cancel and add it first.')}
         recoverability={text('清除后无法恢复。', 'This cannot be undone.')}
         confirmLabel={text('清除误导入正文', 'Clear imported text')}
         cancelLabel={text('取消', 'Cancel')}

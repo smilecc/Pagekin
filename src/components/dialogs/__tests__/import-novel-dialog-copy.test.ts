@@ -12,7 +12,7 @@ describe('import novel imitation entry copy', () => {
     const library = source('src/components/stage/library/StageLibrary.tsx')
 
     expect(dialog).toContain('小说拆解与仿写')
-    expect(dialog).toContain('结构拆解、文风提取、蓝图反推')
+    expect(dialog).toContain('结构拆解、文风提取、故事规划反推')
     expect(library).toContain('小说拆解与仿写')
     expect(library).toContain('Novel breakdown & imitation')
   })

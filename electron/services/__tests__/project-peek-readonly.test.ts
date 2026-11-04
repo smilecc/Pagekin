@@ -207,7 +207,7 @@ describe('ProjectPeekService source-zero-write overview', { timeout: 20_000 }, (
     expect(overview).not.toHaveProperty('excerpt')
     expect(JSON.stringify(overview)).not.toContain(f.root)
     expect(overview.stages).toEqual([
-      { id: 'configuration', status: 'completed', count: 9 },
+      { id: 'configuration', status: 'completed', count: 6 },
       { id: 'architecture', status: 'in-progress', count: 2 },
       { id: 'blueprint', status: 'in-progress', count: 1 },
       { id: 'drafting', status: 'in-progress', count: 1 },
@@ -216,7 +216,7 @@ describe('ProjectPeekService source-zero-write overview', { timeout: 20_000 }, (
     ])
   })
 
-  it('reports setup readiness from the four required fields and the planned chapter count, not the nine-field count', () => {
+  it('reports setup readiness from the three required fields and the planned chapter count, not the optional-field count', () => {
     const f = fixture()
     const service = new ProjectPeekService({ scratchRoot: f.scratch })
     const peek = () => {
@@ -224,9 +224,9 @@ describe('ProjectPeekService source-zero-write overview', { timeout: 20_000 }, (
       ready(overview)
       return { setupReady: overview.setupReady, plannedChapters: overview.plannedChapters, configuration: overview.stages[0].count }
     }
-    expect(peek()).toEqual({ setupReady: true, plannedChapters: 3, configuration: 9 })
-    f.database.prepare("UPDATE project_core SET world_setting='', golden_finger=''").run()
-    expect(peek()).toEqual({ setupReady: true, plannedChapters: 3, configuration: 7 })
+    expect(peek()).toEqual({ setupReady: true, plannedChapters: 3, configuration: 6 })
+    f.database.prepare("UPDATE project_core SET global_guidance='', core_outline=''").run()
+    expect(peek()).toEqual({ setupReady: true, plannedChapters: 3, configuration: 4 })
     f.database.prepare("UPDATE project_core SET target_audience=' '").run()
     expect(peek()).toMatchObject({ setupReady: false })
     f.database.prepare("UPDATE project_core SET target_audience='成年读者', words_per_chapter=0").run()

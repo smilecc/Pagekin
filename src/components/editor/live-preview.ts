@@ -157,7 +157,7 @@ function buildDecorations(
   return { visible: decorationSet(pending), atomic: decorationSet(atomic) }
 }
 
-export function livePreview() {
+export function livePreview({ dropCap = true }: { dropCap?: boolean } = {}) {
   const plugin = ViewPlugin.fromClass(class {
     decorations: DecorationSet
     atomic: DecorationSet
@@ -166,7 +166,7 @@ export function livePreview() {
     firstBodyCharacter: { from: number; to: number } | null
 
     constructor(view: EditorView) {
-      this.firstBodyCharacter = dropcapRange(view.state.doc)
+      this.firstBodyCharacter = dropCap ? dropcapRange(view.state.doc) : null
       const built = buildDecorations(view.state, view.visibleRanges, this.firstBodyCharacter)
       this.decorations = built.visible
       this.atomic = built.atomic
@@ -198,7 +198,7 @@ export function livePreview() {
       ) return
 
       if (this.pendingRebuild && !update.docChanged) {
-        this.firstBodyCharacter = dropcapRange(update.state.doc)
+        this.firstBodyCharacter = dropCap ? dropcapRange(update.state.doc) : null
       }
       if (update.docChanged) {
         let invalidated = false
@@ -208,7 +208,7 @@ export function livePreview() {
         })
         if (invalidated) {
           // ponytail: only the opening 16 KiB participates in the page drop cap.
-          this.firstBodyCharacter = dropcapRange(update.state.doc)
+          this.firstBodyCharacter = dropCap ? dropcapRange(update.state.doc) : null
         } else if (this.firstBodyCharacter) {
           this.firstBodyCharacter = {
             from: update.changes.mapPos(this.firstBodyCharacter.from),

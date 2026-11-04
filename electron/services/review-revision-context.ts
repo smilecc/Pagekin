@@ -72,7 +72,7 @@ export function captureReviewRevisionContext(db: Database.Database, request: Pre
       creativeStrategy: core.creativeStrategy, narrativeThreadDormantChapterThreshold: core.narrativeThreadDormantChapterThreshold,
       plotStructure: core.plotStructure as NovelConfig['plotStructure'], narrativePOV: core.narrativePov as NovelConfig['narrativePOV'],
       writingStyle: core.writingStyle, referenceWorks: core.referenceWorks, globalGuidance: core.globalGuidance,
-      goldenFinger: core.goldenFinger, coreOutline: core.coreOutline, worldSetting: core.worldSetting, protagonistProfile: core.protagonistProfile }
+       coreOutline: core.coreOutline,   }
     let confirmation: ReviewRevisionContext['confirmation']
     if (request.operation === 'refine-from-review') {
       if (!Number.isSafeInteger(request.reviewSourceId) || request.reviewSourceId! < 1 || typeof request.confirmedReviewContent !== 'string') fail()
@@ -90,8 +90,8 @@ export function captureReviewRevisionContext(db: Database.Database, request: Pre
         originalReviewContentHash: textHash(original.content) }
     }
     const blueprints = BlueprintRepository.getAll(db).filter(row => row.chapterNumber >= source.chapterNumber && row.chapterNumber <= source.chapterNumber + 5)
-      .map(({ chapterNumber, title, role, purpose, keyEvents, characters, suspenseHook, userGuidance, notes }) =>
-        ({ chapterNumber, title, role, purpose, keyEvents, characters, suspenseHook, userGuidance, notes }))
+      .map(({ chapterNumber, title, keyEvents, characters }) =>
+        ({ chapterNumber, title, keyEvents, characters }))
     const currentBlueprint = blueprints.find(row => row.chapterNumber === source.chapterNumber)
     const projections = SummaryRepository.listFinalizedContinuityBefore(source.chapterNumber, db)
     const rows = db.prepare("SELECT d.id,d.chapter_number,d.version,c.body,o.finalization_id,o.chapter_title,o.content_hash,o.content_snapshot FROM drafts d JOIN contents c ON c.id=d.content_id LEFT JOIN finalization_outbox o ON o.draft_id=d.id WHERE d.status='finalized' AND d.chapter_number < ? AND NOT EXISTS (SELECT 1 FROM drafts n WHERE n.chapter_number=d.chapter_number AND n.status='finalized' AND (n.version>d.version OR n.version=d.version AND n.id>d.id)) ORDER BY d.chapter_number,d.id")
@@ -139,16 +139,14 @@ export function captureReviewRevisionContext(db: Database.Database, request: Pre
         return provenance?.kind === 'author' && state[field] ? [[field, `${state[field]} @ch${provenance.chapterNumber}`]] : []
       }))
       if (!Object.keys(fields).length) return []
-      return [core.writingLanguage === 'en-US'
-        ? `${card.name} (${card.role || 'unknown'}) author state (time-bound to the annotated chapter, not permanent): ${JSON.stringify(fields)}`
-        : `${card.name}（${card.role || '未知'}）作者状态（按标注章节理解，非永久约束）: ${JSON.stringify(fields)}`]
+      return [`${card.name}（${card.role || '未知'}）作者状态（按标注章节理解，非永久约束）: ${JSON.stringify(fields)}`]
     })
     return { version: 1, operation: request.operation, source, sourceHash: textHash(source.content), config,
       writingLanguage: core.writingLanguage, uiLocale: request.uiLocale, authorInputs: structuredClone(request.authorInputs),
-      characterStates: stateLines.join('\n') || (core.writingLanguage === 'en-US' ? '(none)' : '（暂无）'),
+      characterStates: stateLines.join('\n') || ('（暂无）'),
       worldbuilding: core.worldbuilding, history, blueprints, ...(predecessor ? { predecessor } : {}),
       frozenGoals: freezeChapterGoals(source.chapterNumber, currentBlueprint?.keyEvents,
-        [core.worldSetting, ...authorCards.map(card => card.notes)]),
+        [core.worldbuilding, ...authorCards.map(card => card.notes)]),
       preflightFindings: currentBlueprint ? findBlueprintContinuityRisks(history.flatMap(item => item.projection ? [item.projection] : []), currentBlueprint, ConsistencyExemptionRepository.list(db)) : [],
       ...(confirmation ? { confirmation } : {}), ...(recheck ? { recheck } : {}) }
   })()

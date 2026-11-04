@@ -9,11 +9,13 @@ import type { ProjectData } from '../../shared/ipc-channels'
 import { sameProjectPathKey } from '../../shared/project-session-context'
 import { ErrorBoundary } from '../ErrorBoundary'
 import ArchFileViewer from '../editor/ArchFileViewer'
+import ConfigFieldDocument from './setup/ConfigFieldDocument'
+import { TEXT_FIELDS } from './setup/config-fields'
 import { Button } from '../ui/Button'
 import { EmptyState } from '../ui/EmptyState'
 import { DangerConfirm } from '../ui/DangerConfirm'
 import RunSheet from './run/RunSheet'
-import StageArchitecture from './architecture/StageArchitecture'
+
 import StageCharacters from './characters/StageCharacters'
 import StageLibrary from './library/StageLibrary'
 import { SettingsPage, SetupPage } from './stage-pages'
@@ -35,8 +37,12 @@ import { cancelCloseTab, closeCleanTabs, confirmCloseTab, requestCloseTab, STAGE
 function TabContent({ tab, project }: { tab: EditorTab; project: ProjectData }) {
   const text = useLocaleStore(s => s.text)
   const sameProject = sameProjectPathKey(tab.projectKey, project.path)
+  if (tab.type === 'config' && tab.projectKey && tab.configField) {
+    const field = TEXT_FIELDS.find(item => item.id === tab.configField)
+    if (field) return <ConfigFieldDocument key={`${tab.id}:${project.sessionLease}`} projectKey={tab.projectKey} field={field} />
+  }
   if (tab.type === 'config' && tab.projectKey) return <SetupPage projectKey={tab.projectKey} />
-  if (tab.type === 'world-building' && tab.projectKey) return <StageArchitecture projectKey={tab.projectKey} />
+  if (tab.type === 'world-building' && tab.projectKey) return <SetupPage projectKey={tab.projectKey} />
   if (tab.type === 'character' && tab.projectKey) return <StageCharacters projectKey={tab.projectKey} />
   if (isChapterViewTab(tab)) return <ChapterView tab={tab} />
   if (isProseDocumentTab(tab) && sameProject) return <ProseDocument tab={tab} project={project} />
@@ -51,6 +57,7 @@ function TabContent({ tab, project }: { tab: EditorTab; project: ProjectData }) 
   if (tab.type === 'narrative-thread' && sameProject) {
     return <StagePlot projectKey={project.path} initialView={tab.narrativeThreadView ?? 'plans'} viewRequest={tab.narrativeThreadViewRequest} />
   }
+  if (tab.type === 'arch-file' && tab.filePath?.endsWith('/premise')) return <SetupPage projectKey={project.path} />
   if (tab.type === 'arch-file' && tab.filePath && tab.projectKey) {
     return <ArchFileViewer key={tab.id} tabId={tab.id} filePath={tab.filePath} projectKey={tab.projectKey} content={tab.content ?? ''} savedContent={tab.savedContent ?? tab.content ?? ''} />
   }
@@ -188,8 +195,8 @@ export default function StageWorkspace({ library, focus }: { library: boolean; f
             : (
               <EmptyState
                 heading={text('从流程脊选一步开始', 'Pick a step in the flow to begin')}
-                description={text('左侧按设定、架构、蓝图、正文排列，点任意一步打开它。', 'Setup, architecture, blueprint and manuscript are listed on the left. Open any of them.')}
-                action={<Button variant="primary" onClick={() => navigate({ kind: 'stage', stage: 'setup' })}>{text('打开设定', 'Open setup')}</Button>}
+                description={text('左侧按架构、故事规划、正文排列，点任意一步打开它。', 'Architecture, story planning and manuscript are listed on the left. Open any of them.')}
+                action={<Button variant="primary" onClick={() => navigate({ kind: 'stage', stage: 'setup' })}>{text('打开架构', 'Open architecture')}</Button>}
               />
             )}
         </div>

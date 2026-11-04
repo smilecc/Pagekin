@@ -127,9 +127,9 @@ export async function runAgentLoop(
   // One agent run gets one immutable project identity. Tool calls later in the
   // loop must not silently borrow a lease issued after a same-path reopen.
   const executionContext = providedExecutionContext ?? createAgentExecutionContext(modelId)
-  const modelText = (zhCN: string, enUS: string) => (
-    writingLanguageText(executionContext.writingLanguage, zhCN, enUS)
-  )
+  const modelText = (zhCN: string, _enUS?: string) => { void _enUS; return (
+    writingLanguageText(executionContext.writingLanguage, zhCN)
+  ) }
   const uiText = (zhCN: string, enUS: string) => (
     executionContext.uiLocale === 'en-US' ? enUS : zhCN
   )
@@ -219,7 +219,6 @@ export async function runAgentLoop(
         callbacks.onToolCallComplete(toolCallInfo)
         observationParts.push(`<tool_result name="${tc.name}" error="true">\n${modelText(
           `未知工具：${tc.name}。可用工具：${toolRegistry.listAll().map(t => t.name).join(', ')}`,
-          `Unknown tool: ${tc.name}. Available tools: ${toolRegistry.listAll().map(t => t.name).join(', ')}`,
         )}\n</tool_result>`)
         continue
       }
@@ -240,7 +239,7 @@ export async function runAgentLoop(
           if (!tool.isReadOnly) toolCallInfo.commitState = 'not_committed'
           toolCallInfo.error = uiText('用户拒绝执行', 'The user declined this action')
           callbacks.onToolCallComplete(toolCallInfo)
-          observationParts.push(`<tool_result name="${tc.name}" error="true">\n${modelText('用户拒绝了此操作', 'The user declined this action')}\n</tool_result>`)
+          observationParts.push(`<tool_result name="${tc.name}" error="true">\n${modelText('用户拒绝了此操作')}\n</tool_result>`)
           continue
         }
         // The waiting confirmation card already represents this call. Its
@@ -308,7 +307,7 @@ export async function runAgentLoop(
             roundToolCalls.splice(toolIndex + 1, 0, ...confirmationDecision.blueprintProposals)
           }
         } else {
-          observationParts.push(`<tool_result name="${tc.name}" error="true">\n${modelText('工具执行失败。', 'Tool execution failed.')}\n</tool_result>`)
+          observationParts.push(`<tool_result name="${tc.name}" error="true">\n${modelText('工具执行失败。')}\n</tool_result>`)
         }
       } catch (error) {
         const unknownWriteResult = !tool.isReadOnly && sideEffectStarted
@@ -331,7 +330,7 @@ export async function runAgentLoop(
           resultUnknown = true
           break
         } else {
-          observationParts.push(`<tool_result name="${tc.name}" error="true">\n${modelText('工具执行失败。', 'Tool execution failed.')}\n</tool_result>`)
+          observationParts.push(`<tool_result name="${tc.name}" error="true">\n${modelText('工具执行失败。')}\n</tool_result>`)
         }
       }
     }
@@ -348,10 +347,8 @@ export async function runAgentLoop(
     // 加上明确提示，防止 LLM 误以为这是用户新发言
     const observation = `${modelText(
       '[以下是工具执行结果，请根据结果继续回答用户的问题]',
-      '[The following are tool results. Continue answering the user based on them.]',
     )}\n\n${observationParts.join('\n\n')}\n\n${modelText(
       '[请根据上面的工具结果，继续回答用户的原始问题。如果需要更多信息可以继续调用工具。]',
-      '[Continue answering the original request using the tool results above. Call another tool only if more information is needed.]',
     )}`
     messages.push({ role: 'user', content: observation })
   }
@@ -375,7 +372,7 @@ async function runHostedAgentLoop(generate: LLMGenerateFn, callbacks: AgentEngin
   context: AgentExecutionContext, signal?: AbortSignal): Promise<void> {
   const host = context.agentGeneration!
   const ui = (zh: string, en: string) => context.uiLocale === 'en-US' ? en : zh
-  const model = (zh: string, en: string) => writingLanguageText(context.writingLanguage, zh, en)
+  const model = (zh: string, _en?: string) => { void _en; return writingLanguageText(context.writingLanguage, zh) }
   const calls: ToolCallInfo[] = [], artifacts: ToolArtifact[] = []
   let visible = ''
   const done = (unknown = false) => callbacks.onDone(visible + (unknown ? ui(
@@ -447,7 +444,7 @@ async function runHostedAgentLoop(generate: LLMGenerateFn, callbacks: AgentEngin
         let sideEffectStarted = false, finishAttempted = false
         try {
           if (!tool) {
-            const observation = model(`未知工具：${action.name}`, `Unknown tool: ${action.name}`)
+            const observation = model(`未知工具：${action.name}`)
             finishAttempted = true
             await host.finishTool({ ref: action.ref, status: 'failed', observation })
             info.status = 'failed'; info.error = ui(`未知工具：${action.name}`, `Unknown tool: ${action.name}`)
@@ -457,7 +454,7 @@ async function runHostedAgentLoop(generate: LLMGenerateFn, callbacks: AgentEngin
             }), TOOL_TIMEOUT_MS, context.writingLanguage, tool.isReadOnly, () => sideEffectStarted, signal)
             const unknown = !tool.isReadOnly && result.commitState === 'unknown'
             const observation = result.success ? truncateResult(action.name, result, TOOL_RESULT_MAX_CHARS, context.writingLanguage, MAX_TOOL_ROUNDS - 1 - roundIndex)
-              : model('工具执行失败。', 'Tool execution failed.')
+              : model('工具执行失败。')
             finishAttempted = true
             action = await host.finishTool({ ref: action.ref, status: unknown ? 'unknown' : result.success ? 'completed' : 'failed', observation })
             info.commitState = result.commitState
@@ -475,7 +472,7 @@ async function runHostedAgentLoop(generate: LLMGenerateFn, callbacks: AgentEngin
             : error instanceof ToolExecutionTimeoutError ? ui('工具停止等待：执行超时，操作已取消。', 'Tool wait timed out; the operation was cancelled.')
               : signal?.aborted ? ui('工具已在提交前取消。', 'The tool was cancelled before commit.') : ui('工具执行失败，请重试。', 'Tool execution failed. Please try again.')
           if (!finishAttempted) {
-            try { await host.finishTool({ ref: action.ref, status: unknown ? 'unknown' : 'failed', observation: model('工具执行失败。', 'Tool execution failed.') }) }
+            try { await host.finishTool({ ref: action.ref, status: unknown ? 'unknown' : 'failed', observation: model('工具执行失败。') }) }
             catch { info.status = 'result_unknown' }
           }
         }
@@ -538,7 +535,6 @@ async function executeToolWithTimeout(
           reject(new ToolExecutionTimeoutError(writingLanguageText(
             writingLanguage,
             `工具执行超时（${timeoutMs / 1000}s）`,
-            `Tool execution timed out (${timeoutMs / 1000}s)`,
           )))
         }, timeoutMs)
       }),
@@ -569,7 +565,6 @@ function truncateResult(
     return content.slice(0, shown) + writingLanguageText(
       writingLanguage,
       `\n\n…（内容已截断，完整内容共 ${content.length} 字符。可使用 read_file 工具获取完整文件内容）`,
-      `\n\n... (Result truncated. The complete content is ${content.length} characters; use read_file to retrieve it.)`,
     )
   }
   const end = resultOffset + shown
@@ -578,12 +573,10 @@ function truncateResult(
     return content.slice(0, shown) + writingLanguageText(
       writingLanguage,
       `\n\n…（内容已截断：本段是第 ${resultOffset} 至 ${end} 字符，完整内容共 ${total} 字符。本轮工具调用次数已用完，请根据已读内容回答，并告诉作者第 ${end} 字符之后尚未读到；之后可调用 ${toolName} 并设 offset=${end} 继续）`,
-      `\n\n... (Result truncated: this part covers characters ${resultOffset} to ${end} of ${total}. No tool rounds are left in this turn. Answer from what you have read and tell the author that the content after character ${end} was not read; it can be continued later by calling ${toolName} with offset=${end}.)`,
     )
   }
   return content.slice(0, shown) + writingLanguageText(
     writingLanguage,
     `\n\n…（内容已截断：本段是第 ${resultOffset} 至 ${end} 字符，完整内容共 ${total} 字符。用相同参数再次调用 ${toolName} 并设 offset=${end} 读取下一段）`,
-    `\n\n... (Result truncated: this part covers characters ${resultOffset} to ${end} of ${total}. Call ${toolName} again with the same arguments and offset=${end} to read the next part.)`,
   )
 }

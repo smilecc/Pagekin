@@ -250,7 +250,7 @@ export class AgentGeneration {
       const root = this.runs.budget(run.rootActionId).root
       if (root.epoch !== this.scope.epoch || !this.sourcesCurrent(run) || root.status !== 'active') throw new Error('GENERATION_AGENT_TOOL_STALE')
       const tool = this.context(run).input.tools.find(tool => tool.name === action.name)
-      if (!tool) return { status: 'failed', observation: this.context(run).writingLanguage === 'en-US' ? `Unknown tool: ${action.name}` : `未知工具：${action.name}` }
+      if (!tool) return { status: 'failed', observation: `未知工具：${action.name}` }
       execute = request.confirmed
       return request.confirmed ? { status: 'running' } : { status: 'declined', observation: 'The author declined this action.' }
     })
@@ -314,7 +314,7 @@ export class AgentGeneration {
     const { action, run, registration } = this.workflowRegistration(id)
     const expectedOperations = registration.workflow === 'generate_draft' ? ['chapter-draft']
       : registration.workflow === 'generate_blueprint' ? ['chapter-blueprint-directory']
-        : ['generate-global-config', 'generate-core-seed', 'character-architecture', 'generate-world-building', 'generate-plot-outline']
+        : ['generate-global-config', 'character-architecture', 'generate-world-building']
     if (!['running', 'completed'].includes(action.status) || selection.modelId !== registration.modelId
       || selection.parentRootActionId !== run.rootActionId || !expectedOperations.includes(selection.operation)
       || registration.workflow === 'generate_draft' && selection.chapterNumber !== registration.chapterNumber
@@ -326,14 +326,15 @@ export class AgentGeneration {
     if (!existing.length && registration.planning) {
       const input = (id: string) => selection.authorInputs?.find(item => item.id === id)?.text
       const { from, to, targetUnits } = registration.planning
-      let range: { from: number; to: number } | undefined
-      try {
-        if (registration.workflow === 'generate_blueprint') {
+      if (Number(input('planning:target-units')) !== targetUnits) throw new Error('GENERATION_AGENT_CHILD_NOT_AUTHORIZED')
+      if (registration.workflow === 'generate_blueprint') {
+        let range: { from: number; to: number } | undefined
+        try {
           const value = JSON.parse(input('directory:requested-range') ?? 'null')
           range = value && { from: value.startChapter, to: value.endChapter }
-        } else range = JSON.parse(input('architecture:planning-intent') ?? 'null')?.synopsisRange
-      } catch { throw new Error('GENERATION_AGENT_CHILD_NOT_AUTHORIZED') }
-      if (!isDeepStrictEqual(range, { from, to }) || Number(input('planning:target-units')) !== targetUnits) throw new Error('GENERATION_AGENT_CHILD_NOT_AUTHORIZED')
+        } catch { throw new Error('GENERATION_AGENT_CHILD_NOT_AUTHORIZED') }
+        if (!isDeepStrictEqual(range, { from, to })) throw new Error('GENERATION_AGENT_CHILD_NOT_AUTHORIZED')
+      }
     }
     if (!existing.length && (this.runs.budget(run.rootActionId).root.epoch !== this.scope.epoch || this.runs.budget(run.rootActionId).root.status === 'cancelled'))
       throw new Error('GENERATION_AGENT_TOOL_STALE')

@@ -7,7 +7,6 @@ import { readFileTool } from '../read-file.tool'
 import { searchKnowledgeTool } from '../search-knowledge.tool'
 import { listChaptersTool } from '../list-chapters.tool'
 import { createAgentExecutionContext } from '../project-context'
-import { builtinTools } from '..'
 
 const projectAPath = 'C:\\novels\\A'
 const projectBPath = 'C:\\novels\\B'
@@ -37,59 +36,6 @@ afterEach(() => {
 })
 
 describe('agent project read tools', () => {
-  it('keeps app-generated English results free of Chinese across every built-in tool', async () => {
-    useProjectStore.setState({
-      currentProject: {
-        ...project(projectAPath),
-        novelConfig: { writingLanguage: 'en-US' },
-      } as never,
-    })
-    useDraftStore.setState({
-      dataProjectKey: projectAPath,
-      loadingProjectKey: null,
-      draftsByChapter: {},
-    })
-    const invoke = vi.fn(async (channel: string) => {
-      if (channel === 'db:project-core-get' || channel === 'db:blueprint-get') return null
-      if (channel === 'db:blueprint-get-all' || channel === 'db:character-get-all' || channel === 'db:draft-list') return []
-      throw new Error(`Unexpected IPC channel: ${channel}`)
-    })
-    vi.stubGlobal('window', {
-      aiNovelAPI: {
-        invoke,
-        on: vi.fn(),
-        once: vi.fn(),
-        send: vi.fn(),
-        setZoomLevel: vi.fn(),
-        setZoomFactor: vi.fn(),
-        getZoomLevel: vi.fn(),
-      },
-    })
-    const argsByTool: Record<string, Record<string, unknown>> = {
-      read_file: { file_path: '../outside.txt' },
-      search_knowledge: {},
-      read_architecture: {},
-      read_blueprint: { chapter_number: 1 },
-      read_characters: {},
-      read_project_state: {},
-      read_drafts: { chapter_number: 1 },
-      list_chapters: {},
-      inspect_writing_skill: {},
-      write_file: {},
-      open_editor: {},
-      start_workflow: {},
-      propose_novel_config: { changes: {} },
-      propose_chapter_blueprint: { chapter_number: 0, changes: {} },
-      install_writing_skill: {},
-      bind_writing_skill: {},
-    }
-    const context = createAgentExecutionContext()
-
-    for (const tool of builtinTools) {
-      const result = await tool.execute(argsByTool[tool.name] ?? {}, context)
-      expect(`${result.content}\n${result.error ?? ''}`, tool.name).not.toMatch(/[\u3400-\u9fff]/u)
-    }
-  })
 
   it('directs architecture reads to the database-backed read_architecture tool', () => {
     expect(readFileTool.description).toContain('read_architecture')
@@ -174,62 +120,9 @@ describe('agent project read tools', () => {
     expect(invoke).toHaveBeenCalledOnce()
   })
 
-  it('does not expose Chinese backend failures to an English agent', async () => {
-    useProjectStore.setState({
-      currentProject: {
-        ...project(projectAPath),
-        novelConfig: { writingLanguage: 'en-US' },
-      } as never,
-    })
-    const invoke = vi.fn(async (channel: string) => {
-      if (channel === 'fs:read-file') {
-        return { success: false, content: '', error: '主进程读取文件失败' }
-      }
-      if (channel === 'db:project-core-get') throw new Error('数据库读取失败')
-      throw new Error(`Unexpected IPC channel: ${channel}`)
-    })
-    vi.stubGlobal('window', {
-      aiNovelAPI: {
-        invoke,
-        on: vi.fn(),
-        once: vi.fn(),
-        send: vi.fn(),
-        setZoomLevel: vi.fn(),
-        setZoomFactor: vi.fn(),
-        getZoomLevel: vi.fn(),
-      },
-    })
-    const context = createAgentExecutionContext()
-
-    await expect(readFileTool.execute({ file_path: 'notes.md' }, context)).resolves.toEqual({
-      success: false,
-      content: '',
-      error: 'Could not read the file',
-    })
-    await expect(readArchitectureTool.execute({}, context)).resolves.toEqual({
-      success: false,
-      content: '',
-      error: 'Could not read the architecture',
-    })
-  })
-
-  it('英文 Agent：原因里只有扩展区汉字时也不原样拼进英文报错', async () => {
-    useProjectStore.setState({
-      currentProject: { ...project(projectAPath), novelConfig: { writingLanguage: 'en-US' } } as never,
-    })
-    const invoke = vi.fn(async (channel: string) => {
-      if (channel === 'fs:read-file') return { success: false, content: '', error: '𠀀𠀁' }
-      if (channel === 'db:project-core-get') throw new Error('𠀀𠀁')
-      throw new Error(`Unexpected IPC channel: ${channel}`)
-    })
-    vi.stubGlobal('window', { aiNovelAPI: { invoke, on: vi.fn(), once: vi.fn(), send: vi.fn() } })
-    const context = createAgentExecutionContext()
-
-    await expect(readFileTool.execute({ file_path: 'notes.md' }, context)).resolves.toMatchObject({ error: 'Could not read the file' })
-    await expect(readArchitectureTool.execute({}, context)).resolves.toMatchObject({ error: 'Could not read the architecture' })
-  })
-
-  it.each(['zh-CN', 'en-US'] as const)('%s：没有失败原因时用工具自己的说明，不拼出以冒号结尾的半句或空说明', async writingLanguage => {
+  it.each([
+'zh-CN'
+] as const)('%s：没有失败原因时用工具自己的说明，不拼出以冒号结尾的半句或空说明', async writingLanguage => {
     useProjectStore.setState({
       currentProject: { ...project(projectAPath), novelConfig: { writingLanguage } } as never,
     })
@@ -247,11 +140,11 @@ describe('agent project read tools', () => {
     }
   })
 
-  it('uses the frozen Agent language for knowledge-search failures', async () => {
+  it('uses the canonical message for knowledge-search failures', async () => {
     useProjectStore.setState({
       currentProject: {
         ...project(projectAPath),
-        novelConfig: { writingLanguage: 'en-US' },
+        novelConfig: { writingLanguage: 'zh-CN' },
       } as never,
     })
     const invoke = vi.fn()
@@ -265,7 +158,7 @@ describe('agent project read tools', () => {
     for (let call = 0; call < 2; call += 1) {
       await expect(searchKnowledgeTool.execute({ query: 'campus' }, context)).resolves.toMatchObject({
         success: false,
-        error: expect.stringMatching(/^Legacy knowledge-base data must be repaired before continuing\./u),
+        error: expect.stringMatching(/^旧版知识库数据需要先修复后才能继续/u),
       })
     }
     useProjectStore.setState({

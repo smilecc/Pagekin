@@ -4,9 +4,9 @@ import { plotOutlineLastChapter } from '../../../shared/plot-outline-contract'
 
 type Text = (zh: string, en: string) => string
 
-export const SECTION_ORDER: readonly ArchStepKey[] = ['premise', 'characters', 'worldbuilding', 'synopsis']
+export const SECTION_ORDER: readonly ArchStepKey[] = ['characters', 'worldbuilding']
 
-export const SECTION_NUMERALS: Record<ArchStepKey, string> = { premise: 'i', characters: 'ii', worldbuilding: 'iii', synopsis: 'iv' }
+export const SECTION_NUMERALS: Record<ArchStepKey, string> = { premise: 'ii', characters: 'iii', worldbuilding: 'iv', synopsis: 'v' }
 
 /**
  * 一节的状态徽标。「已确认」即 overview.confirmed（流程脊用同一判定，见 checkArchConfirmed）；
@@ -71,7 +71,7 @@ export function badgeTone(badge: SectionBadge): BadgeTone {
   return badge.kind === 'empty' ? 'muted' : 'warn'
 }
 
-/** 架构阶段唯一的主操作：一节都没确认时生成架构，有缺口时继续生成，四节都已确认时进入蓝图。 */
+/** 架构阶段唯一的主操作：一节都没确认时生成架构，有缺口时继续生成，四节都已确认时进入故事规划。 */
 export type ArchitectureMainAction = 'generate' | 'continue' | 'next'
 
 export function mainAction(filled: number, total: number): ArchitectureMainAction {

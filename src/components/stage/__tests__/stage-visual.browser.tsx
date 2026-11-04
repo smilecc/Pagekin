@@ -71,16 +71,16 @@ describe('新外壳的外观细节', () => {
     const tabs = [
       tab({ id: 'config', type: 'config', name: '小说配置' }),
       tab({ id: 'world', type: 'world-building', name: '故事架构' }),
-      tab({ id: 'cards', type: 'chapter-card', name: '章节蓝图' }),
+      tab({ id: 'cards', type: 'chapter-card', name: '章节故事规划' }),
       tab({ id: 'plot', type: 'narrative-thread', name: '剧情树与叙事线索' }),
       tab({ id: 'draft', type: 'chapter', name: '第 3 章 · 雾钟' }),
-      tab({ id: 'recovery', type: 'chapter-card', name: '蓝图恢复草稿', planningRecovery: {} as EditorTab['planningRecovery'] }),
+      tab({ id: 'recovery', type: 'chapter-card', name: '故事规划恢复草稿', planningRecovery: {} as EditorTab['planningRecovery'] }),
     ]
     const container = await mount(<StageTabs tabs={tabs} activeTabId="draft" onSelect={() => undefined} onClose={() => undefined}
       tabDomId={id => `tab-${id}`} panelId="panel" />)
     expect([...container.querySelectorAll('[role="tab"]')].map(node => node.textContent))
-      .toEqual(['设定', '架构', '蓝图', '剧情与伏笔', '第 3 章 · 雾钟', '蓝图恢复草稿'])
-    expect(container.querySelector('[aria-label^="关闭「设定」"]')).not.toBeNull()
+      .toEqual(['写作选项', '写作选项', '故事规划', '剧情与伏笔', '第 3 章 · 雾钟', '故事规划恢复草稿'])
+    expect(container.querySelector('[aria-label^="关闭「写作选项」"]')).not.toBeNull()
   })
 
   it('顶栏的沉浸写作开关与退出按钮用按钮原语', async () => {

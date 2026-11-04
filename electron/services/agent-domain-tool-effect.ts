@@ -4,10 +4,10 @@ import { BlueprintRepository, type BlueprintData } from '../repositories/bluepri
 import { textHash } from '../repositories/generation-run-repository'
 import type { AgentDomainToolReceipt } from '../../src/shared/agent-generation'
 
-const configStrings = new Set(['genre', 'subGenre', 'targetAudience', 'coreOutline', 'worldSetting', 'goldenFinger', 'protagonistProfile', 'globalGuidance', 'writingStyle', 'referenceWorks'])
+const configStrings = new Set(['genre', 'subGenre', 'targetAudience', 'coreOutline', 'globalGuidance', 'writingStyle', 'referenceWorks'])
 const configEnums: Record<string, readonly string[]> = { plotStructure: ['three_act', 'heros_journey', 'save_the_cat', 'kishotenketsu', 'multi_thread', 'freeform'],
   narrativePOV: ['third_limited', 'first_person', 'third_omniscient', 'multi_pov'], writingLanguage: ['zh-CN', 'en-US'] }
-const blueprintStrings = new Set(['title', 'role', 'purpose', 'keyEvents', 'suspenseHook', 'userGuidance', 'notes'])
+const blueprintStrings = new Set(['title', 'keyEvents'])
 const fail = (): never => { throw new Error('GENERATION_AGENT_DOMAIN_TOOL_INVALID') }
 export function isAgentDomainToolCurrent(db: Database.Database, receipt: AgentDomainToolReceipt): boolean {
   const current = receipt.kind === 'config' ? ProjectCoreRepository.get(db)
@@ -27,9 +27,9 @@ export function commitAgentDomainTool(db: Database.Database, toolCallId: string,
     const value = field === 'writingLanguage' ? raw === '简体中文' ? 'zh-CN' : raw === 'English' ? 'en-US' : raw : raw
     if (Object.hasOwn(changes, field)) fail()
     if ((config ? configStrings : blueprintStrings).has(field)) { if (typeof value !== 'string') fail() }
+    else if (!config && field === 'characters') { if (!Array.isArray(value) || value.some(name => typeof name !== 'string' || !name.trim())) fail() }
     else if (config && ['totalChapters', 'wordsPerChapter'].includes(field)) { if (!Number.isSafeInteger(value) || Number(value) < 1) fail() }
     else if (config && Object.hasOwn(configEnums, field)) { if (typeof value !== 'string' || !configEnums[field]!.includes(value)) fail() }
-    else if (!config && field === 'characters') { if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) fail() }
     else fail()
     changes[field] = structuredClone(value)
   }

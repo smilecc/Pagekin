@@ -219,38 +219,13 @@ class ToolRegistryImpl {
    * ```
    */
   generateToolPrompt(
-    writingLanguage: WritingLanguage = 'zh-CN',
+    _writingLanguage: WritingLanguage = 'zh-CN',
     includeTool: (tool: AgentTool) => boolean = () => true,
   ): string {
+  void _writingLanguage;
     const tools = this.listAll().filter(includeTool)
     if (tools.length === 0) return ''
-
-    const english = writingLanguage === 'en-US'
-    let prompt = english ? `## Tool system
-
-Use registered application tools to read project data or request an operation.
-
-### Call format
-
-Use exactly this XML format:
-
-<tool_call>
-{"name": "tool_name", "arguments": {"argument_name": "value"}}
-</tool_call>
-
-### Immutable rules
-
-1. Inside <tool_call>, emit exactly one JSON object; do not use <name> or <arguments> child tags.
-2. Put at most one <tool_call> block in each response.
-3. After a tool runs, the application returns <tool_result>.
-4. Continue after <tool_result> and answer the user from the returned data.
-5. Call another tool in the next turn only when more data is required.
-6. Never quote or reveal tool-call markup in story prose.
-7. Read-only tools run directly. Write tools require user confirmation.
-
-### Available tools
-
-` : `## 工具系统
+    let prompt = `## 工具系统
 
 你可以通过调用工具来获取项目数据或执行操作。
 
@@ -286,39 +261,31 @@ Use exactly this XML format:
 
 `
     for (const tool of tools) {
-      const displayName = english ? tool.name : (tool.userFacingName ?? tool.name)
+      const displayName = (tool.userFacingName ?? tool.name)
       const sourceTag = tool.source === 'mcp' ? ' [MCP]' : tool.source === 'skill' ? ' [Skill]' : ''
       const confirmTag = tool.requiresConfirmation
-        ? (english ? ' [confirmation required]' : ' [需确认]')
+        ? (' [需确认]')
         : ''
 
       prompt += `#### ${displayName}${sourceTag}${confirmTag}\n`
-      const toolDescription = english
-        ? (tool.descriptionEn ?? (tool.source === 'builtin' ? '' : tool.description))
-        : tool.description
+      const toolDescription = tool.description
       prompt += `${toolDescription}\n`
 
       // 生成参数说明
       const { properties, required = [] } = tool.inputSchema
       if (Object.keys(properties).length > 0) {
-        prompt += english ? 'Arguments:\n' : '参数：\n'
+        prompt += '参数：\n'
         for (const [key, schema] of Object.entries(properties)) {
           const isRequired = required.includes(key)
-          const reqTag = isRequired ? (english ? 'required' : '必填') : (english ? 'optional' : '可选')
+          const reqTag = isRequired ? ('必填') : ('可选')
           let paramDesc = `- ${key} (${schema.type}, ${reqTag})`
-          const description = english
-            ? (schema.descriptionEn ?? (tool.source === 'builtin' ? '' : schema.description))
-            : schema.description
+          const description = schema.description
           if (description) paramDesc += `: ${description}`
           if (schema.enum) {
-            paramDesc += english
-              ? ` [values: ${schema.enum.join(', ')}]`
-              : ` [可选值: ${schema.enum.join(', ')}]`
+            paramDesc += ` [可选值: ${schema.enum.join(', ')}]`
           }
           if (schema.default !== undefined) {
-            paramDesc += english
-              ? ` (default: ${JSON.stringify(schema.default)})`
-              : ` (默认: ${JSON.stringify(schema.default)})`
+            paramDesc += ` (默认: ${JSON.stringify(schema.default)})`
           }
           prompt += paramDesc + '\n'
         }

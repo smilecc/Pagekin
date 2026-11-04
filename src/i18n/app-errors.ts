@@ -52,6 +52,7 @@ const ERROR_KEYS = {
   EXTERNAL_FILE_GRANT_EXHAUSTED: 'error.externalFileGrantExpired',
   // 新建、打开项目时，所选文件夹在选择之后被移动、改名或替换：project-controller 经 String(error) 原样转给界面。
   EXTERNAL_FILE_GRANT_TARGET_CHANGED: 'error.externalFileGrantExpired',
+  GENERATION_OPERATION_REMOVED: 'error.generationOperationRemoved',
   GENERATION_REQUEST_FAILED: 'error.generationRequestFailed',
   GENERATION_PROJECT_SESSION_STALE: 'error.generationProjectSessionStale',
   GENERATION_PROJECT_SESSION_REQUIRED: 'error.generationProjectSessionRequired',

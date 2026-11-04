@@ -63,35 +63,25 @@ export function parseDraftReconciliation(output: string): DraftReconciliation | 
   return { finalState, events }
 }
 
-export function renderDraftReconciliationBlock(writingLanguage: WritingLanguage, value: DraftReconciliation): string {
-  const english = writingLanguage === 'en-US'
+export function renderDraftReconciliationBlock(_writingLanguage: WritingLanguage, value: DraftReconciliation): string {
+  void _writingLanguage;
   const conflicts = value.events.some(item => item.conflict)
-  const lines = [english
-    ? '[Reconciliation with finalized chapters (automatic pre-draft check; binding)]'
-    : '【本章与定稿对账（生成前自动对账，须遵守）】']
+  const lines = ['【本章与定稿对账（生成前自动对账，须遵守）】']
   if (value.finalState.length) {
-    lines.push(english
-      ? 'State at the end of the finalized previous chapter (it holds until this chapter\'s prose shows a condition being met or a character making a new decision):'
-      : '上一章定稿结束时的状态（本章正文写出条件满足或人物作出新决定之前保持不变）：')
+    lines.push('上一章定稿结束时的状态（本章正文写出条件满足或人物作出新决定之前保持不变）：')
     lines.push(...value.finalState.map(item => `- ${item}`))
   }
   if (value.events.length) {
-    lines.push(english ? 'How to realize this chapter\'s required events:' : '本章必需事件的落实方式：')
+    lines.push('本章必需事件的落实方式：')
     // 不冲突的条目也保留模型给出的具体落实方式：只写“按原文”会让首稿按字面执行仍在等待条件的计划。
     const asWritten = (text: string) => !text || /^(?:按原文(?:落实)?|as written)[。.]?$/iu.test(text)
     lines.push(...value.events.map(item => item.conflict
-      ? english ? `- ${item.event} (conflicts with the finalized facts if taken literally): ${item.realization}`
-        : `- ${item.event}（按字面会与定稿冲突）：${item.realization}`
-      : english ? `- ${item.event}: ${asWritten(item.realization) ? 'as written, without contradicting the state above.' : item.realization}`
-        : `- ${item.event}：${asWritten(item.realization) ? '按原文落实，不得与上述状态矛盾。' : item.realization}`))
+      ? `- ${item.event}（按字面会与定稿冲突）：${item.realization}`
+      : `- ${item.event}：${asWritten(item.realization) ? '按原文落实，不得与上述状态矛盾。' : item.realization}`))
   }
   lines.push(conflicts
-    ? english
-      ? 'Conclusion: resolve the conflicts above exactly as stated; never write a withdrawn, cancelled, or superseded plan as executed.'
-      : '对账结论：以上冲突按给出的落实方式处理；不得把已撤回、取消或被取代的计划写成已执行。'
-    : english
-      ? 'Conclusion: the blueprint does not conflict with the finalized facts; follow the state and realizations above, and never write a withdrawn, paused, or still-waiting plan as executed.'
-      : '对账结论：蓝图与定稿不冲突；按上述状态与落实方式写，已撤回、暂停或仍在等待条件的计划不得写成已执行。')
+    ? '对账结论：以上冲突按给出的落实方式处理；不得把已撤回、取消或被取代的计划写成已执行。'
+    : '对账结论：蓝图与定稿不冲突；按上述状态与落实方式写，已撤回、暂停或仍在等待条件的计划不得写成已执行。')
   return lines.join('\n')
 }
 

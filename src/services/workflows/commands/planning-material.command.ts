@@ -78,7 +78,6 @@ export class ExtractPlanningMaterialCharactersCommand extends BaseWorkflowComman
         const sources = items.map(item => promptLanguageText(
           writingLanguage,
           `【资料 ${item.sourceId}｜${item.fileName}】\n${item.text}`,
-          `[Material ${item.sourceId} | ${item.fileName}]\n${item.text}`,
         )).join('\n\n')
         const requestedIds = items.map(item => item.sourceId)
         return {

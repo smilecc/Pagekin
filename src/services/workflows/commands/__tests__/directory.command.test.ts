@@ -13,11 +13,8 @@ import {
 import type { GenerationRuntime } from '../../../generation/generation-runtime'
 import {
   DirectoryPostCommitCancellationError,
-  DirectoryPostCommitSyncError,
   GenerateDirectoryCommand,
-  retryDirectoryCharacterSync,
 } from '../directory.command'
-import { listPendingDirectoryCharacterSyncs } from '../../directory-character-sync-recovery'
 
 type Blueprint = {
   chapterNumber: number
@@ -177,7 +174,7 @@ function testRuntime(session: GenerationSession): GenerationRuntime & { close: R
 
 function taskRange(task: GenerationTask): [number, number] {
   const prompt = task.messages.find(message => message.role === 'user')?.content ?? ''
-  const match = /第(\d+)章到第(\d+)章/u.exec(prompt)
+  const match = /第(\d+)章(?:到|至)第(\d+)章/u.exec(prompt)
   const compactMatch = /targetChapterNumber"?\s*:\s*(\d+)/u.exec(prompt)
   if (!match && compactMatch) return [Number(compactMatch[1]), Number(compactMatch[1])]
   if (!match) throw new Error(`missing directory range in prompt: ${prompt}`)
@@ -309,9 +306,9 @@ beforeEach(() => {
         plotStructure: 'three_act',
         narrativePOV: 'third_limited',
         coreOutline: '',
-        worldSetting: '',
-        goldenFinger: '',
-        protagonistProfile: '',
+
+
+
         globalGuidance: '',
       },
       characterStates: '',
@@ -328,6 +325,19 @@ afterEach(() => {
 })
 
 describe('GenerateDirectoryCommand', () => {
+  it('generates title and planning prose without creating character candidates', async () => {
+    const invoke = stubIpcInvoke(successfulCommitHandler())
+    const plan = { chapterNumber: 1, title: '来信', keyEvents: '林岚在码头收到来信。\n她决定追查寄信人。', characters: ['林岚'] }
+    const session = generationSession(async task => ({ status: 'completed', content: JSON.stringify({ blueprints: [plan] }), finishReason: 'stop', receipt: generationReceipt(1, 'stop', task.purpose) }))
+    const command = new GenerateDirectoryCommand({ mode: 'full', count: 1 }, projectSnapshot, { createRuntime: vi.fn(async () => testRuntime(session)) })
+    const result = await command.execute({ step: {}, context: workflowContext(), callbacks: stepCallbacks() })
+    expect(result[0]).toMatchObject(plan)
+    expect(result[0].characters).toEqual(['林岚'])
+    expect(result[0].role).toBe('')
+    expect(invoke.mock.calls.some(([channel]) => /character|proposal/.test(channel))).toBe(false)
+    expect(invoke.mock.calls.filter(([channel]) => channel === 'db:blueprint-commit-range')).toHaveLength(1)
+  })
+
   it('uses finalized authority as the default append start when no explicit range is supplied', async () => {
     authoritySequenceResult = {
       status: 'continuous',
@@ -397,6 +407,7 @@ describe('GenerateDirectoryCommand', () => {
         status: 'completed',
         content: JSON.stringify({
           blueprints: [modelBlueprint(1, {
+            title: forceCompact && !compact ? '' : '第一章',
             relationshipHints: forceCompact && !compact
               ? [{ from: '主角', to: '未声明角色', relation: '对手' }]
               : [],
@@ -438,131 +449,9 @@ describe('GenerateDirectoryCommand', () => {
     }
   })
 
-  it('sends English blueprint instructions through the provider request for an English project', async () => {
-    stubIpcInvoke(successfulCommitHandler())
-    const observedTasks: GenerationTask[] = []
-    const session = generationSession(async task => {
-      observedTasks.push(task)
-      const prompt = task.messages.find(message => message.role === 'user')?.content ?? ''
-      const diagnosticRebuild = prompt.includes('[Previous contract violation]')
-      return {
-        status: 'completed',
-        content: JSON.stringify({
-          blueprints: [modelBlueprint(1, {
-            role: 'inciting incident',
-            relationshipHints: diagnosticRebuild
-              ? []
-              : [{ from: '主角', to: 'Unknown character', relation: 'rival' }],
-            suspenseHook: 'A sealed letter names the next suspect.',
-          })],
-        }),
-        finishReason: 'stop',
-        receipt: generationReceipt(observedTasks.length, 'stop', task.purpose),
-      }
-    })
-    const command = new GenerateDirectoryCommand(
-      { mode: 'full', count: 1 },
-      {
-        ...projectSnapshot,
-        novelConfig: {
-          ...projectSnapshot.novelConfig,
-          genre: '科幻',
-          totalChapters: 1,
-          wordsPerChapter: 919,
-        },
-      },
-      { createRuntime: vi.fn(async () => testRuntime(session)) },
-    )
-    const context = {
-      ...workflowContext(),
-      writingLanguage: 'en-US' as const,
-      data: { architecture: 'The sign “夜航 Café” must remain byte-for-byte unchanged.' },
-    }
 
-    await command.execute({ step: {}, context, callbacks: stepCallbacks() })
 
-    const observedTask = observedTasks.at(-1)
-    const system = observedTask?.messages.find(message => message.role === 'system')?.content ?? ''
-    const user = observedTask?.messages.find(message => message.role === 'user')?.content ?? ''
-    expect(observedTasks).toHaveLength(2)
-    for (const task of observedTasks) {
-      expect(task.messages.find(message => message.role === 'user')?.content)
-        .toContain('Target about 919 words per chapter, with an acceptable range of 643-1195')
-    }
-    expect(observedTasks.map(task => task.purpose)).toEqual([
-      'chapter-blueprint-directory',
-      'chapter-blueprint-directory:compact-single:chapter-1',
-    ])
-    expect(observedTask?.purpose).toBe('chapter-blueprint-directory:compact-single:chapter-1')
-    expect(system).toContain('You are an experienced chapter architect')
-    expect(system).toContain('[Immutable system contract]')
-    expect(user).toContain('Build the complete chapter blueprint from only the bounded facts below.')
-    expect(user).not.toContain('suspenseHookCharacters')
-    expect(user).toContain('"role":"short structural label"')
-    expect(user).toContain('code=relationship_endpoint_not_in_characters path=blueprints[0].relationships[0]')
-    expect(user).not.toContain('actualCharacters')
-    expect(user).toContain('Science fiction')
-    expect(user).not.toContain('科幻')
-    expect(user).toContain('The sign “夜航 Café” must remain byte-for-byte unchanged.')
-    expect(user).not.toContain('【不可变蓝图 JSON 合同】')
-  })
 
-  it('keeps an English project in English when the actual blueprint request enters syntax repair', async () => {
-    stubIpcInvoke(successfulCommitHandler())
-    const completeBlueprint = JSON.stringify({
-      blueprints: [modelBlueprint(1, { title: 'Café 夜航' })],
-    })
-    const malformedBlueprint = completeBlueprint.slice(0, -2)
-    let attempt = 0
-    const session = generationSession(async task => {
-      attempt += 1
-      if (attempt === 1) {
-        return {
-          status: 'completed',
-          content: malformedBlueprint,
-          finishReason: 'stop',
-          receipt: generationReceipt(attempt, 'stop', task.purpose),
-        }
-      }
-
-      const system = task.messages.find(message => message.role === 'system')?.content ?? ''
-      const user = task.messages.find(message => message.role === 'user')?.content ?? ''
-      expect(user).toContain('[Supplemental writing skill: Blueprint craft]')
-      expect(user).toContain('Preserve causal structure across chapters.')
-      expect(task.purpose).toBe('chapter-blueprint-directory:structured-syntax-repair')
-      expect(system).toContain('You repair JSON syntax')
-      expect(system).not.toContain('你是结构化 JSON 语法修复器')
-      expect(user).toContain(malformedBlueprint)
-      expect(user).toContain('Café 夜航')
-      return {
-        status: 'completed',
-        content: completeBlueprint,
-        finishReason: 'stop',
-        receipt: generationReceipt(attempt, 'stop', task.purpose),
-      }
-    })
-    const command = new GenerateDirectoryCommand(
-      { mode: 'full', count: 1 },
-      { ...projectSnapshot, novelConfig: { ...projectSnapshot.novelConfig, totalChapters: 1 } },
-      { createRuntime: vi.fn(async () => testRuntime(session)) },
-    )
-    const context = {
-      ...workflowContext(),
-      writingLanguage: 'en-US' as const,
-      writingSkills: Object.freeze({
-        planning: Object.freeze({
-          skillId: 'user:blueprint-craft', name: 'Blueprint craft', stage: 'planning' as const,
-          source: 'user' as const, writingLanguage: 'en-US' as const,
-          content: 'Preserve causal structure across chapters.', utf8Bytes: 42,
-        }),
-      }),
-    }
-
-    const result = await command.execute({ step: {}, context, callbacks: stepCallbacks() })
-
-    expect(result[0]?.title).toBe('Café 夜航')
-    expect(attempt).toBe(2)
-  })
 
   it('allows a new directory run while an older character sync remains independently retryable', async () => {
     const operation = {
@@ -639,8 +528,8 @@ describe('GenerateDirectoryCommand', () => {
 
     expect(result.map(item => item.chapterNumber)).toEqual([1, 2, 3, 4, 5, 6, 7])
     expect(observedRanges).toEqual([[1, 5], [6, 7]])
-    expect(firstPrompt).toContain('【不可变蓝图 JSON 合同】')
-    for (const field of ['chapterNumber', 'title', 'role', 'purpose', 'keyEvents', 'characters', 'relationships', 'suspenseHook']) {
+    expect(firstPrompt).toContain('【故事规划 JSON 合同】')
+    for (const field of ['chapterNumber', 'title', 'keyEvents']) {
       expect(firstPrompt).toContain(field)
     }
     expect(invoke.mock.calls.filter(([channel]) => channel === 'db:blueprint-commit-range'))
@@ -1161,35 +1050,7 @@ describe('GenerateDirectoryCommand', () => {
     expect(invoke.mock.calls.map(([channel]) => channel)).not.toContain('db:blueprint-commit-range')
   })
 
-  it('saves a complete long hook including its final cancellation without an extra model request', async () => {
-    const invoke = stubIpcInvoke(successfulCommitHandler())
-    const overlongHook = `${'h'.repeat(160)}但上述计划已撤销`
-    const complete = vi.fn(async (task: GenerationTask) => ({
-      status: 'completed',
-      content: JSON.stringify({ blueprints: [modelBlueprint(1, {
-        suspenseHook: task.purpose.includes(':compact-single:') ? '上述计划已撤销' : overlongHook,
-      })] }),
-      finishReason: 'stop',
-      receipt: generationReceipt(complete.mock.calls.length, 'stop', task.purpose),
-    } as const))
-    const session = generationSession(complete)
-    const command = new GenerateDirectoryCommand(
-      { mode: 'full', count: 1 },
-      { ...projectSnapshot, novelConfig: { ...projectSnapshot.novelConfig, totalChapters: 1 } },
-      { createRuntime: vi.fn(async () => testRuntime(session)) },
-    )
 
-    const result = await command.execute({
-      step: {},
-      context: workflowContext(),
-      callbacks: stepCallbacks(),
-    })
-
-    expect(complete).toHaveBeenCalledTimes(1)
-    expect(result[0]?.suspenseHook).toBe(overlongHook)
-    expect(invoke.mock.calls.find(([channel]) => channel === 'db:blueprint-commit-range')?.[1])
-      .toMatchObject({ blueprints: [expect.objectContaining({ suspenseHook: overlongHook })] })
-  })
 
   it('saves a complete key event beyond the former maximum without consuming rebuild budget', async () => {
     const invoke = stubIpcInvoke(successfulCommitHandler())
@@ -1219,82 +1080,9 @@ describe('GenerateDirectoryCommand', () => {
     expect(invoke.mock.calls.filter(([channel]) => channel === 'db:blueprint-commit-range')).toHaveLength(1)
   })
 
-  it('commits a complete relationship beyond the former maximum in one request', async () => {
-    const invoke = stubIpcInvoke(successfulCommitHandler({
-      other: channel => channel === 'db:character-roster-read'
-        ? { status: 'empty', revision: 0, entries: [] }
-        : { success: true },
-    }))
-    const overlongRelation = `${'r'.repeat(80)}但盟约已解除`
-    const complete = vi.fn(async (task: GenerationTask) => ({
-      status: 'completed',
-      content: JSON.stringify({
-        blueprints: [modelBlueprint(1, {
-          characters: ['主角', '盟友'],
-          relationshipHints: [{ from: '主角', to: '盟友', relation: overlongRelation }],
-        })],
-      }),
-      finishReason: 'stop',
-      receipt: generationReceipt(complete.mock.calls.length, 'stop', task.purpose),
-    } as const))
-    const session = generationSession(complete)
-    const command = new GenerateDirectoryCommand(
-      { mode: 'full', count: 1 },
-      { ...projectSnapshot, novelConfig: { ...projectSnapshot.novelConfig, totalChapters: 1 } },
-      { createRuntime: vi.fn(async () => testRuntime(session)) },
-    )
 
-    const result = await command.execute({
-      step: {},
-      context: workflowContext(),
-      callbacks: stepCallbacks(),
-    })
 
-    expect(complete).toHaveBeenCalledTimes(1)
-    expect(result[0].relationshipHints).toEqual([{ from: '主角', to: '盟友', relation: overlongRelation }])
-    expect(invoke.mock.calls.filter(([channel]) => channel === 'db:blueprint-commit-range').map(([, payload]) => payload))
-      .toMatchObject([{ blueprints: [{ relationshipHints: result[0].relationshipHints }] }])
-  })
 
-  it('preserves full fields through a supported relationship alias in one request', async () => {
-    const invoke = stubIpcInvoke(successfulCommitHandler({
-      other: channel => channel === 'db:character-roster-read'
-        ? { status: 'empty', revision: 0, entries: [] }
-        : { success: true },
-    }))
-    const candidate = modelBlueprint(1, {
-      characters: ['主角', '盟友'],
-      purpose: 'p'.repeat(260),
-    })
-    delete candidate.relationships
-    const longRelation = `${'r'.repeat(105)}但盟约已解除`
-    candidate.relationshipHints = [{ from: '主角', to: '盟友', relation: longRelation }]
-    const complete = vi.fn(async (task: GenerationTask) => ({
-      status: 'completed',
-      content: JSON.stringify({ blueprints: [candidate] }),
-      finishReason: 'stop',
-      receipt: generationReceipt(complete.mock.calls.length, 'stop', task.purpose),
-    } as const))
-    const command = new GenerateDirectoryCommand(
-      { mode: 'full', count: 1 },
-      { ...projectSnapshot, novelConfig: { ...projectSnapshot.novelConfig, totalChapters: 1 } },
-      { createRuntime: vi.fn(async () => testRuntime(generationSession(complete))) },
-    )
-
-    const result = await command.execute({
-      step: {},
-      context: workflowContext(),
-      callbacks: stepCallbacks(),
-    })
-
-    expect(complete).toHaveBeenCalledTimes(1)
-    expect(result[0]).toMatchObject({
-      purpose: 'p'.repeat(260),
-      relationshipHints: [{ from: '主角', to: '盟友', relation: longRelation }],
-    })
-    expect(invoke.mock.calls.filter(([channel]) => channel === 'db:blueprint-commit-range'))
-      .toHaveLength(1)
-  })
 
   it('does not synthesize a missing required title in strict generation output', async () => {
     const invoke = stubIpcInvoke(successfulCommitHandler())
@@ -1321,37 +1109,7 @@ describe('GenerateDirectoryCommand', () => {
     expect(invoke.mock.calls.map(([channel]) => channel)).not.toContain('db:blueprint-commit-range')
   })
 
-  it('does not commit when generated blueprint relationship facts are omitted', async () => {
-    const invoke = stubIpcInvoke(successfulCommitHandler())
-    const incomplete = modelBlueprint(1)
-    delete incomplete.relationships
-    const session = generationSession(async () => ({
-      status: 'completed',
-      content: JSON.stringify({ blueprints: [incomplete] }),
-      finishReason: 'stop',
-      receipt: generationReceipt(1, 'stop'),
-    }))
-    const command = new GenerateDirectoryCommand(
-      { mode: 'full', count: 1 },
-      { ...projectSnapshot, novelConfig: { ...projectSnapshot.novelConfig, totalChapters: 1 } },
-      { createRuntime: vi.fn(async () => testRuntime(session)) },
-    )
 
-    const context = { ...workflowContext(), uiLocale: 'en-US' as const }
-    const failure = await command.execute({
-      step: {},
-      context,
-      callbacks: stepCallbacks(),
-    }).then(() => null, error => error as Error & { diagnostic?: unknown })
-
-    expect(failure?.message).not.toMatch(/[\u3400-\u9fff]/u)
-    expect(failure?.message).toContain('Structured contract diagnostic')
-    expect(failure?.message).toContain('code=missing_field')
-    expect(failure?.message).toContain('path=blueprints[0].relationships')
-    expect(failure?.diagnostic).toMatchObject({ code: 'missing_field', path: 'blueprints[0].relationships' })
-
-    expect(invoke.mock.calls.map(([channel]) => channel)).not.toContain('db:blueprint-commit-range')
-  })
 
   it('returns the single transaction readback snapshot instead of generated pre-commit objects', async () => {
     const readback = [1, 2, 3].map(chapterNumber => blueprint(chapterNumber, {
@@ -1413,176 +1171,11 @@ describe('GenerateDirectoryCommand', () => {
     expect(invoke.mock.calls.map(([channel]) => channel)).not.toContain('db:blueprint-commit-range')
   })
 
-  it('stages character proposals only after the committed blueprint receipt exists', async () => {
-    const committed = blueprint(1, {
-      characters: ['林岚', '周砚'],
-      newCharacterCandidates: [{ name: '周砚', role: 'supporting' }],
-      relationshipHints: [{ from: '林岚', to: '周砚', relation: '共同追查真相' }],
-    })
-    const invoke = stubIpcInvoke(successfulCommitHandler({
-      snapshot: [committed],
-      other: (channel, ...args) => {
-        if (channel === 'character-proposal:stage') {
-          return { status: 'empty', revision: 0, entries: [] }
-        }
-        if (channel === 'db:character-roster-commit') {
-          const request = args[0] as { entries: unknown[] }
-          return {
-            success: true,
-            receipt: {
-              revision: 1,
-              snapshot: { status: 'ready', entries: request.entries },
-            },
-          }
-        }
-        return { success: true }
-      },
-    }))
-    const session = generationSession(async () => ({
-      status: 'completed',
-      content: JSON.stringify({ blueprints: [modelBlueprint(1, committed)] }),
-      finishReason: 'stop',
-      receipt: generationReceipt(1, 'stop'),
-    }))
-    const context = workflowContext()
-    const command = new GenerateDirectoryCommand(
-      { mode: 'full', count: 1 },
-      { ...projectSnapshot, novelConfig: { ...projectSnapshot.novelConfig, totalChapters: 1 } },
-      { createRuntime: vi.fn(async () => testRuntime(session)) },
-    )
 
-    await command.execute({ step: {}, context, callbacks: stepCallbacks() })
 
-    const committedAt = invoke.mock.calls.findIndex(([channel]) => channel === 'db:blueprint-commit-range')
-    const syncAt = invoke.mock.calls.findIndex(([channel]) => channel === 'character-proposal:stage')
-    expect(committedAt).toBeGreaterThanOrEqual(0)
-    expect(syncAt).toBeGreaterThan(committedAt)
-    expect(invoke).toHaveBeenCalledWith('character-proposal:stage', {
-      source: { kind: 'directory', operationId: 'blueprint-sync-directory-test-run-1-1' },
-    }, context.projectSession)
-    expect(invoke.mock.calls.some(([channel]) => channel === 'db:character-roster-commit')).toBe(false)
 
-    expect(context.data.blueprintCommitReceipt).toMatchObject({ chapterNumbers: [1] })
-    expect(context.data.blueprintCharacterSyncReceipt).toMatchObject({
-      blueprintCommitOperationId: 'directory-test-run-1-1',
-      operationId: 'blueprint-sync-directory-test-run-1-1',
-      status: 'already-satisfied',
-    })
-  })
 
-  it('reports an explicit committed receipt when post-commit proposal staging fails', async () => {
-    const committed = blueprint(1, {
-      characters: ['林岚', '周砚'],
-      relationshipHints: [{ from: '林岚', to: '周砚', relation: '追查' }],
-    })
-    stubIpcInvoke(successfulCommitHandler({
-      snapshot: [committed],
-      other: channel => {
-        if (channel === 'character-proposal:stage') throw new Error('同步故障')
-        return { success: true }
-      },
-    }))
-    const session = generationSession(async () => ({
-      status: 'completed',
-      content: JSON.stringify({ blueprints: [modelBlueprint(1, committed)] }),
-      finishReason: 'stop',
-      receipt: generationReceipt(1, 'stop'),
-    }))
-    const command = new GenerateDirectoryCommand(
-      { mode: 'full', count: 1 },
-      { ...projectSnapshot, novelConfig: { ...projectSnapshot.novelConfig, totalChapters: 1 } },
-      { createRuntime: vi.fn(async () => testRuntime(session)) },
-    )
 
-    const failure = await command.execute({
-      step: {},
-      context: workflowContext(),
-      callbacks: stepCallbacks(),
-    }).catch(error => error as unknown)
-
-    expect(failure).toBeInstanceOf(DirectoryPostCommitSyncError)
-    expect(failure).toMatchObject({
-      retryOperationId: 'blueprint-sync-directory-test-run-1-1',
-      commitReceipt: {
-        operationId: 'directory-test-run-1-1',
-        chapterNumbers: [1],
-      },
-    })
-    expect((failure as Error).message).toContain('蓝图已提交')
-  })
-
-  it('retries proposal staging from the committed receipt without regenerating blueprints', async () => {
-    const committed = blueprint(1, {
-      characters: ['林岚', '周砚'],
-      relationshipHints: [{ from: '林岚', to: '周砚', relation: '追查' }],
-    })
-    let rosterReads = 0
-    stubIpcInvoke(successfulCommitHandler({
-      snapshot: [committed],
-      other: (channel, ...args) => {
-        if (channel === 'character-proposal:stage') {
-          rosterReads += 1
-          if (rosterReads === 1) throw new Error('首次同步故障')
-          return { status: 'empty', revision: 0, entries: [] }
-        }
-        if (channel === 'db:character-roster-commit') {
-          const request = args[0] as { operationId: string; entries: unknown[] }
-          return {
-            success: true,
-            receipt: {
-              operationId: request.operationId,
-              payloadHash: 'b'.repeat(64),
-              revision: 1,
-              idempotent: false,
-              snapshot: { revision: 1, entries: request.entries },
-            },
-          }
-        }
-        return { success: true }
-      },
-    }))
-    const complete = vi.fn<GenerationSession['complete']>(async () => ({
-      status: 'completed',
-      content: JSON.stringify({ blueprints: [modelBlueprint(1, committed)] }),
-      finishReason: 'stop',
-      receipt: generationReceipt(1, 'stop'),
-    }))
-    const context = workflowContext()
-    const command = new GenerateDirectoryCommand(
-      { mode: 'full', count: 1 },
-      { ...projectSnapshot, novelConfig: { ...projectSnapshot.novelConfig, totalChapters: 1 } },
-      { createRuntime: vi.fn(async () => testRuntime(generationSession(complete))) },
-    )
-
-    const failure = await command.execute({ step: {}, context, callbacks: stepCallbacks() })
-      .then(() => null, error => error as unknown)
-    expect(failure).toBeInstanceOf(DirectoryPostCommitSyncError)
-    const committedFailure = failure as DirectoryPostCommitSyncError
-    const pendingAfterRestart = await listPendingDirectoryCharacterSyncs(
-      projectSnapshot.expectedProjectPath,
-      context.projectSession!,
-    )
-    expect(pendingAfterRestart).toEqual([
-      expect.objectContaining({ operationId: committedFailure.retryOperationId, status: 'pending' }),
-    ])
-    const retryReceipt = await retryDirectoryCharacterSync(
-      committedFailure.retryOperationId,
-      projectSnapshot.expectedProjectPath,
-      context.projectSession!,
-      'zh-CN',
-    )
-
-    expect(retryReceipt).toMatchObject({
-      blueprintCommitOperationId: 'directory-test-run-1-1',
-      operationId: 'blueprint-sync-directory-test-run-1-1',
-      status: 'already-satisfied',
-    })
-    expect(committedFailure.commitReceipt.characterSyncInput[0]).toMatchObject({
-      chapterNumber: 1,
-      relationshipHints: committed.relationshipHints,
-    })
-    expect(complete).toHaveBeenCalledTimes(1)
-  })
 
   it('does not report zero-write cancellation when cancellation arrives after the atomic commit', async () => {
     const context = workflowContext()

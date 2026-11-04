@@ -8,12 +8,7 @@ import { createHash } from 'node:crypto'
 import { getProjectDb, getCurrentProjectPath } from '../database'
 import { readPortableRuntimeFreeze } from '../services/portable-runtime-freeze'
 import { ensureBaselineBlueprintTables } from '../migrations/baseline-blueprint-schema'
-import { CharacterRosterRepository } from './character-roster-repository'
-import { hasCharacterIdentitySchema } from './character-repository'
-import { findCharacterProposalEvidence } from '../services/character-proposal-service'
-import { proveCharacterProposal } from '../services/generation-character-proposal-proof'
 import { GenerationRunRepository } from './generation-run-repository'
-import { blueprintCharacterSyncFactError } from '../../src/shared/blueprint-character-sync-evidence'
 import type { BlueprintNewCharacterCandidate } from '../../src/shared/blueprint-semantic-contract'
 
 /** 蓝图行类型（DB 蛇形命名） */
@@ -136,33 +131,16 @@ interface BlueprintCharacterSyncOperationRow {
     completed_at: string | null
 }
 
-interface CharacterRosterOperationEvidenceRow {
-    operation_id: string
-    payload_hash: string
-    committed_revision: number
-    projection_hash: string
+
+
+
+export function storyPlanData(data: Pick<BlueprintData, 'chapterNumber' | 'title' | 'keyEvents' | 'characters'>): BlueprintData {
+    return { chapterNumber: data.chapterNumber, title: data.title, keyEvents: data.keyEvents,
+        characters: [...new Set(data.characters.map(name => name.trim()).filter(Boolean))],
+        role: '', purpose: '', suspenseHook: '', userGuidance: '', notes: '', notesUpdatedAt: '' }
 }
-
-const SHA256_HEX = /^[a-f0-9]{64}$/u
-
-function parseCharacters(raw: string | null): string[] {
-    if (raw === null) return []
-    try { return JSON.parse(raw) } catch { return [] }
-}
-
 function rowToData(row: BlueprintRow): BlueprintData {
-    return {
-        chapterNumber: row.chapter_number,
-        title: row.title,
-        role: row.role ?? '',
-        purpose: row.purpose ?? '',
-        keyEvents: row.key_events ?? '',
-        characters: parseCharacters(row.characters),
-        suspenseHook: row.suspense_hook ?? '',
-        userGuidance: row.user_guidance ?? '',
-        notes: row.notes ?? '',
-        notesUpdatedAt: row.notes_updated_at ?? '',
-    }
+    return storyPlanData({ chapterNumber: row.chapter_number, title: row.title, keyEvents: row.key_events ?? '', characters: JSON.parse(row.characters || '[]') })
 }
 
 function requireProjectDb(): NonNullable<ReturnType<typeof getProjectDb>> {
@@ -173,24 +151,6 @@ function requireProjectDb(): NonNullable<ReturnType<typeof getProjectDb>> {
 
 function ensureBlueprintCommitSchema(db: NonNullable<ReturnType<typeof getProjectDb>>): void {
     ensureBaselineBlueprintTables(db)
-    db.exec(`
-      INSERT OR IGNORE INTO blueprint_character_sync_operations (
-        operation_id,
-        blueprint_commit_operation_id,
-        blueprint_commit_payload_hash,
-        start_chapter,
-        end_chapter,
-        character_sync_input
-      )
-      SELECT
-        'blueprint-sync-' || operation_id,
-        operation_id,
-        payload_hash,
-        start_chapter,
-        end_chapter,
-        character_sync_input
-      FROM blueprint_commit_operations;
-    `)
 }
 
 /** Caller owns the surrounding transaction when composing a multi-fact project clear. */
@@ -363,66 +323,22 @@ function readCharacterSyncOperation(
     return row ? rowToCharacterSyncOperation(row) : null
 }
 
+/** Cast names only select profiles for writing; story planning never mutates the roster. */
 function authoritativeCharacterSyncCompletionReceipt(
-    db: NonNullable<ReturnType<typeof getProjectDb>>,
     operation: BlueprintCharacterSyncOperation,
 ): BlueprintCharacterSyncCompletionReceipt {
-    if (hasCharacterIdentitySchema(db)) {
-        const proposalReceipt = findCharacterProposalEvidence(db, { kind: 'directory', operationId: operation.operationId },
-          (projectId, source) => proveCharacterProposal(db, new GenerationRunRepository(() => db), projectId, source, false, () => {}))
-        return { blueprintCommitOperationId: operation.blueprintCommitOperationId, operationId: operation.operationId, status: 'proposal-staged', proposalReceipt }
-    }
-    const roster = CharacterRosterRepository.read()
-    if (roster.status !== 'ready' && roster.status !== 'empty') {
-        throw new Error('BLUEPRINT_CHARACTER_SYNC_ROSTER_NOT_READY')
-    }
-    const factError = blueprintCharacterSyncFactError(operation.characterSyncInput, roster.entries)
-    if (factError) throw new Error('BLUEPRINT_CHARACTER_SYNC_FACTS_CHANGED')
-
-    const rosterOperation = db.prepare(`
-      SELECT operation_id, payload_hash, committed_revision, projection_hash
-      FROM character_roster_operations
-      WHERE operation_id = ?
-    `).get(operation.operationId) as CharacterRosterOperationEvidenceRow | undefined
-    if (!rosterOperation) {
-        return {
-            blueprintCommitOperationId: operation.blueprintCommitOperationId,
-            operationId: operation.operationId,
-            status: 'already-satisfied',
-        }
-    }
-    if (
-        rosterOperation.operation_id !== operation.operationId
-        || rosterOperation.committed_revision < 1
-        || rosterOperation.committed_revision > roster.revision
-        || !SHA256_HEX.test(rosterOperation.payload_hash)
-        || !SHA256_HEX.test(rosterOperation.projection_hash)
-        || (
-            rosterOperation.committed_revision === roster.revision
-            && rosterOperation.projection_hash !== roster.projectionHash
-        )
-    ) {
-        throw new Error('BLUEPRINT_CHARACTER_SYNC_EVIDENCE_MISMATCH')
-    }
     return {
         blueprintCommitOperationId: operation.blueprintCommitOperationId,
         operationId: operation.operationId,
-        status: 'committed',
-        rosterReceipt: {
-            operationId: rosterOperation.operation_id,
-            payloadHash: rosterOperation.payload_hash,
-            revision: rosterOperation.committed_revision,
-            idempotent: false,
-        },
+        status: 'already-satisfied',
     }
 }
 
 function assertAuthoritativeCharacterSyncCompletion(
-    db: NonNullable<ReturnType<typeof getProjectDb>>,
     operation: BlueprintCharacterSyncOperation,
 ): void {
     if (operation.status !== 'completed' || !operation.completionReceipt) return
-    const authoritative = authoritativeCharacterSyncCompletionReceipt(db, operation)
+    const authoritative = authoritativeCharacterSyncCompletionReceipt(operation)
     if (
         JSON.stringify(canonicalize(operation.completionReceipt))
         !== JSON.stringify(canonicalize(authoritative))
@@ -512,6 +428,7 @@ export class BlueprintRepository {
 
     /** 插入或更新蓝图 */
     static upsert(data: BlueprintData, db = requireProjectDb()): void {
+        data = storyPlanData(data)
 
         db.prepare(`
       INSERT INTO blueprints (
@@ -578,7 +495,7 @@ export class BlueprintRepository {
             characterSyncOperationId(operation.operation_id),
         )
         if (!characterSyncOperation) throw new Error('BLUEPRINT_CHARACTER_SYNC_OPERATION_MISSING')
-        assertAuthoritativeCharacterSyncCompletion(db, characterSyncOperation)
+        assertAuthoritativeCharacterSyncCompletion(characterSyncOperation)
         return {
             mode: operation.mode,
             operationId: operation.operation_id,
@@ -603,6 +520,7 @@ export class BlueprintRepository {
         db = requireProjectDb(),
         fill: 'replace' | 'fill-empty' = 'replace',
     ): BlueprintRangeCommitReceipt {
+        request = { ...request, blueprints: request.blueprints.map(storyPlanData) }
         assertExactRange(request)
         ensureBlueprintCommitSchema(db)
         const payloadHash = commitPayloadHash(request)
@@ -629,7 +547,7 @@ export class BlueprintRepository {
                     characterSyncOperationId(existingOperation.operation_id),
                 )
                 if (!characterSyncOperation) throw new Error('BLUEPRINT_CHARACTER_SYNC_OPERATION_MISSING')
-                assertAuthoritativeCharacterSyncCompletion(db, characterSyncOperation)
+                assertAuthoritativeCharacterSyncCompletion(characterSyncOperation)
                 return {
                     mode: existingOperation.mode,
                     operationId: existingOperation.operation_id,
@@ -708,6 +626,9 @@ export class BlueprintRepository {
                 request.endChapter,
                 JSON.stringify(characterSyncInput),
             )
+            // Story plans no longer produce character candidates or relationship updates.
+            db.prepare("UPDATE blueprint_character_sync_operations SET status = 'completed', completion_receipt = ?, completed_at = datetime('now') WHERE operation_id = ?")
+              .run(JSON.stringify({ blueprintCommitOperationId: request.operationId, operationId: syncOperationId, status: 'already-satisfied' }), syncOperationId)
             const snapshot = snapshotWithCharacterSyncFacts(persisted, characterSyncInput)
             const characterSyncOperation = readCharacterSyncOperation(db, syncOperationId)
             if (!characterSyncOperation) throw new Error('BLUEPRINT_CHARACTER_SYNC_OPERATION_MISSING')
@@ -757,7 +678,7 @@ export class BlueprintRepository {
         const db = requireProjectDb()
         ensureBlueprintCommitSchema(db)
         const operation = readCharacterSyncOperation(db, operationId)
-        if (operation) assertAuthoritativeCharacterSyncCompletion(db, operation)
+        if (operation) assertAuthoritativeCharacterSyncCompletion(operation)
         return operation
     }
 
@@ -771,10 +692,10 @@ export class BlueprintRepository {
             const operation = readCharacterSyncOperation(db, operationId)
             if (!operation) throw new Error('BLUEPRINT_CHARACTER_SYNC_OPERATION_MISSING')
             if (operation.status === 'completed') {
-                assertAuthoritativeCharacterSyncCompletion(db, operation)
+                assertAuthoritativeCharacterSyncCompletion(operation)
                 return operation
             }
-            const completionReceipt = authoritativeCharacterSyncCompletionReceipt(db, operation)
+            const completionReceipt = authoritativeCharacterSyncCompletionReceipt(operation)
             const result = db.prepare(`
               UPDATE blueprint_character_sync_operations
               SET
@@ -789,7 +710,7 @@ export class BlueprintRepository {
             if (!completed || completed.status !== 'completed' || !completed.completionReceipt) {
                 throw new Error('BLUEPRINT_CHARACTER_SYNC_READ_BACK_FAILED')
             }
-            assertAuthoritativeCharacterSyncCompletion(db, completed)
+            assertAuthoritativeCharacterSyncCompletion(completed)
             return completed
         })
         return tx()

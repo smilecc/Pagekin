@@ -302,7 +302,7 @@ export default function StageKnowledge({ tabId }: { tabId: string }) {
           onOpenChange={setClearOpen}
           title={text('清空知识库？', 'Clear the knowledge base?')}
           consequence={text(
-            '会删除这部作品已导入的全部资料和检索记录。正文、蓝图和故事架构不受影响。',
+            '会删除这部作品已导入的全部资料和检索记录。正文、故事规划和故事架构不受影响。',
             'All imported material and search records of this book are removed. The manuscript, blueprint and story architecture are kept.',
           )}
           recoverability={text('清空后无法恢复，资料需要重新导入。', 'This cannot be undone. Material must be imported again.')}

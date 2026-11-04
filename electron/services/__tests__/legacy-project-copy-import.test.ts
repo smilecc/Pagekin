@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import os from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { spawn } from 'node:child_process'
@@ -34,7 +35,7 @@ const roots: string[] = []
 const preflightOptions = { maxNativePathCharacters: 4096 }
 const hash = (file: string) => createHash('sha256').update(fs.readFileSync(file)).digest('hex')
 function fixture(version: 'v100' | 'v100-official' | 'v110', charactersArch = '作者明确角色群像，与正文推断不同') {
-  const base = path.resolve('.runtime/.cache/novel-quality-modernization/a11-copy-import')
+  const base = path.join(os.tmpdir(), 'ai-novel-copy-import')
   fs.mkdirSync(base, { recursive: true })
   const root = fs.mkdtempSync(path.join(base, 'attempt-')); roots.push(root)
   const source = path.join(root, 'old'), target = path.join(root, 'new'), legacy = path.join(source, '.vela')
@@ -74,7 +75,17 @@ function sourceState(f: ReturnType<typeof fixture>) {
   return entries
 }
 
-async function verifyFrozenLegacyConsumersAfterRestart(target: string, entry: string) {
+function childEntry(name: string): string {
+  // Keep executable fixtures near node_modules; project data stays outside Vite's watched workspace.
+  const base = path.resolve('.runtime/legacy-copy-child')
+  fs.mkdirSync(base, { recursive: true })
+  const directory = fs.mkdtempSync(path.join(base, 'run-'))
+  roots.push(directory)
+  return path.join(directory, name)
+}
+
+async function verifyFrozenLegacyConsumersAfterRestart(target: string) {
+  const entry = childEntry('legacy-freeze-child.mjs')
   await build({
     stdin: {
       resolveDir: process.cwd(), sourcefile: 'legacy-freeze-child.ts', loader: 'ts',
@@ -106,7 +117,7 @@ async function verifyFrozenLegacyConsumersAfterRestart(target: string, entry: st
           assert.throws(() => RecoveryCandidateRepository.resolve('old-candidate', 'discarded'), /PORTABLE_RUNTIME_FROZEN/)
           db.exec('SAVEPOINT mixed_candidates')
           try {
-            const source = { chapterNumber: 8, title: '第八章', role: '推进', purpose: '继续',
+            const source = { chapterNumber: 8, title: '第八章', role: '', purpose: '',
               keyEvents: '新线索', characters: [], suspenseHook: '', userGuidance: '' }
             BlueprintRepository.upsert({ ...source, notes: '', notesUpdatedAt: '' })
             const fresh = RecoveryCandidateRepository.record({ runId: 'new-run', stepId: 'generate-draft',
@@ -151,7 +162,7 @@ async function verifyFrozenLegacyConsumersAfterRestart(target: string, entry: st
 }
 
 async function terminateImportAt(f: ReturnType<typeof fixture>, phase: 'sqlite-converted' | 'renamed') {
-  const entry = path.join(path.dirname(f.source), 'import-child.mjs')
+  const entry = childEntry('import-child.mjs')
   await build({ entryPoints: [path.resolve('electron/services/legacy-project-copy-import.ts')], outfile: entry,
     bundle: true, packages: 'external', platform: 'node', format: 'esm', target: 'node22',
     plugins: [{ name: 'unused-electron-imports', setup(build) {
@@ -837,7 +848,7 @@ it('旧候选正文保留为可读冻结历史，新项目不重放', async () =
   expect(LLMHistoryRepository.getHistory(1)).toMatchObject([{ modelName: '旧版模型身份不可用', success: 0 }])
   expect(PostProcessRepository.getSteps('old-post-run')).toMatchObject([{ errorMsg: '旧版错误详情不可用', attemptCount: 1 }])
   closeProjectDatabase()
-  await verifyFrozenLegacyConsumersAfterRestart(f.target, path.join(path.dirname(f.source), 'legacy-freeze-child.mjs'))
+  await verifyFrozenLegacyConsumersAfterRestart(f.target)
   expect(Object.fromEntries(Object.keys(before).map(name => [name, hash(path.join(f.legacy, name))]))).toEqual(before)
   expect(fs.existsSync(path.join(f.legacy, 'vela.db'))).toBe(true)
 })
@@ -957,8 +968,8 @@ it('未被角色引用的头像原字节保留为待处理资料', async () => {
   const f = fixture('v110', '')
   fs.mkdirSync(path.join(f.legacy, 'avatars'))
   fs.writeFileSync(path.join(f.legacy, 'avatars', 'unmapped.png'), Buffer.from('89504e470d0a1a0a00000000', 'hex'))
-  expect(await importLegacyProjectCopy({ sourceRoot: f.source, targetRoot: f.target, preflightOptions }))
-    .toMatchObject({ state: 'ready' })
+  const result = await importLegacyProjectCopy({ sourceRoot: f.source, targetRoot: f.target, preflightOptions })
+  expect(result, JSON.stringify(result)).toMatchObject({ state: 'ready' })
   const unresolved = path.join(f.target, '.ai-novel', 'avatars', 'unresolved')
   expect(fs.readFileSync(path.join(unresolved, fs.readdirSync(unresolved)[0]!))).toEqual(fs.readFileSync(path.join(f.legacy, 'avatars', 'unmapped.png')))
   expect(fs.existsSync(path.join(f.legacy, 'avatars', 'unmapped.png'))).toBe(true)

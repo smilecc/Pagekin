@@ -123,8 +123,8 @@ function requireImportGlobalFactsReceipt(
   const domainRequest = { ...expected }
   delete domainRequest.generationRunHandle
   const normalizedCore = { ...domainRequest.core }
-  for (const field of ['genre', 'subGenre', 'targetAudience', 'goldenFinger', 'globalGuidance', 'coreOutline',
-    'worldSetting', 'protagonistProfile', 'premise', 'worldbuilding', 'synopsis'] as const) {
+  for (const field of ['genre', 'subGenre', 'targetAudience', 'globalGuidance', 'coreOutline',
+    'worldbuilding'] as const) {
     normalizedCore[field] = normalizedCore[field].trim()
   }
   expected = { ...domainRequest, operationId: domainRequest.operationId.trim(), core: normalizedCore }
@@ -274,24 +274,10 @@ export class InferGlobalSettingsCommand extends BaseWorkflowCommand<void> {
           '【上一轮完整 JSON（只用于识别已存在角色，不得回传旧内容）】',
           JSON.stringify(originalRoot),
         ].join('\n'),
-        [
-          '[Bounded import-inference endpoint-card correction]',
-          'The previous complete JSON is parseable, but characterCards.relationships.target references names absent from characterCards.',
-          'Output one complete JSON object only, with no Markdown, explanation, or reasoning.',
-          'Return a strict delta whose only top-level field is characterCards.',
-          `Add exactly these missing character names and no others: ${JSON.stringify(unresolvedTargets)}`,
-          'Do not return novelConfig, architectureFiles, or any existing card. Do not remove, reorder, rename, or rewrite existing characters.',
-          'Every delta card, currentState, and relationship must contain only contract fields.',
-          '[Delta JSON contract]',
-          '{"characterCards":[{"name":"exact missing endpoint name","role":"protagonist | antagonist | supporting | minor","gender":"non-empty text","age":"non-empty text or finite number","appearance":"non-empty text","personality":"non-empty text","background":"non-empty text","abilities":"non-empty text","motivation":"non-empty text","relationships":[{"target":"exact name of another final character","relation":"non-empty relationship text"}],"arc":"non-empty text","notes":"non-empty text","currentState":{"location":"non-empty text","powerLevel":"non-empty text","physicalState":"non-empty text","mentalState":"non-empty text","keyItems":"non-empty text","recentEvents":"non-empty text","updatedAtChapter":0}}]}',
-          '[Previous complete JSON — identify existing characters only; do not echo it]',
-          JSON.stringify(originalRoot),
-        ].join('\n'),
       ),
       promptLanguageText(
         writingLanguage,
         '你是导入推演 JSON 受限补卡 delta 生成器。只输出缺失关系端点对应的新增角色卡。',
-        'You generate a bounded JSON delta containing only cards for missing relationship endpoints.',
       ),
       callbacks,
       {
@@ -327,8 +313,8 @@ export class InferGlobalSettingsCommand extends BaseWorkflowCommand<void> {
       totalChapters: frozen.core.totalChapters, wordsPerChapter: frozen.core.wordsPerChapter,
       plotStructure: frozen.core.plotStructure as NovelConfig['plotStructure'],
       narrativePOV: frozen.core.narrativePov as NovelConfig['narrativePOV'],
-      coreOutline: frozen.core.coreOutline, worldSetting: frozen.core.worldSetting,
-      goldenFinger: frozen.core.goldenFinger, protagonistProfile: frozen.core.protagonistProfile,
+      coreOutline: frozen.core.coreOutline,
+
       globalGuidance: frozen.core.globalGuidance, writingStyle: frozen.core.writingStyle,
       referenceWorks: frozen.core.referenceWorks,
     } : projectSnapshot.novelConfig
@@ -349,10 +335,10 @@ export class InferGlobalSettingsCommand extends BaseWorkflowCommand<void> {
 
     // ===== 向量检索采样 =====
     const searchTopics = [
-      { key: 'worldview', query: promptLanguageText(writingLanguage, '世界观 力量体系 修炼等级 境界', 'world rules power system ranks institutions'), label: text('世界观与力量体系', 'world and power system') },
-      { key: 'protagonist', query: promptLanguageText(writingLanguage, '主角 金手指 核心能力 天赋 系统', 'protagonist central advantage core ability talent system'), label: text('主角设定与金手指', 'protagonist and central advantage') },
-      { key: 'conflict', query: promptLanguageText(writingLanguage, '敌人 反派 阴谋 危机 矛盾 对手', 'enemy antagonist conspiracy crisis conflict opponent'), label: text('核心矛盾与敌对势力', 'central conflict and opposing forces') },
-      { key: 'style', query: promptLanguageText(writingLanguage, '视角 叙述 描写 风格 节奏', 'point of view narration description style pacing'), label: text('写作风格与叙事视角', 'writing style and narrative viewpoint') },
+      { key: 'worldview', query: promptLanguageText(writingLanguage, '世界观 力量体系 修炼等级 境界'), label: text('世界观与力量体系', 'world and power system') },
+      { key: 'protagonist', query: promptLanguageText(writingLanguage, '角色 核心能力 人物关系'), label: text('角色设定与人物关系', 'characters and relationships') },
+      { key: 'conflict', query: promptLanguageText(writingLanguage, '敌人 反派 阴谋 危机 矛盾 对手'), label: text('核心矛盾与敌对势力', 'central conflict and opposing forces') },
+      { key: 'style', query: promptLanguageText(writingLanguage, '视角 叙述 描写 风格 节奏'), label: text('写作风格与叙事视角', 'writing style and narrative viewpoint') },
     ]
 
     const sampledContent: Record<string, string> = {}
@@ -373,18 +359,17 @@ export class InferGlobalSettingsCommand extends BaseWorkflowCommand<void> {
               promptLanguageText(
                 writingLanguage,
                 `[${i + 1}] (${r.fileName}, 相关度 ${(r.score * 100).toFixed(0)}%)\n${r.text}`,
-                `[${i + 1}] (${r.fileName}, relevance ${(r.score * 100).toFixed(0)}%)\n${r.text}`,
               )
             ).join('\n\n')
         } else {
-          sampledContent[topic.key] = promptLanguageText(writingLanguage, '（未检索到相关内容）', '(no relevant content found)')
+          sampledContent[topic.key] = promptLanguageText(writingLanguage, '（未检索到相关内容）')
         }
         callbacks.log(text(
           `  已检索「${topic.label}」— ${results.length} 条结果`,
           `  Retrieved ${results.length} ${results.length === 1 ? 'result' : 'results'} for "${topic.label}"`,
         ))
       } catch {
-        sampledContent[topic.key] = promptLanguageText(writingLanguage, '（向量检索不可用）', '(vector search unavailable)')
+        sampledContent[topic.key] = promptLanguageText(writingLanguage, '（向量检索不可用）')
         callbacks.log(text(
           `  「${topic.label}」检索失败，将使用降级策略`,
           `  Retrieval failed for "${topic.label}"; using the fallback strategy`,
@@ -401,9 +386,9 @@ export class InferGlobalSettingsCommand extends BaseWorkflowCommand<void> {
     if (!template) throw new Error(text('未找到推演 Prompt 模板', 'The import-inference prompt template was not found.'))
 
     const firstChapter = chapters[0]?.content?.slice(0, 3000)
-      || promptLanguageText(writingLanguage, '（第一章内容不可用）', '(opening chapter unavailable)')
+      || promptLanguageText(writingLanguage, '（第一章内容不可用）')
     const latestChapter = chapters[chapters.length - 1]?.content?.slice(0, 3000)
-      || promptLanguageText(writingLanguage, '（最新章节不可用）', '(latest chapter unavailable)')
+      || promptLanguageText(writingLanguage, '（最新章节不可用）')
     const inferenceContract = importInferenceJsonContract(writingLanguage)
 
     const prompt = new ImportPromptBuilder(template, writingLanguage)
@@ -418,7 +403,6 @@ export class InferGlobalSettingsCommand extends BaseWorkflowCommand<void> {
       .withSampleContent(promptLanguageText(
         writingLanguage,
         `【第1章片段】\n${firstChapter}\n\n【最新章节片段】\n${latestChapter}`,
-        `[Opening chapter sample]\n${firstChapter}\n\n[Latest chapter sample]\n${latestChapter}`,
       ))
       .build()
       + `\n\n${inferenceContract}`
@@ -432,7 +416,7 @@ export class InferGlobalSettingsCommand extends BaseWorkflowCommand<void> {
     const initial = await this.callLLMResult(
       prompt,
       composePromptSystemRole({
-        systemRole: template.systemRole || promptLanguageText(writingLanguage, '你是一位资深小说编辑和阅读分析师。', 'You are a senior fiction editor and reading analyst.'),
+        systemRole: template.systemRole || promptLanguageText(writingLanguage, '你是一位资深小说编辑和阅读分析师。'),
       }, writingLanguage),
       callbacks,
       {
@@ -539,14 +523,12 @@ export class InferGlobalSettingsCommand extends BaseWorkflowCommand<void> {
           wordsPerChapter: novelConfig.wordsPerChapter,
           plotStructure: novelConfig.plotStructure,
           narrativePov: novelConfig.narrativePOV,
-          goldenFinger: novelConfig.goldenFinger,
+
           globalGuidance: novelConfig.globalGuidance,
           coreOutline: novelConfig.coreOutline,
-          worldSetting: novelConfig.worldSetting,
-          protagonistProfile: novelConfig.protagonistProfile,
-          premise: inferResult.architectureFiles.premise,
+
           worldbuilding: inferResult.architectureFiles.worldbuilding,
-          synopsis: inferResult.architectureFiles.synopsis,
+
         },
         characterEntries: inferResult.characterCards,
       }
@@ -591,29 +573,22 @@ export class InferGlobalSettingsCommand extends BaseWorkflowCommand<void> {
       wordsPerChapter: commitReceipt.core.wordsPerChapter,
       plotStructure: commitReceipt.core.plotStructure,
       narrativePOV: commitReceipt.core.narrativePov,
-      goldenFinger: commitReceipt.core.goldenFinger,
+
       globalGuidance: commitReceipt.core.globalGuidance,
       coreOutline: commitReceipt.core.coreOutline,
-      worldSetting: commitReceipt.core.worldSetting,
-      protagonistProfile: commitReceipt.core.protagonistProfile,
+
+
     }
     const authoritativeNovelConfig = { ...baseConfig, ...savedFields }
     // 反推等待期间作者在设定页改过、还没保存的字段保持作者的值。
     useProjectStore.getState().publishSavedNovelConfig(savedFields, projectSession, 'unsaved-edits')
-    const unknown = promptLanguageText(writingLanguage, '未知', 'Unknown')
-    const none = promptLanguageText(writingLanguage, '（无）', '(none)')
+    const unknown = promptLanguageText(writingLanguage, '未知')
+    const none = promptLanguageText(writingLanguage, '（无）')
     context.data.novelConfigSummary = promptLanguageText(
       writingLanguage,
       `类型: ${authoritativeNovelConfig.genre || unknown} | 子类型: ${authoritativeNovelConfig.subGenre || unknown} | 受众: ${authoritativeNovelConfig.targetAudience || unknown}\n`
         + `大纲: ${authoritativeNovelConfig.coreOutline || none}\n`
-        + `世界观: ${authoritativeNovelConfig.worldSetting || none}\n`
-        + `金手指: ${authoritativeNovelConfig.goldenFinger || none}\n`
-        + `主角: ${authoritativeNovelConfig.protagonistProfile || none}`,
-      `Genre: ${authoritativeNovelConfig.genre || unknown} | Subgenre: ${authoritativeNovelConfig.subGenre || unknown} | Audience: ${authoritativeNovelConfig.targetAudience || unknown}\n`
-        + `Outline: ${authoritativeNovelConfig.coreOutline || none}\n`
-        + `World: ${authoritativeNovelConfig.worldSetting || none}\n`
-        + `Central advantage: ${authoritativeNovelConfig.goldenFinger || none}\n`
-        + `Protagonist: ${authoritativeNovelConfig.protagonistProfile || none}`,
+        ,
     )
     if (commitReceipt.mode === 'fill-empty') {
       const suggestionCount = commitReceipt.suggestions?.length ?? 0
@@ -675,7 +650,7 @@ export class InferBlueprintsPerChapterCommand extends BaseWorkflowCommand<void> 
 
     const chapters = frozen?.chapters ?? context.data.chapters as ImportedChapter[]
     const configSummary = (frozen ? JSON.stringify(frozen.core) : context.data.novelConfigSummary as string)
-      || promptLanguageText(writingLanguage, '（配置概要不可用）', '(configuration summary unavailable)')
+      || promptLanguageText(writingLanguage, '（配置概要不可用）')
     if (!chapters || chapters.length === 0) throw new Error(text('无章节数据', 'No chapter data is available.'))
 
     const template = frozen ? frozen.prompts.infer_single_chapter_blueprint
@@ -721,15 +696,13 @@ export class InferBlueprintsPerChapterCommand extends BaseWorkflowCommand<void> 
         const source = items.map(chapter => promptLanguageText(
           writingLanguage,
           `【第${chapter.number}章 ${chapter.title || '无标题'}】\n${chapter.content.slice(0, 6000)}`,
-          `[Chapter ${chapter.number}: ${chapter.title || 'Untitled'}]\n${chapter.content.slice(0, 6000)}`,
         )).join('\n\n')
         const prior = validatedPrefix.slice(-10)
           .map(item => promptLanguageText(
             writingLanguage,
             `第${item.chapterNumber}章 ${item.title}：${item.keyEvents}`,
-            `Chapter ${item.chapterNumber}: ${item.title} — ${item.keyEvents}`,
           ))
-          .join('\n') || promptLanguageText(writingLanguage, '（无）', '(none)')
+          .join('\n') || promptLanguageText(writingLanguage, '（无）')
         const prompt = new ImportPromptBuilder(template, writingLanguage)
           .withChapterContent(source)
           .withChapterNumber(items[0]?.number ?? 1)
@@ -737,19 +710,16 @@ export class InferBlueprintsPerChapterCommand extends BaseWorkflowCommand<void> 
           .withNovelConfigSummary(promptLanguageText(
             writingLanguage,
             `${configSummary}\n\n【已验证前缀】\n${prior}`,
-            `${configSummary}\n\n[Previously validated prefix]\n${prior}`,
           ))
           .build()
           + promptLanguageText(
             writingLanguage,
             '\n\n【最终不可变输出合同】\n本合同取代上述模板中的任何旧 JSON 示例或字段名，不得沿用缺少字段的旧示例。\n',
-            '\n\n[Final immutable output contract]\nThis contract replaces every older JSON example or field name in the template.\n',
           )
           + `${blueprintSemanticGenerationContract(writingLanguage)}\n`
           + promptLanguageText(
             writingLanguage,
             `本批必须且只能完整返回以下 chapterNumber：${activeChapterNumbers.join('、')}。`,
-            `Return complete items for exactly these chapterNumber values: ${activeChapterNumbers.join(', ')}.`,
           )
         callbacks.log(text(
           `  正在推演第 ${activeChapterNumbers[0]}–${activeChapterNumbers.at(-1)} 章...`,
@@ -763,7 +733,7 @@ export class InferBlueprintsPerChapterCommand extends BaseWorkflowCommand<void> 
             {
               role: 'system',
               content: composePromptSystemRole({
-                systemRole: template.systemRole || promptLanguageText(writingLanguage, '你是一位专业的小说结构分析师。', 'You are a professional fiction-structure analyst.'),
+                systemRole: template.systemRole || promptLanguageText(writingLanguage, '你是一位专业的小说结构分析师。'),
               }, writingLanguage),
             },
             { role: 'user', content: prompt },
@@ -774,7 +744,7 @@ export class InferBlueprintsPerChapterCommand extends BaseWorkflowCommand<void> 
       outputKey: blueprint => blueprint.chapterNumber,
       decode: content => parseBlueprintSemanticResponseText(content, activeChapterNumbers)
         .map(blueprint => ({
-          ...blueprint,
+          ...blueprint, role: '', purpose: '', suspenseHook: '',
           userGuidance: '',
           notes: '',
           notesUpdatedAt: '',

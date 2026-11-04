@@ -78,9 +78,8 @@ afterEach(() => {
 
 describe('project custom prompt session ownership', () => {
   it.each([
-    ['zh-CN', true],
-    ['en-US', false],
-  ] as const)('%s project save migrates the untagged file only for Chinese', async (writingLanguage, migratesLegacy) => {
+['zh-CN', true]
+] as const)('%s project save migrates the untagged file only for Chinese', async (writingLanguage, migratesLegacy) => {
     const legacyPath = `${sessionA.projectPath}/.ai-novel/prompts/first_chapter_draft.json`
     const localizedPath = `${sessionA.projectPath}/.ai-novel/prompts/first_chapter_draft.${writingLanguage}.json`
     const files = new Map<string, string>([[legacyPath, '{invalid json']])

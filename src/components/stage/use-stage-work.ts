@@ -23,7 +23,7 @@ import { toast } from '../ui/Toast'
 let refreshSequence = 0
 
 /**
- * 读一次流程脊需要而 project-store、draft-store 里没有的数据：架构四节是否已确认、蓝图章号与标题；草稿顺带刷新。
+ * 读一次流程脊需要而 project-store、draft-store 里没有的数据：架构四节是否已确认、故事规划章号与标题；草稿顺带刷新。
  * 只认最后一次请求，项目会话或会话代数变了就丢弃结果。
  */
 export async function refreshStageWork(text: (zh: string, en: string) => string): Promise<void> {
@@ -65,7 +65,7 @@ function workflowRefreshKey(runs: readonly WorkflowRun[]): string {
 }
 
 /**
- * 换项目或会话代数变化时立即刷新；工作流步骤推进、架构更新、蓝图资源变化时合并成一次。
+ * 换项目或会话代数变化时立即刷新；工作流步骤推进、架构更新、故事规划资源变化时合并成一次。
  * 项目身份与工作流共用一个 effect，打开作品时只刷新一次。
  */
 export function useStageWorkRefresh(): void {
@@ -114,7 +114,7 @@ export interface StageView {
   stages: StageStatus[]
   chapters: ChapterRow[]
   location: StageLocation | null
-  /** 打开作品时该落到的阶段：架构、蓝图与草稿都已按当前项目会话载入、且草稿不在重新载入中才有，不等各稿的审稿与修稿记录。 */
+  /** 打开作品时该落到的阶段：架构、故事规划与草稿都已按当前项目会话载入、且草稿不在重新载入中才有，不等各稿的审稿与修稿记录。 */
   landing: WorkStage | null
 }
 
@@ -124,13 +124,15 @@ function runningKey(runs: readonly WorkflowRun[], projectPath: string | undefine
   return [...runningChapters(runs.filter(run => sameProjectPathKey(run.projectPath, projectPath)))].sort((a, b) => a - b).join(',')
 }
 
-/** 当前标签所在的位置。只订阅类型、章号与所属项目这几个原始值，正文每敲一个字外壳不跟着重渲染。 */
+/** 当前标签所在的位置。只订阅类型、章号、文档标识与所属项目这些原始值，正文每敲一个字外壳不跟着重渲染。 */
 function useActiveLocation(projectPath: string | undefined): StageLocation | null {
   const type = useEditorStore(s => s.tabs.find(tab => tab.id === s.activeTabId)?.type)
   const chapterNumber = useEditorStore(s => s.tabs.find(tab => tab.id === s.activeTabId)?.chapterNumber)
   const projectKey = useEditorStore(s => s.tabs.find(tab => tab.id === s.activeTabId)?.projectKey)
-  return useMemo(() => projectPath && type && projectKey === projectPath ? locate({ type, chapterNumber }) : null,
-    [projectPath, type, chapterNumber, projectKey])
+  const configField = useEditorStore(s => s.tabs.find(tab => tab.id === s.activeTabId)?.configField)
+  const filePath = useEditorStore(s => s.tabs.find(tab => tab.id === s.activeTabId)?.filePath)
+  return useMemo(() => projectPath && type && projectKey === projectPath ? locate({ type, chapterNumber, configField, filePath }) : null,
+    [projectPath, type, chapterNumber, projectKey, configField, filePath])
 }
 
 const NO_STAGES: StageStatus[] = []
@@ -171,7 +173,7 @@ export function useStageView(): StageView {
 }
 
 /**
- * 打开作品时把内容区放到下一步：设定没填完就停在设定，否则等架构、蓝图与草稿载入后落到第一个未完成的阶段。
+ * 打开作品时把内容区放到下一步：设定没填完就停在设定，否则等架构、故事规划与草稿载入后落到第一个未完成的阶段。
  * 每次打开（项目会话）只落一次；这次打开已有标签时保持原样。
  */
 export function useLandingPage(view: StageView): void {

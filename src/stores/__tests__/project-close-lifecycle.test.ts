@@ -63,9 +63,9 @@ function project(key: 'A' | 'B' | 'C'): ProjectData {
       plotStructure: 'three_act',
       narrativePOV: 'third_limited',
       coreOutline: '',
-      worldSetting: '',
-      goldenFinger: '',
-      protagonistProfile: '',
+
+
+
       globalGuidance: '',
     },
     characterStates: '',

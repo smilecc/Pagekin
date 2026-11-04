@@ -66,7 +66,7 @@ function deletionSurfaceConfig(
     },
     manuscript: {
       confirmation: text(
-        `确认删除正文「${displayName}」？\n此操作会删除定稿事实，并清理实体稿、知识库和后处理投影；蓝图会保留。清理失败时可${retryWhere}重试。`,
+        `确认删除正文「${displayName}」？\n此操作会删除定稿事实，并清理实体稿、知识库和后处理投影；故事规划会保留。清理失败时可${retryWhere}重试。`,
         `Delete manuscript “${displayName}”?\nThis removes the finalized fact and cleans its manuscript file, knowledge document, and post-processing projections. The blueprint is preserved, and failed cleanup can be retried ${retryWhereEn}.`,
       ),
       confirmationTitle: text('删除正文', 'Delete manuscript'),

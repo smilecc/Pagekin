@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join, resolve, win32 } from 'node:path'
@@ -801,7 +801,7 @@ describe('Windows installer smoke contract', () => {
       },
       {
         name: 'finalized manuscript projection',
-        mutate: (projectRoot) => rmSync(join(projectRoot, '第7章 失真的航标.txt')),
+        mutate: (projectRoot) => unlinkSync(join(projectRoot, '第7章 失真的航标.txt')),
         error: 'Preserved upgrade asset 第7章 失真的航标.txt is missing',
       },
       {

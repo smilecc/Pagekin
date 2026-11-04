@@ -1,4 +1,4 @@
-import { parsePlanningTargetUnits, assertPlanningActionRange, DEFAULT_PLANNING_ACTION_CHAPTERS } from '../../shared/plot-outline-contract'
+import { parsePlanningTargetUnits } from '../../shared/plot-outline-contract'
 import { globalEventBus } from '../../shared/event-bus'
 import type { WorkflowGenerationRuntimeDependencies } from './commands/base-command'
 import type { MainGenerationRunHandle } from '../generation/generation-runtime'
@@ -86,16 +86,9 @@ export function createArchitectureWorkflow(
   uiLocale: Locale = useLocaleStore.getState().locale,
 ): WorkflowDefinition {
   const text = (zhCNText: string, enUSText: string) => localize(uiLocale, zhCNText, enUSText)
-  const resumingSynopsis = params.resumeSynopsis === true
+  if (params.resumeSynopsis || params.restartFrom || params.selectedSteps?.some(step => step === 'premise' || step === 'synopsis')) throw new Error(text('仅支持生成角色名单和世界观。', 'Only cast and world generation are supported.'))
   const resumingWorldBuilding = params.resumeWorldBuilding === true
-  if (resumingSynopsis && resumingWorldBuilding || params.restartFrom && (resumingSynopsis || resumingWorldBuilding)) {
-    throw new Error(text('一次只能恢复一个故事架构步骤', 'Only one story-architecture step can be resumed at a time.'))
-  }
-  const sel = resumingSynopsis || params.restartFrom
-    ? ['synopsis' as const]
-    : resumingWorldBuilding
-      ? ['worldbuilding' as const]
-      : [...(params.selectedSteps ?? ['premise', 'characters', 'worldbuilding', 'synopsis'])]
+  const sel = resumingWorldBuilding ? ['worldbuilding'] : [...(params.selectedSteps ?? ['characters', 'worldbuilding'])]
   const expectedProjectPath = params.projectPath
   const project = useProjectStore.getState().currentProject
   const currentProjectSession = projectSessionContextFromProject(project)
@@ -109,14 +102,11 @@ export function createArchitectureWorkflow(
   }
   // 工厂在捕获配置快照的同一时刻绑定 lease，防止同路径重新打开后复用旧快照。
   const projectSession = Object.freeze({ ...params.projectSession })
-  const synopsisRange = sel.includes('synopsis')
-    ? Object.freeze({ ...(params.synopsisRange ?? { from: 1, to: Math.min(project.novelConfig.totalChapters, DEFAULT_PLANNING_ACTION_CHAPTERS) }) }) : null
-  if (synopsisRange && !resumingSynopsis) assertPlanningActionRange(synopsisRange)
   const targetUnits = parsePlanningTargetUnits(params.targetUnits)
-  const planningIntent: ArchitecturePlanningIntent | undefined = resumingSynopsis || resumingWorldBuilding ? undefined : Object.freeze({
+  const planningIntent: ArchitecturePlanningIntent | undefined = resumingWorldBuilding ? undefined : Object.freeze({
     version: 'architecture-action-v1',
-    priorSteps: Object.freeze((['premise', 'characters', 'worldbuilding'] as const).filter(step => sel.includes(step))),
-    synopsisRange,
+    priorSteps: Object.freeze((['characters', 'worldbuilding'] as const).filter(step => sel.includes(step))),
+    synopsisRange: null,
   })
   const projectSnapshot: ArchitectureProjectSnapshot = Object.freeze({
     targetUnits,
@@ -148,16 +138,6 @@ export function createArchitectureWorkflow(
 
   const allSteps = [
     {
-      name: text('故事前提', 'Story premise'),
-      key: 'premise',
-      description: stepDesc('premise', '提炼故事前提与核心卖点', 'Refine the story premise and its core appeal'),
-      executor: async (step: unknown, context: WorkflowContext, callbacks: StepCallbacks) => {
-        context.data.stepGuidance = guidance
-        const { GenerateCoreSeedCommand } = await import('./commands/architecture.command')
-        return new GenerateCoreSeedCommand(projectSnapshot).execute({ step, context, callbacks })
-      },
-    },
-    {
       name: text(...ARCH_STEP_NAMES.characters),
       key: 'characters',
       description: stepDesc('characters', '构建核心角色关系网与角色弧光', 'Build core character relationships and arcs'),
@@ -182,23 +162,7 @@ export function createArchitectureWorkflow(
         }).execute({ step, context, callbacks })
       },
     },
-    {
-      name: text('情节大纲', 'Plot outline'),
-      key: 'synopsis',
-      description: resumingSynopsis
-        ? text('从上次中断点继续生成情节大纲', 'Resume the plot outline from the interrupted point')
-        : stepDesc('synopsis', '整合所有碎片，按选定结构模式生成情节大纲', 'Integrate all inputs into a plot outline using the selected structure'),
-      executor: async (step: unknown, context: WorkflowContext, callbacks: StepCallbacks) => {
-        context.data.stepGuidance = guidance
-        const { GeneratePlotArchitectureCommand } = await import('./commands/architecture.command')
-        return new GeneratePlotArchitectureCommand(sel, projectSnapshot, undefined, {
-          resumeSynopsis: params.resumeSynopsis,
-          restartHandle: params.restartFrom,
-          ...(resumingSynopsis ? { resumeHandle: await recoveryHandle(context, 'synopsis') } : {}),
-          synopsisRange,
-        }).execute({ step, context, callbacks })
-      },
-    },
+
   ]
 
   const finalSteps = allSteps.filter(s => sel.includes(s.key as never)).flatMap(step => step.key === 'characters'
@@ -214,9 +178,7 @@ export function createArchitectureWorkflow(
 
   return {
     type: 'architecture_generation',
-    title: resumingSynopsis
-      ? text('继续生成情节大纲（断点续写）', 'Continue plot outline (resume)')
-      : resumingWorldBuilding
+    title: resumingWorldBuilding
         ? text('继续生成世界观（断点续写）', 'Continue worldbuilding (resume)')
         : text('生成故事架构', 'Generate story architecture'),
     projectPath: expectedProjectPath,
@@ -291,20 +253,16 @@ export function getPlotStructureGuide(
 
   switch (structure) {
     case 'heros_journey':
-      return promptLanguageText(language, `【英雄之旅·十二阶段】（严格按以下阶段组织大纲）\n建议章节分配：全书共 ${totalChapters} 章...`, `[Hero's journey — twelve stages]\nOrganize the outline across exactly ${totalChapters} chapters.`)
+      return promptLanguageText(language, `【英雄之旅·十二阶段】（严格按以下阶段组织大纲）\n建议章节分配：全书共 ${totalChapters} 章...`)
     case 'save_the_cat':
-      return promptLanguageText(language, `【节拍表·十五拍】（严格按以下节拍组织大纲）\n建议章节分配：全书共 ${totalChapters} 章...`, `[Save the Cat — fifteen beats]\nOrganize the beats across exactly ${totalChapters} chapters.`)
+      return promptLanguageText(language, `【节拍表·十五拍】（严格按以下节拍组织大纲）\n建议章节分配：全书共 ${totalChapters} 章...`)
     case 'kishotenketsu':
       return promptLanguageText(language, `【起承转合·四段式】（严格按以下四段组织大纲）
 建议章节分配：全书共 ${totalChapters} 章
 起（约第1章~第${ch25}章，占总篇幅约25%）：介绍世界、角色和日常，建立读者认同
 承（约第${ch25 + 1}章~第${ch50}章，占总篇幅约25%）：延续与深化，展现角色关系和冲突苗头
 转（约第${ch50 + 1}章~第${ch75}章，占总篇幅约25%）：核心转折，出人意料的变化打破既有格局
-合（约第${ch75 + 1}章~第${totalChapters}章，占总篇幅约25%）：收束所有线索，揭示主题，给出结局`, `[Kishōtenketsu — four parts]
-Ki, chapters 1–${ch25}: establish the world and characters.
-Shō, chapters ${ch25 + 1}–${ch50}: develop relationships and emerging tensions.
-Ten, chapters ${ch50 + 1}–${ch75}: introduce the central reversal.
-Ketsu, chapters ${ch75 + 1}–${totalChapters}: connect the threads, reveal the theme, and resolve the story.`)
+合（约第${ch75 + 1}章~第${totalChapters}章，占总篇幅约25%）：收束所有线索，揭示主题，给出结局`)
     case 'multi_thread':
       return promptLanguageText(language, `【多线叙事】（按多条故事线并行推进的方式组织大纲）
 建议章节分配：全书共 ${totalChapters} 章
@@ -312,9 +270,7 @@ Ketsu, chapters ${ch75 + 1}–${totalChapters}: connect the threads, reveal the 
 1. 主线数量：设定2-4条独立又交织的故事线，每条有独立主角或视角
 2. 交汇节点：每条线在第${ch25}章、第${ch50}章、第${ch75}章左右安排交汇碰撞
 3. 节奏编排：各线交替出现的节奏，避免某条线长期消失
-4. 最终合流：在第${ch75}章前后所有线索开始汇聚，走向统一高潮`, `[Multi-thread structure]
-Plan 2–4 distinct but intersecting lines across ${totalChapters} chapters.
-Create collisions near chapters ${ch25}, ${ch50}, and ${ch75}; rotate viewpoints without abandoning a line; begin the final convergence near chapter ${ch75}.`)
+4. 最终合流：在第${ch75}章前后所有线索开始汇聚，走向统一高潮`)
     case 'freeform':
       return promptLanguageText(language, `【自由结构】（不限定特定叙事框架，根据故事内容自然编排）
 全书共 ${totalChapters} 章。
@@ -323,18 +279,14 @@ Create collisions near chapters ${ch25}, ${ch50}, and ${ch75}; rotate viewpoints
 1. 保证每10-20章有一个小高潮或悬念释放点
 2. 全书应有清晰的开篇建置（前10-15%）和收尾段落（后10-15%）
 3. 中段避免节奏单一，适时安排转折点
-4. 允许插叙、倒叙、片段式叙事等灵活手法`, `[Freeform structure]
-Design the most suitable rhythm across ${totalChapters} chapters. Establish a clear opening and ending, vary the middle, release suspense regularly, and use nonlinear techniques only when they serve the story.`)
+4. 允许插叙、倒叙、片段式叙事等灵活手法`)
     case 'three_act':
     default:
       return promptLanguageText(language, `【三幕结构】（严格按以下结构组织大纲）
 建议章节分配：全书共 ${totalChapters} 章
 第一幕：建置（约第1章~第${ch20}章，占总篇幅约20%）
 第二幕：对抗与发展（约第${ch20 + 1}章~第${ch75}章，占总篇幅约55%）
-第三幕：高潮与结局（约第${ch75 + 1}章~第${totalChapters}章，占总篇幅约25%）`, `[Three-act structure]
-Act I — setup: chapters 1–${ch20}.
-Act II — confrontation and development: chapters ${ch20 + 1}–${ch75}.
-Act III — climax and resolution: chapters ${ch75 + 1}–${totalChapters}.`)
+第三幕：高潮与结局（约第${ch75 + 1}章~第${totalChapters}章，占总篇幅约25%）`)
   }
 }
 

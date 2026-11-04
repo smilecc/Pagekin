@@ -48,10 +48,11 @@ const NARRATIVE_POV_LABELS: Readonly<Record<string, LocalizedLabel>> = {
   multi_pov: { zhCN: '多视角', enUS: 'Multiple viewpoints' },
 }
 
-function localize(value: string | undefined, labels: Readonly<Record<string, LocalizedLabel>>, language: WritingLanguage): string {
+function localize(value: string | undefined, labels: Readonly<Record<string, LocalizedLabel>>, _language: WritingLanguage): string {
+  void _language;
   if (!value) return ''
   const label = labels[value]
-  return label ? (language === 'en-US' ? label.enUS : label.zhCN) : value
+  return label ? (label.zhCN) : value
 }
 
 type ModelFactConfig = Partial<Record<'genre' | 'targetAudience' | 'plotStructure' | 'narrativePOV', string>>

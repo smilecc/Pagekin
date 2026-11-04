@@ -22,12 +22,10 @@ export function assertPlanningActionRange(range: PlotOutlineRange): void {
     || range.to - range.from + 1 > PLANNING_ACTION_CHAPTER_LIMIT) throw new Error('GENERATION_PLANNING_RANGE_INVALID')
 }
 
-export function planningTargetInstruction(kind: 'outline' | 'blueprint', targetUnits: number, language: WritingLanguage): string {
-  const english = language === 'en-US'
-  const field = kind === 'outline' ? english ? 'outline body' : '大纲正文' : english ? 'keyEvents narrative' : 'keyEvents 叙述'
-  return english
-    ? `Aim for about ${targetUnits} words per chapter in the ${field}. This is a soft target, excluding JSON, field names, identities and relationship metadata. Complete content above or below the target is accepted; do not truncate content to meet it. Keep supporting fields concise.`
-    : `每章${field}目标约 ${targetUnits} 字。此值是软目标，不包括 JSON、字段名、身份及关系元数据。完整内容可以高于或低于目标，不得为凑字数截断内容。辅助字段可简写。`
+export function planningTargetInstruction(kind: 'outline' | 'blueprint', targetUnits: number, _language: WritingLanguage): string {
+  void _language;
+  const field = kind === 'outline' ? '大纲正文' : 'keyEvents 叙述'
+  return `每章${field}目标约 ${targetUnits} 字。此值是软目标，不包括 JSON、字段名、身份及关系元数据。完整内容可以高于或低于目标，不得为凑字数截断内容。辅助字段可简写。`
 }
 
 export const PLOT_OUTLINE_PROTOCOL = 'chapter-outline-v3'
@@ -121,7 +119,7 @@ export function plotOutlineExpected(value: unknown): ProjectCoreSynopsisExpected
   const source = core as PlotOutlineSource['core']
   return { synopsis: source.synopsis, premise: source.premise, charactersArch: source.characters_arch, worldbuilding: source.worldbuilding,
     genre: source.genre, totalChapters: source.total_chapters, wordsPerChapter: source.words_per_chapter,
-    writingLanguage: source.writing_language === 'en-US' ? 'en-US' : 'zh-CN', plotStructure: source.plot_structure,
+    writingLanguage: 'zh-CN', plotStructure: source.plot_structure,
     narrativePov: source.narrative_pov, globalGuidance: source.global_guidance }
 }
 
@@ -207,9 +205,8 @@ export function isPlotOutlineCoverageNote(line: string): boolean {
 }
 
 export function renderPlotOutlineSynopsis(body: string, coveredTo: number, expected: Pick<ProjectCoreSynopsisExpected, 'totalChapters' | 'writingLanguage'>): string {
-  const english = expected.writingLanguage === 'en-US'
   const tail = coveredTo < expected.totalChapters ? plotOutlineCoverageNote(coveredTo, expected.totalChapters, expected.writingLanguage) : ''
-  return `# ${english ? 'Plot Outline' : '情节大纲'}\n\n${joinPlotOutlineEntries(body, tail)}`.trim()
+  return `# ${'情节大纲'}\n\n${joinPlotOutlineEntries(body, tail)}`.trim()
 }
 
 /** 正式大纲里决定一批范围能否开跑、会替换哪几章的三项事实；主进程 begin 时取自 project_core。 */
@@ -259,7 +256,7 @@ export function plotOutlineConfirmedPrefix(expected: PlotOutlineRangeSource, ran
   if (next !== range.from || !before.length) throw new Error('GENERATION_PLOT_OUTLINE_PREFIX_INVALID')
   const following = entries.find(entry => entry.from >= range.from)
   if (following) return expected.synopsis.slice(before[0].index, following.index).trim()
-  const title = `# ${expected.writingLanguage === 'en-US' ? 'Plot Outline' : '情节大纲'}\n\n`
+  const title = `# ${'情节大纲'}\n\n`
   const suffix = renderPlotOutlineSynopsis('', range.from - 1, expected).slice(title.length)
   if (!expected.synopsis.startsWith(title) || !suffix || !expected.synopsis.endsWith(suffix)) throw new Error('GENERATION_PLOT_OUTLINE_PREFIX_INVALID')
   const prefix = expected.synopsis.slice(title.length, -suffix.length).trim()
@@ -331,7 +328,7 @@ export function renderPlotOutlineRange(body: string, range: PlotOutlineRange, ex
   if (!entries.length) return renderPlotOutlineSynopsis(body, range.to, expected)
   const start = entries.find(entry => entry.from >= range.from)
   const after = entries.find(entry => entry.from > range.to)
-  const title = `# ${expected.writingLanguage === 'en-US' ? 'Plot Outline' : '情节大纲'}\n\n`
+  const title = `# ${'情节大纲'}\n\n`
   const suffix = renderPlotOutlineSynopsis('', range.to, expected).slice(title.length)
   if (start) {
     const before = expected.synopsis.slice(0, start.index)
@@ -353,7 +350,7 @@ export function validPlotOutlineAuthorPrefix(synopsis: string, progress: Pick<Pl
   const all = headings(synopsis), entries = all.filter(entry => entry.from >= range.from && entry.from <= range.to)
   if (entries.length !== range.to - range.from + 1) return false
   const after = all.find(entry => entry.from > range.to)
-  const title = `# ${expected.writingLanguage === 'en-US' ? 'Plot Outline' : '情节大纲'}\n\n`
+  const title = `# ${'情节大纲'}\n\n`
   const suffix = renderPlotOutlineSynopsis('', range.to, expected).slice(title.length)
   const end = after?.index ?? (suffix && synopsis.endsWith(suffix) ? synopsis.length - suffix.length : synopsis.length)
   const authored = synopsis.slice(entries[0].index, end).trim()
@@ -374,7 +371,7 @@ export function plotOutlineRecoveryDraft(progress: PlotOutlineProgress, failedCa
   let body = progress.composition?.text ?? ''
   if (progress.cursor.kind === 'accept') body = joinPlotOutlineEntries(body, progress.cursor.text)
   else if (progress.cursor.kind !== 'complete') {
-    const heading = progress.sourceExpected.writingLanguage === 'en-US' ? `## Chapter ${chapter}: ` : `## 第${chapter}章：`
+    const heading = `## 第${chapter}章：`
     body = joinPlotOutlineEntries(body, failedCandidate?.trim() || `${heading}\n`)
   }
   return renderPlotOutlineRange(body, { from: progress.range.from, to: Math.min(chapter, progress.range.to) }, progress.sourceExpected)
@@ -392,12 +389,7 @@ export function plotOutlineRequestContract(progress: PlotOutlineProgress, chapte
   // 从第 1 章起的一批没有已确认前缀，但序章原样保留在最前（renderPlotOutlineRange），模型写第 1 章时要看到它。
   const accepted = progress.range.from === 1 ? plotOutlinePrologue(progress.sourceExpected.synopsis) : progress.confirmedPrefix
   const prefix = joinPlotOutlineEntries(accepted, progress.composition?.text ?? '')
-  const english = progress.sourceExpected.writingLanguage === 'en-US'
-  return english
-    ? `[Accepted outline prefix]\n${prefix}\n[/Accepted outline prefix]\n\n`
-      + `Write only Chapter ${chapter}, inside the selected range ${progress.range.from}-${progress.range.to}. Use exactly one level-two Markdown heading "## Chapter ${chapter}: Title" with Arabic chapter digits, followed by a non-empty body. No chapter groups, list headings, other chapters, preface, progress line or later overview. ${planningTargetInstruction('outline', progress.targetUnits, progress.sourceExpected.writingLanguage)} Preserve all author facts, required events and ending requirements. Do not rewrite the accepted prefix.`
-      + (attempt === 'compact' ? '\nRebuild this chapter once from the original frozen facts and accepted prefix. The failed candidate is not a source. Produce a complete concise replacement, not a continuation or a cut-off excerpt.' : '')
-    : `【已接受大纲前缀】\n${prefix}\n【已接受大纲前缀结束】\n\n`
+  return `【已接受大纲前缀】\n${prefix}\n【已接受大纲前缀结束】\n\n`
       + `本次只写第 ${chapter} 章，所选范围为第 ${progress.range.from}–${progress.range.to} 章。只用一个二级 Markdown 章标题“## 第${chapter}章：标题”，章号使用阿拉伯数字，标题下一行写非空正文。不得输出章组、列表标题、其他章、开场说明、进度行或后续概览。${planningTargetInstruction('outline', progress.targetUnits, progress.sourceExpected.writingLanguage)}保留作者硬事实、明确事件和尾部要求，不改写已接受前缀。`
       + (attempt === 'compact' ? '\n本次从原始冻结事实和已接受前缀重新构建此章。失败候选不是来源。输出一份完整简洁的替代大纲，不得续接失败候选或截取其片段。' : '')
 }

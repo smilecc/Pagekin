@@ -41,7 +41,7 @@ export interface CandidateEntry {
   candidate: RecoveryCandidate
 }
 
-/** 情节大纲或章节蓝图自动生成中断后保留的恢复稿。 */
+/** 情节大纲或故事规划自动生成中断后保留的恢复稿。 */
 export interface PlanningEntry {
   kind: 'planning'
   key: string
@@ -163,7 +163,7 @@ export function candidateEntry(candidate: RecoveryCandidate, locale: Locale): Ca
 /** 大纲分批生成会留下多份恢复稿，标题带上各自的章节范围以便区分。 */
 export function planningTitle(recovery: Pick<GenerationRecoveryContext, 'plotOutlineRecovery' | 'plotOutline'>, locale: Locale): string {
   const t = lang(locale)
-  if (!recovery.plotOutlineRecovery) return t('蓝图恢复稿', 'Blueprint recovery draft')
+  if (!recovery.plotOutlineRecovery) return t('故事规划恢复稿', 'Blueprint recovery draft')
   const range = recovery.plotOutline?.range
   if (!range) return t('大纲恢复稿', 'Outline recovery draft')
   const chapters = range.from === range.to ? `${range.from}` : `${range.from}–${range.to}`

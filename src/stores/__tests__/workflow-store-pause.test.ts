@@ -227,51 +227,10 @@ describe('workflow pause at a safe step boundary', () => {
       id: 'durable-cancel-run', status: 'failed',
     })
   })
-  it('freezes the project writing language into both the run and command context', async () => {
-    const project = useProjectStore.getState().currentProject!
-    useProjectStore.setState({
-      currentProject: {
-        ...project,
-        novelConfig: { ...project.novelConfig, writingLanguage: 'en-US' },
-      },
-    })
-    const observedLanguages: unknown[] = []
-
-    await useWorkflowStore.getState().startWorkflow({
-      type: 'chapter_creation',
-      title: 'Frozen writing language',
-      projectPath,
-      projectSession: frozenSession(),
-      steps: [{
-        name: 'write',
-        description: 'capture context',
-        executor: async (_step, context) => {
-          observedLanguages.push(context.writingLanguage)
-          const current = useProjectStore.getState().currentProject!
-          useProjectStore.setState({
-            currentProject: {
-              ...current,
-              novelConfig: { ...current.novelConfig, writingLanguage: 'zh-CN' },
-            },
-          })
-          observedLanguages.push(context.writingLanguage)
-        },
-      }],
-    })
-
-    expect(observedLanguages).toEqual(['en-US', 'en-US'])
-    expect(useWorkflowStore.getState().history[0]).toMatchObject({
-      writingLanguage: 'en-US',
-      status: 'completed',
-    })
-  })
 
   it.each([
-    ['zh-CN', 'zh-CN'],
-    ['zh-CN', 'en-US'],
-    ['en-US', 'zh-CN'],
-    ['en-US', 'en-US'],
-  ] as const)(
+['zh-CN', 'zh-CN'], ['zh-CN', 'en-US']
+] as const)(
     'freezes writing language %s and UI locale %s independently for the whole run',
     async (writingLanguage, uiLocale) => {
       const project = useProjectStore.getState().currentProject!
@@ -303,7 +262,7 @@ describe('workflow pause at a safe step boundary', () => {
                 ...current,
                 novelConfig: {
                   ...current.novelConfig,
-                  writingLanguage: writingLanguage === 'en-US' ? 'zh-CN' : 'en-US',
+                  writingLanguage: 'zh-CN',
                 },
               },
             })

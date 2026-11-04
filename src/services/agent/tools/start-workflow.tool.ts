@@ -6,7 +6,6 @@ import { launchCreativeWorkflow, type CreativeIntent } from '../../workflows/cre
 import { assertAgentToolActive, requireAgentProject, agentToolErrorDetail } from './project-context'
 import { DEFAULT_WRITING_LANGUAGE, writingLanguageText } from '../../../shared/writing-language'
 import { APP_BRAND } from '../../../shared/brand'
-import { containsHan } from '../../../i18n/app-errors'
 
 export const startWorkflowTool = buildAgentTool({
   name: 'start_workflow',
@@ -37,12 +36,12 @@ export const startWorkflowTool = buildAgentTool({
   isReadOnly: false,
   execute: async (args, context) => {
     const writingLanguage = context?.writingLanguage ?? DEFAULT_WRITING_LANGUAGE
-    const text = (zhCN: string, enUS: string) => writingLanguageText(writingLanguage, zhCN, enUS)
+    const text = (zhCN: string, _enUS?: string) => { void _enUS; return writingLanguageText(writingLanguage, zhCN) }
     const workflow = args.workflow as string
     const chapterNumber = args.chapter_number as number | undefined
 
     if (!workflow) {
-      return { success: false, content: '', error: text('缺少 workflow 参数', 'The workflow argument is required') }
+      return { success: false, content: '', error: text('缺少 workflow 参数') }
     }
     const { project, projectSession } = requireAgentProject(context)
     const projectPath = project.path
@@ -56,7 +55,6 @@ export const startWorkflowTool = buildAgentTool({
         content: '',
         error: text(
           `${workflow} 工作流需要指定 chapter_number 参数`,
-          `The ${workflow} workflow requires a chapter_number argument`,
         ),
       }
     }
@@ -73,12 +71,12 @@ export const startWorkflowTool = buildAgentTool({
     const workflowName = workflowNames[workflow]
     const displayName = workflowName ? text(...workflowName) : workflow
     const chapterInfo = chapterNumber !== undefined
-      ? text(`（第 ${chapterNumber} 章）`, ` (Chapter ${chapterNumber})`)
+      ? text(`（第 ${chapterNumber} 章）`)
       : ''
 
     try {
       assertAgentToolActive(context)
-      if (!context?.agentToolAction) throw new Error(text('缺少主进程签发的工具动作，工作流未启动。', 'The main-issued tool action is missing; the workflow was not started.'))
+      if (!context?.agentToolAction) throw new Error(text('缺少主进程签发的工具动作，工作流未启动。'))
       const receipt = await launchCreativeWorkflow({
         workflow,
         ...(chapterNumber === undefined ? {} : { chapterNumber }),
@@ -93,7 +91,6 @@ export const startWorkflowTool = buildAgentTool({
         success: true,
         content: text(
           `已启动「${displayName}${chapterInfo}」工作流（运行 ID：${receipt.runId}，状态：${receipt.status}）。`,
-          `Started the ${displayName}${chapterInfo} workflow (run ID: ${receipt.runId}; status: ${receipt.status}).`,
         ),
         artifacts: [createToolArtifact({
           type: 'workflow_started',
@@ -109,9 +106,7 @@ export const startWorkflowTool = buildAgentTool({
       return {
         success: false,
         content: '',
-        error: !detail || (writingLanguage === 'en-US' && containsHan(detail))
-          ? text(`启动「${displayName}${chapterInfo}」工作流失败。`, `Could not start the ${displayName}${chapterInfo} workflow.`)
-          : detail,
+        error: detail ?? text('启动工作流失败'),
       }
     }
   },

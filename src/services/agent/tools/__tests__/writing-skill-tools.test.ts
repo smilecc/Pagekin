@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ProjectSessionContext } from '../../../../shared/ipc-channels'
-import { toolRegistry } from '../../tool-registry'
 
 const invoke = vi.fn()
 const saveWritingSkillBinding = vi.fn()
@@ -80,21 +79,5 @@ describe('writing skill agent tools', () => {
       'refinement',
       'builtin:natural-prose-refinement',
     )
-  })
-
-  it('keeps inspection-first and prompt-only safety semantics in the English catalog', async () => {
-    const { inspectWritingSkillTool } = await import('../inspect-writing-skill.tool')
-    const { installWritingSkillTool } = await import('../install-writing-skill.tool')
-    const { bindWritingSkillTool } = await import('../bind-writing-skill.tool')
-    toolRegistry.clear()
-    toolRegistry.registerAll([inspectWritingSkillTool, installWritingSkillTool, bindWritingSkillTool])
-
-    const prompt = toolRegistry.generateToolPrompt('en-US')
-    expect(prompt).toContain('Inspect a public GitHub repository')
-    expect(prompt).toContain('must be inspected before installation')
-    expect(prompt).toContain('prompt-only')
-    expect(prompt).toContain('never executes code')
-    expect(prompt).toContain('A public GitHub repo, tree, blob, or raw SKILL.md HTTPS URL')
-    expect(prompt).not.toMatch(/[\u3400-\u9fff]/)
   })
 })

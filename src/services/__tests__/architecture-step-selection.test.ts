@@ -10,10 +10,10 @@ describe('createDefaultArchitectureSelection', () => {
       worldbuilding: false,
       synopsis: false,
     })).toEqual({
-      premise: true,
+      premise: false,
       characters: false,
       worldbuilding: true,
-      synopsis: true,
+      synopsis: false,
     })
   })
 
@@ -24,16 +24,16 @@ describe('createDefaultArchitectureSelection', () => {
       worldbuilding: false,
       synopsis: false,
     }, ['characters'])).toEqual({
-      premise: true,
+      premise: false,
       characters: true,
       worldbuilding: true,
-      synopsis: true,
+      synopsis: false,
     })
   })
 
   it('does not overwrite generated blocks unless they were explicitly selected', () => {
     expect(createDefaultArchitectureSelection({
-      premise: true,
+      premise: false,
       characters: false,
       worldbuilding: true,
       synopsis: false,
@@ -41,7 +41,7 @@ describe('createDefaultArchitectureSelection', () => {
       premise: false,
       characters: true,
       worldbuilding: false,
-      synopsis: true,
+      synopsis: false,
     })
   })
 })

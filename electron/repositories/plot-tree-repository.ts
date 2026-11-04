@@ -25,11 +25,11 @@ function sourceRevision(
 export class PlotTreeRepository {
   static read(db = requireDb()): PlotTreeSourceBundle {
     const core = db.prepare(`
-      SELECT writing_language, synopsis, plot_tree_snapshot
+      SELECT writing_language, core_outline, plot_tree_snapshot
       FROM project_core WHERE id = 'main'
     `).get() as {
       writing_language: string
-      synopsis: string
+      core_outline: string
       plot_tree_snapshot: string
     } | undefined
     if (!core) throw new Error('PLOT_TREE_PROJECT_CORE_MISSING')
@@ -102,7 +102,7 @@ export class PlotTreeRepository {
     const facts = {
       writingLanguage: resolveWritingLanguage(core.writing_language),
       synopsis: {
-        content: core.synopsis,
+        content: core.core_outline,
       },
       blueprints,
       finalizedChapters,

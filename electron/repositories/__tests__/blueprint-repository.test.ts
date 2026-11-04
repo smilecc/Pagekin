@@ -4,9 +4,6 @@ import type BetterSqlite3 from 'better-sqlite3'
 
 import { getProjectDb } from '../../database'
 import { BlueprintRepository, type BlueprintData } from '../blueprint-repository'
-import { CharacterRosterRepository } from '../character-roster-repository'
-import type { CharacterRosterEntry } from '../../../src/shared/character-roster'
-import { parseBlueprintSemanticResponseText } from '../../../src/shared/blueprint-semantic-contract'
 
 vi.mock('../../database', () => ({
   getProjectDb: vi.fn(),
@@ -18,42 +15,23 @@ const Database = require('better-sqlite3') as typeof import('better-sqlite3')
 const blueprint: BlueprintData = {
   chapterNumber: 1,
   title: '启程',
-  role: '建置',
-  purpose: '引出主角目标',
+  role: '',
+  purpose: '',
   keyEvents: '主角发现异常',
   characters: ['主角'],
-  suspenseHook: '门外传来敲门声',
+  suspenseHook: '',
   userGuidance: '',
   notes: '',
   notesUpdatedAt: '',
 }
 
-function rosterEntry(
-  name: string,
-  relationships: CharacterRosterEntry['relationships'] = [],
-): CharacterRosterEntry {
-  return {
-    name,
-    role: 'supporting',
-    gender: '',
-    age: '',
-    appearance: '',
-    personality: '',
-    background: '',
-    abilities: '',
-    motivation: '',
-    relationships,
-    arc: '',
-    notes: '',
-  }
-}
 
 function blueprintFor(chapterNumber: number): BlueprintData {
   return {
     ...blueprint,
     chapterNumber,
     title: `第${chapterNumber}章`,
-    purpose: `推进第${chapterNumber}章`,
+    purpose: '',
     keyEvents: `第${chapterNumber}章发生关键事件`,
   }
 }
@@ -121,37 +99,24 @@ describe('BlueprintRepository without an opened project DB', () => {
   })
 })
 
-describe('BlueprintRepository reads rows with NULL columns', () => {
-  it('returns empty text and no characters for NULL columns or unparsable characters, and keeps stored values', () => {
+describe('BlueprintRepository range commit', () => {
+  it('stores current story planning prose without hidden metadata or pending character sync', () => {
     const db = createBlueprintDb()
     vi.mocked(getProjectDb).mockReturnValue(db)
-    db.prepare(`
-      INSERT INTO blueprints (chapter_number, title, role, purpose, key_events, characters,
-        suspense_hook, user_guidance, notes, notes_updated_at)
-      VALUES (1, '旧港', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-             (2, '北堤', '发展', '推进', '事件', '["林岚"]', '钩子', '只写雨夜', '要点', '2026-10-01 08:00:00'),
-             (3, '灯塔', '', '', '', '林岚', '', '', '', '')
-    `).run()
-    const nullRow = {
-      chapterNumber: 1, title: '旧港', role: '', purpose: '', keyEvents: '', characters: [],
-      suspenseHook: '', userGuidance: '', notes: '', notesUpdatedAt: '',
-    }
-    const filledRow = {
-      chapterNumber: 2, title: '北堤', role: '发展', purpose: '推进', keyEvents: '事件', characters: ['林岚'],
-      suspenseHook: '钩子', userGuidance: '只写雨夜', notes: '要点', notesUpdatedAt: '2026-10-01 08:00:00',
-    }
-
-    const unparsedCharactersRow = {
-      chapterNumber: 3, title: '灯塔', role: '', purpose: '', keyEvents: '', characters: [],
-      suspenseHook: '', userGuidance: '', notes: '', notesUpdatedAt: '',
-    }
-
-    expect(BlueprintRepository.getAll()).toEqual([nullRow, filledRow, unparsedCharactersRow])
-    expect(BlueprintRepository.getByChapter(1)).toEqual(nullRow)
+    try {
+      const request = { mode: 'replace-range' as const, operationId: 'current-story-plan', startChapter: 1, endChapter: 1, blueprints: [{ ...blueprint, keyEvents: '动作一。\n动作二。', newCharacterCandidates: [{ name: '旧角色', role: 'minor' as const }] }] }
+      const receipt = BlueprintRepository.commitRange(request)
+      expect(receipt.snapshot[0]).toMatchObject({ title: blueprint.title, keyEvents: '动作一。\n动作二。', characters: blueprint.characters, role: '', purpose: '', suspenseHook: '' })
+      expect(receipt.snapshot[0].newCharacterCandidates).toBeUndefined()
+      expect(receipt.characterSyncOperation.status).toBe('completed')
+      expect(BlueprintRepository.getAll()[0]).toMatchObject({ keyEvents: '动作一。\n动作二。', characters: blueprint.characters })
+      expect(BlueprintRepository.commitRange(request)).toMatchObject({ idempotent: true, snapshot: receipt.snapshot })
+      expect(BlueprintRepository.getCommittedRangeOperation(request.operationId)?.snapshot).toEqual(receipt.snapshot)
+      expect(BlueprintRepository.getCharacterSyncOperation(receipt.characterSyncOperation.operationId)?.status).toBe('completed')
+      expect(BlueprintRepository.listPendingCharacterSyncOperations()).toEqual([])
+    } finally { db.close() }
   })
-})
 
-describe('BlueprintRepository range commit', () => {
   it('guards a new formal effect inside its transaction and keeps acknowledged replay read-only', () => {
     const db = createBlueprintDb()
     vi.mocked(getProjectDb).mockReturnValue(db)
@@ -195,7 +160,7 @@ describe('BlueprintRepository range commit', () => {
         characterSyncOperation: {
           operationId: 'blueprint-sync-directory-run-1',
           blueprintCommitOperationId: 'directory-run-1',
-          status: 'pending',
+          status: 'completed',
           startChapter: 1,
           endChapter: 3,
           characterSyncInput: [blueprintFor(1), blueprintFor(2), blueprintFor(3)],
@@ -205,151 +170,6 @@ describe('BlueprintRepository range commit', () => {
       expect(BlueprintRepository.getAll()).toEqual(receipt.snapshot)
     } finally {
       db.close()
-    }
-  })
-
-  it('keeps existing author guidance and chapter notes when a range is regenerated', () => {
-    const db = createBlueprintDb()
-    vi.mocked(getProjectDb).mockReturnValue(db)
-    const authored = { userGuidance: '第一章务必压住主角的情绪', notes: '定稿要点：主角收到了信', notesUpdatedAt: '2026-10-20 08:00:00' }
-    const regenerated = (chapterNumber: number) => ({ ...blueprintFor(chapterNumber), title: `新第${chapterNumber}章`, keyEvents: `重写后的第${chapterNumber}章事件` })
-
-    try {
-      BlueprintRepository.upsert({ ...blueprintFor(1), ...authored })
-      BlueprintRepository.upsert({ ...blueprintFor(2), userGuidance: '旧的作者指导' })
-      const request = {
-        mode: 'full' as const,
-        operationId: 'directory-regenerate-front',
-        startChapter: 1,
-        endChapter: 3,
-        blueprints: [regenerated(1), { ...regenerated(2), userGuidance: '恢复稿里作者新填的指导' }, regenerated(3)],
-      }
-      const expected = [
-        { ...regenerated(1), ...authored },
-        { ...regenerated(2), userGuidance: '恢复稿里作者新填的指导' },
-        regenerated(3),
-      ]
-
-      const receipt = BlueprintRepository.commitRange(request)
-
-      expect(BlueprintRepository.getAll()).toEqual(expected)
-      expect(receipt.snapshot).toEqual(expected)
-      expect(receipt.characterSyncInput).toEqual(expected)
-      expect(BlueprintRepository.getCommittedRangeOperation(request.operationId)?.characterSyncInput).toEqual(expected)
-      const replay = BlueprintRepository.commitRange(request)
-      expect(replay).toMatchObject({ idempotent: true, payloadHash: receipt.payloadHash, snapshot: expected, characterSyncInput: expected })
-    } finally {
-      db.close()
-    }
-  })
-
-  it('normalizes NULL author fields to empty strings while keeping non-empty ones on regeneration', () => {
-    const db = createBlueprintDb()
-    vi.mocked(getProjectDb).mockReturnValue(db)
-
-    try {
-      db.prepare(`
-        INSERT INTO blueprints (chapter_number, title, user_guidance, notes, notes_updated_at)
-        VALUES (1, '旧标题', NULL, '定稿要点', NULL)
-      `).run()
-      const regenerated = { ...blueprintFor(1), title: '新标题' }
-
-      const receipt = BlueprintRepository.commitRange({
-        mode: 'replace-range', operationId: 'directory-regenerate-null-fields', startChapter: 1, endChapter: 1, blueprints: [regenerated],
-      })
-
-      const expected = { ...regenerated, userGuidance: '', notes: '定稿要点', notesUpdatedAt: '' }
-      expect(BlueprintRepository.getAll()).toEqual([expected])
-      expect(receipt.characterSyncInput).toEqual([expected])
-    } finally {
-      db.close()
-    }
-  })
-
-  it('treats omitted author fields as empty and keeps chapter notes paired with their timestamp', () => {
-    const db = createBlueprintDb()
-    vi.mocked(getProjectDb).mockReturnValue(db)
-    const stored = { userGuidance: '保留的指导', notes: '定稿后生成的要点', notesUpdatedAt: '2026-10-20 08:00:00' }
-
-    try {
-      BlueprintRepository.upsert({ ...blueprintFor(1), ...stored })
-      BlueprintRepository.upsert({ ...blueprintFor(2), ...stored })
-      const omitted: Partial<BlueprintData> = blueprintFor(1)
-      delete omitted.userGuidance
-      delete omitted.notes
-      delete omitted.notesUpdatedAt
-      const handWritten = { ...blueprintFor(2), notes: '作者在恢复稿里手写的要点' }
-      const fresh: Partial<BlueprintData> = blueprintFor(3)
-      delete fresh.userGuidance
-
-      BlueprintRepository.commitRange({
-        mode: 'replace-range', operationId: 'directory-regenerate-omitted-fields', startChapter: 1, endChapter: 3,
-        blueprints: [omitted as BlueprintData, handWritten, fresh as BlueprintData],
-      })
-
-      expect(BlueprintRepository.getAll()).toEqual([
-        { ...blueprintFor(1), ...stored },
-        { ...handWritten, userGuidance: stored.userGuidance, notesUpdatedAt: '' },
-        blueprintFor(3),
-      ])
-    } finally {
-      db.close()
-    }
-  })
-
-  it('keeps existing chapter notes when a payload carries only a notes timestamp', () => {
-    const db = createBlueprintDb()
-    vi.mocked(getProjectDb).mockReturnValue(db)
-    const stored = { notes: '作者手写的要点', notesUpdatedAt: '2026-10-20 08:00:00' }
-
-    try {
-      BlueprintRepository.upsert({ ...blueprintFor(1), ...stored })
-
-      BlueprintRepository.commitRange({
-        mode: 'replace-range', operationId: 'directory-regenerate-timestamp-only', startChapter: 1, endChapter: 1,
-        blueprints: [{ ...blueprintFor(1), notesUpdatedAt: '2026-10-25 09:00:00' }],
-      })
-
-      expect(BlueprintRepository.getAll()).toEqual([{ ...blueprintFor(1), ...stored }])
-    } finally {
-      db.close()
-    }
-  })
-
-  it('preserves parsed full names, candidates, and relationship text across SQLite restart', () => {
-    let db = createBlueprintDb()
-    vi.mocked(getProjectDb).mockReturnValue(db)
-    const longName = '亚历山德拉'.repeat(7) + '完整姓名尾部'
-    const longRelation = '双方因旧日的承诺继续合作，但仍在追查失踪的证人。'.repeat(5) + '尾部事实：她已经撤销授权。'
-
-    try {
-      const parsed = parseBlueprintSemanticResponseText(JSON.stringify({ blueprints: [{
-        ...blueprintFor(1),
-        characters: [longName, '周砚'],
-        newCharacterCandidates: [{ name: longName, role: 'supporting' }],
-        relationships: [{ from: longName, to: '周砚', relation: longRelation }],
-      }] }), [1])
-      BlueprintRepository.commitRange({
-        mode: 'replace-range',
-        operationId: 'directory-full-character-facts',
-        startChapter: 1,
-        endChapter: 1,
-        blueprints: parsed.map(item => ({ ...item, userGuidance: '', notes: '', notesUpdatedAt: '' })),
-      })
-      const image = db.serialize()
-      db.close()
-      db = createBlueprintDb(image)
-      vi.mocked(getProjectDb).mockReturnValue(db)
-
-      expect(BlueprintRepository.getCommittedRangeOperation('directory-full-character-facts')).toMatchObject({
-        snapshot: [{
-          characters: [longName, '周砚'],
-          newCharacterCandidates: [{ name: longName, role: 'supporting' }],
-          relationshipHints: [{ from: longName, to: '周砚', relation: longRelation }],
-        }],
-      })
-    } finally {
-      if (db.open) db.close()
     }
   })
 
@@ -511,7 +331,7 @@ describe('BlueprintRepository range commit', () => {
       endChapter: 2,
       blueprints: [
         blueprintFor(1),
-        { ...blueprintFor(2), relationshipHints: [{ from: '甲', to: '乙', relation: '同盟' }] },
+        blueprintFor(2),
       ],
     }
 
@@ -536,228 +356,12 @@ describe('BlueprintRepository range commit', () => {
     }
   })
 
-  it('persists a pending character-sync operation across restart and marks it completed durably', () => {
-    let db = createBlueprintDb()
-    vi.mocked(getProjectDb).mockReturnValue(db)
-
-    try {
-      const committed = BlueprintRepository.commitRange({
-        mode: 'replace-range',
-        operationId: 'directory-restart',
-        startChapter: 1,
-        endChapter: 2,
-        blueprints: [
-          blueprintFor(1),
-          {
-            ...blueprintFor(2),
-            characters: ['主角', '周砚'],
-            newCharacterCandidates: [{ name: '周砚', role: 'supporting' }],
-            relationshipHints: [{ from: '主角', to: '周砚', relation: '同盟' }],
-          },
-        ],
-      })
-      const firstRestartImage = db.serialize()
-      db.close()
-
-      db = createBlueprintDb(firstRestartImage)
-      vi.mocked(getProjectDb).mockReturnValue(db)
-      expect(BlueprintRepository.listPendingCharacterSyncOperations()).toEqual([
-        expect.objectContaining({
-          operationId: committed.characterSyncOperation.operationId,
-          blueprintCommitOperationId: committed.operationId,
-          status: 'pending',
-          characterSyncInput: committed.characterSyncInput,
-        }),
-      ])
-
-      CharacterRosterRepository.commit({
-        operationId: committed.characterSyncOperation.operationId,
-        expectedRevision: 0,
-        schemaVersion: 1,
-        intent: 'blueprint_sync',
-        entries: [
-          rosterEntry('主角', [{ target: '周砚', relation: '同盟' }]),
-          rosterEntry('周砚', [{ target: '主角', relation: '同盟' }]),
-        ],
-      })
-
-      const completed = BlueprintRepository.completeCharacterSyncOperation(
-        committed.characterSyncOperation.operationId,
-      )
-      expect(completed).toMatchObject({
-        status: 'completed',
-        completionReceipt: { status: 'committed' },
-      })
-      const secondRestartImage = db.serialize()
-      db.close()
-
-      db = createBlueprintDb(secondRestartImage)
-      vi.mocked(getProjectDb).mockReturnValue(db)
-      expect(BlueprintRepository.listPendingCharacterSyncOperations()).toEqual([])
-      expect(BlueprintRepository.getCharacterSyncOperation(
-        committed.characterSyncOperation.operationId,
-      )).toMatchObject({
-        status: 'completed',
-        completionReceipt: { status: 'committed' },
-      })
-    } finally {
-      if (db.open) db.close()
-    }
-  })
-
-  it('closes relationship sync without creating blueprint-only character cards', () => {
-    const db = createBlueprintDb()
-    vi.mocked(getProjectDb).mockReturnValue(db)
-    try {
-      const committed = BlueprintRepository.commitRange({
-        mode: 'replace-range',
-        operationId: 'directory-needs-roster-facts',
-        startChapter: 1,
-        endChapter: 1,
-        blueprints: [{
-          ...blueprintFor(1),
-          characters: ['林岚', '周砚'],
-          relationshipHints: [{ from: '林岚', to: '周砚', relation: '同盟' }],
-        }],
-      })
-
-      expect(BlueprintRepository.completeCharacterSyncOperation(
-        committed.characterSyncOperation.operationId,
-      )).toMatchObject({
-        status: 'completed',
-        completionReceipt: { status: 'already-satisfied' },
-      })
-      expect(CharacterRosterRepository.read().entries).toEqual([])
-      expect(BlueprintRepository.listPendingCharacterSyncOperations()).toHaveLength(0)
-    } finally {
-      db.close()
-    }
-  })
-
-  it('derives a committed completion receipt from the real roster operation and rejects forged hash or revision', () => {
-    const db = createBlueprintDb()
-    vi.mocked(getProjectDb).mockReturnValue(db)
-    try {
-      const committed = BlueprintRepository.commitRange({
-        mode: 'replace-range',
-        operationId: 'directory-authoritative-receipt',
-        startChapter: 1,
-        endChapter: 1,
-        blueprints: [{ ...blueprintFor(1), characters: ['林岚'], relationshipHints: [] }],
-      })
-      const authoritativeCommit = CharacterRosterRepository.commit({
-        operationId: committed.characterSyncOperation.operationId,
-        expectedRevision: 0,
-        schemaVersion: 1,
-        intent: 'blueprint_sync',
-        entries: [rosterEntry('林岚')],
-      })
-      const authoritativeRoster = authoritativeCommit.snapshot
-
-      const restoreEvidence = () => db.prepare(`
-        UPDATE character_roster_operations
-        SET payload_hash = ?, committed_revision = ?, projection_hash = ?
-        WHERE operation_id = ?
-      `).run(
-        authoritativeCommit.payloadHash,
-        authoritativeCommit.revision,
-        authoritativeCommit.snapshot.projectionHash,
-        committed.characterSyncOperation.operationId,
-      )
-      db.prepare(`
-        UPDATE character_roster_operations SET payload_hash = 'forged'
-        WHERE operation_id = ?
-      `).run(committed.characterSyncOperation.operationId)
-      expect(() => BlueprintRepository.completeCharacterSyncOperation(
-        committed.characterSyncOperation.operationId,
-      )).toThrow('BLUEPRINT_CHARACTER_SYNC_EVIDENCE_MISMATCH')
-      restoreEvidence()
-      db.prepare(`
-        UPDATE character_roster_operations SET committed_revision = 999
-        WHERE operation_id = ?
-      `).run(committed.characterSyncOperation.operationId)
-      expect(() => BlueprintRepository.completeCharacterSyncOperation(
-        committed.characterSyncOperation.operationId,
-      )).toThrow('BLUEPRINT_CHARACTER_SYNC_EVIDENCE_MISMATCH')
-      restoreEvidence()
-      db.prepare(`
-        UPDATE character_roster_operations SET projection_hash = 'forged'
-        WHERE operation_id = ?
-      `).run(committed.characterSyncOperation.operationId)
-      expect(() => BlueprintRepository.completeCharacterSyncOperation(
-        committed.characterSyncOperation.operationId,
-      )).toThrow('BLUEPRINT_CHARACTER_SYNC_EVIDENCE_MISMATCH')
-      restoreEvidence()
-
-      const completed = BlueprintRepository.completeCharacterSyncOperation(
-        committed.characterSyncOperation.operationId,
-      )
-      expect(completed.completionReceipt).toEqual({
-        blueprintCommitOperationId: committed.operationId,
-        operationId: committed.characterSyncOperation.operationId,
-        status: 'committed',
-        rosterReceipt: {
-          operationId: committed.characterSyncOperation.operationId,
-          payloadHash: authoritativeCommit.payloadHash,
-          revision: authoritativeRoster.revision,
-          idempotent: false,
-        },
-      })
-
-      expect(BlueprintRepository.completeCharacterSyncOperation(
-        committed.characterSyncOperation.operationId,
-      )).toEqual(completed)
-    } finally {
-      db.close()
-    }
-  })
-
   it('rejects an unknown sync operation instead of manufacturing a completion receipt', () => {
     const db = createBlueprintDb()
     vi.mocked(getProjectDb).mockReturnValue(db)
     try {
       expect(() => BlueprintRepository.completeCharacterSyncOperation('blueprint-sync-forged'))
         .toThrow('BLUEPRINT_CHARACTER_SYNC_OPERATION_MISSING')
-    } finally {
-      db.close()
-    }
-  })
-
-  it('marks an operation already satisfied only after current roster facts prove every frozen fact', () => {
-    const db = createBlueprintDb()
-    vi.mocked(getProjectDb).mockReturnValue(db)
-    try {
-      CharacterRosterRepository.commit({
-        operationId: 'prior-authoritative-roster-change',
-        expectedRevision: 0,
-        schemaVersion: 1,
-        intent: 'blueprint_sync',
-        entries: [
-          rosterEntry('林岚', [{ target: '周砚', relation: '同盟' }]),
-          rosterEntry('周砚', [{ target: '林岚', relation: '同盟' }]),
-        ],
-      })
-      const committed = BlueprintRepository.commitRange({
-        mode: 'replace-range',
-        operationId: 'directory-already-satisfied',
-        startChapter: 1,
-        endChapter: 1,
-        blueprints: [{
-          ...blueprintFor(1),
-          characters: ['林岚', '周砚'],
-          relationshipHints: [{ from: '林岚', to: '周砚', relation: '同盟' }],
-        }],
-      })
-
-      expect(BlueprintRepository.completeCharacterSyncOperation(
-        committed.characterSyncOperation.operationId,
-      )).toMatchObject({
-        status: 'completed',
-        completionReceipt: {
-          operationId: committed.characterSyncOperation.operationId,
-          status: 'already-satisfied',
-        },
-      })
     } finally {
       db.close()
     }

@@ -20,26 +20,21 @@
   flex: none;
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   gap: var(--s-4);
-  padding: 26px 28px 20px;
+  padding: 16px 24px;
   border-bottom: 1px solid var(--rule);
 }
 
 .stage-bp-heading {
   flex: 1;
-  min-width: 260px;
+  min-width: 150px;
 }
 
 .stage-bp-kicker {
   display: flex;
   align-items: baseline;
   gap: var(--s-3);
-}
-
-.stage-bp-numeral {
-  font: italic 400 40px/0.8 var(--font-num);
-  color: var(--ink);
 }
 
 .stage-bp-eyebrow {
@@ -49,8 +44,8 @@
 }
 
 .stage-bp-h1 {
-  margin: 14px 0 0;
-  font: 600 28px/1.25 var(--font-display);
+  margin: 0;
+  font: 600 var(--fs-20)/1.25 var(--font-display);
   color: var(--ink);
 }
 
@@ -84,7 +79,7 @@
 }
 
 .stage-bp-plan {
-  width: 340px;
+  width: 260px;
   flex: none;
   overflow: auto;
   padding: var(--s-4) var(--s-3) var(--s-6);
@@ -189,14 +184,40 @@
   min-width: 0;
   overflow: auto;
   contain: content;
-  padding: 20px 36px 48px;
+  padding: 20px 24px 32px;
 }
 
 .stage-bp-card-inner {
-  max-width: 760px;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 18px;
+}
+
+.stage-bp-cast {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.stage-bp-cast-hint {
+  color: var(--ink-3);
+  font-size: var(--fs-12);
+}
+
+.stage-bp-plan-editor .cm-editor {
+  font-size: 16px;
+}
+
+.stage-bp-plan-editor .cm-scroller {
+  padding-bottom: 16px;
+}
+
+.stage-bp-plan-editor .cm-content {
+  max-width: none;
+  min-height: 320px;
+  margin: 0;
+  padding: 0;
+  line-height: 1.8;
 }
 
 /* 状态与按钮并排放不下时按钮换行，状态文字不被挤成一字一行 */
@@ -222,15 +243,10 @@
   gap: var(--s-3);
 }
 
-.stage-bp-title-no {
-  font: italic 30px/1 var(--font-num);
-  color: var(--accent);
-}
-
 .stage-bp-title {
   flex: 1;
   min-width: 0;
-  padding: 2px 4px;
+  padding: 2px 0;
   border: 0;
   border-radius: var(--radius-sm);
   outline: none;
@@ -244,35 +260,8 @@
 }
 
 .stage-bp-title::placeholder,
-.stage-bp-person-input::placeholder,
-.stage-bp-ctl::placeholder {
+.stage-bp-person-input::placeholder {
   color: var(--ink-4);
-}
-
-.stage-bp-role select {
-  height: 26px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--accent-soft);
-  color: var(--accent);
-  font: inherit;
-  font-size: var(--fs-12);
-  cursor: pointer;
-}
-
-.stage-bp-role select:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
-.stage-bp-sr {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }
 
 .stage-bp-field {
@@ -292,30 +281,6 @@
   font-style: normal;
   font-weight: 400;
   color: var(--ink-3);
-}
-
-.stage-bp-pair {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
-  gap: var(--s-4);
-}
-
-.stage-bp-ctl {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius-lg);
-  background: var(--paper);
-  font: 15px/1.8 var(--font-prose);
-  color: var(--ink);
-  resize: vertical;
-}
-
-.stage-bp-ctl:focus-visible {
-  outline: none;
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .stage-bp-people {
@@ -543,11 +508,11 @@
 /* ================= 窄宽度（按蓝图页自身的宽度，运行侧页并排时也成立） ================= */
 @container (width < 760px) {
   .stage-bp-plan {
-    width: 240px;
+    width: 200px;
   }
 
   .stage-bp-card {
-    padding: 20px 24px 40px;
+    padding: 16px;
   }
 }
 

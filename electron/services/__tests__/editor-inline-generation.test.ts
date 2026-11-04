@@ -140,8 +140,7 @@ it('作者意见进入模型请求，并随运行冻结到重开之后',async()=
 
 const systemOf=(context:EditorInlineContext)=>editorInlineTask(context).messages.find(m=>m.role==='system')!.content
 it.each([
- ['zh-CN','改成第一人称',['保留要求冲突','以作者意见为准','没提到','照常保留']],
- ['en-US','Rewrite it in first person',['conflicts with the preservation','follow the note','does not mention','keep']],
+['zh-CN','改成第一人称',['保留要求冲突','以作者意见为准','没提到','照常保留']]
 ] as const)('%s 按意见改时，系统规则让作者意见压过内置模板的保留视角要求',(language,instruction,rule)=>{
  const template=getBuiltinPromptTemplate('edit_selected_text',language)!
  const system=systemOf(buildEditorInlineContext({...input,action:'instruct',instruction},language,template))
@@ -154,8 +153,7 @@ it.each([
 })
 
 it.each([
- ['zh-CN','【不可变系统合同】',['下文合同','最新的作者明确事实']],
- ['en-US','[Immutable system contract]',['the contract below','newest explicit author fact']],
+['zh-CN','【不可变系统合同】',['下文合同','最新的作者明确事实']]
 ] as const)('%s 按意见删掉选区里的事实时，规则明确压过下文合同的明确事实条，合同本身逐字不变',(language,heading,rule)=>{
  const template=getBuiltinPromptTemplate('edit_selected_text',language)!
  const system=systemOf(buildEditorInlineContext({...input,action:'instruct',instruction:'删掉银镯这个细节'},language,template))

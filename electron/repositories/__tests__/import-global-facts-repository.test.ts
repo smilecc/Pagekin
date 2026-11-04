@@ -23,10 +23,10 @@ function request(overrides: Partial<ImportGlobalFactsRequest> = {}): ImportGloba
     core: {
       genre: '现实', subGenre: '讽刺', targetAudience: '通用', totalChapters: 9,
       wordsPerChapter: 2500, plotStructure: 'three_act', narrativePov: 'third_limited',
-      goldenFinger: '无', globalGuidance: '克制', premise: '个人与社会冲突',
-      coreOutline: '阿Q由自尊走向幻灭', worldSetting: '辛亥前后的江南乡村',
-      protagonistProfile: '阿Q，贫困而善于精神胜利',
-      worldbuilding: '未庄', synopsis: '阿Q的命运',
+       globalGuidance: '克制',
+      coreOutline: '阿Q由自尊走向幻灭',
+
+      worldbuilding: '未庄',
     },
     characterEntries: [card('阿Q', 'protagonist'), card('吴妈', 'supporting')],
     ...overrides,
@@ -55,17 +55,17 @@ describe('ImportGlobalFactsRepository transaction seam', () => {
       payloadHash: expect.stringMatching(/^[a-f0-9]{64}$/u),
       idempotent: false,
       core: {
-        genre: '现实', premise: '个人与社会冲突', synopsis: '阿Q的命运',
-        coreOutline: '阿Q由自尊走向幻灭', worldSetting: '辛亥前后的江南乡村',
-        protagonistProfile: '阿Q，贫困而善于精神胜利',
+        genre: '现实',
+        coreOutline: '阿Q由自尊走向幻灭',
+
       },
       characterProposal: { proposalBatchId: expect.stringMatching(/^cpb:[a-f0-9]{64}$/), sourceHash: expect.stringMatching(/^[a-f0-9]{64}$/) },
       proposalSource: request(),
     })
     expect(ProjectCoreRepository.get()).toMatchObject({
-      genre: '现实', premise: '个人与社会冲突',
-      coreOutline: '阿Q由自尊走向幻灭', worldSetting: '辛亥前后的江南乡村',
-      protagonistProfile: '阿Q，贫困而善于精神胜利',
+      genre: '现实',
+      coreOutline: '阿Q由自尊走向幻灭',
+
       charactersArch: '',
     })
     expect(CharacterRosterRepository.read()).toMatchObject({ revision: 0, status: 'empty' })
@@ -82,7 +82,7 @@ describe('ImportGlobalFactsRepository transaction seam', () => {
 
     expect(() => ImportGlobalFactsRepository.commit(request())).toThrow('injected roster failure')
 
-    expect(ProjectCoreRepository.get()).toMatchObject({ genre: '', premise: '' })
+    expect(ProjectCoreRepository.get()).toMatchObject({ genre: '',  })
     expect(CharacterRosterRepository.read()).toMatchObject({ revision: 0, status: 'empty' })
     expect(getProjectDb()!.prepare('SELECT COUNT(*) AS count FROM import_global_fact_operations').get())
       .toEqual({ count: 0 })
@@ -116,17 +116,17 @@ describe('ImportGlobalFactsRepository transaction seam', () => {
   })
 
   it('补空模式：已有字段一字不变，空字段补上，非空且不同的记成建议，角色仍走提议', () => {
-    ProjectCoreRepository.update({ genre: '武侠', coreOutline: '作者自己的大纲', premise: '', wordsPerChapter: 3000 })
+    ProjectCoreRepository.update({ genre: '武侠', coreOutline: '作者自己的大纲',  wordsPerChapter: 3000 })
 
     const receipt = ImportGlobalFactsRepository.commit(request(), 'fill-empty')
 
     expect(ProjectCoreRepository.get()).toMatchObject({
       genre: '武侠', coreOutline: '作者自己的大纲', wordsPerChapter: 3000, totalChapters: 100,
-      subGenre: '讽刺', premise: '个人与社会冲突', worldSetting: '辛亥前后的江南乡村', synopsis: '阿Q的命运',
+      subGenre: '讽刺',
     })
     expect(receipt).toMatchObject({
       mode: 'fill-empty',
-      core: { genre: '武侠', coreOutline: '作者自己的大纲', premise: '个人与社会冲突' },
+      core: { genre: '武侠', coreOutline: '作者自己的大纲',  },
       characterProposal: { proposalBatchId: expect.stringMatching(/^cpb:[a-f0-9]{64}$/) },
       proposalSource: request(),
     })

@@ -10,7 +10,7 @@ import { CREATIVE_STRATEGIES } from '../../src/shared/reasoning-types'
 import { isDeepStrictEqual } from 'node:util'
 import type { ArchitecturePlanningIntent, BeginGenerationRequest, PlanningGenerationScope } from '../../src/shared/generation-owner-contract'
 import { planBlueprintGenerationCost } from '../../src/services/workflows/blueprint-batch-policy'
-import { PLOT_OUTLINE_CONTENT, PLOT_OUTLINE_PROTOCOL, assertPlanningActionRange, parsePlanningTargetUnits, DEFAULT_PLANNING_ACTION_CHAPTERS } from '../../src/shared/plot-outline-contract'
+import { PLOT_OUTLINE_CONTENT, PLOT_OUTLINE_PROTOCOL, assertPlanningActionRange, parsePlanningTargetUnits } from '../../src/shared/plot-outline-contract'
 
 /** Finite root ceilings and semantic sizing are frozen into each source binding. */
 export const MAIN_GENERATION_POLICY = Object.freeze({
@@ -61,15 +61,15 @@ function planningRange(from: unknown, to: unknown): { from: number; to: number }
 
 function architectureIntent(value: unknown): ArchitecturePlanningIntent {
   const record = planningRecord(value)
-  const order = ['premise', 'characters', 'worldbuilding'] as const
+  const order = ['characters', 'worldbuilding'] as const
   const steps = record.priorSteps
   if (record.version !== 'architecture-action-v1' || !Array.isArray(steps)
     || !isDeepStrictEqual(steps, order.filter(step => steps.includes(step))))
     throw new Error('GENERATION_PLANNING_INTENT_INVALID')
-  const range = record.synopsisRange === null ? null : planningRecord(record.synopsisRange)
+  if (record.synopsisRange !== null) throw new Error('GENERATION_PLANNING_INTENT_INVALID')
   const intent = { version: 'architecture-action-v1' as const,
     priorSteps: order.filter(step => steps.includes(step)),
-    synopsisRange: range === null ? null : planningRange(range.from, range.to) }
+    synopsisRange: null }
   if (!isDeepStrictEqual(value, intent) || !intent.priorSteps.length && !intent.synopsisRange) throw new Error('GENERATION_PLANNING_INTENT_INVALID')
   return Object.freeze({ ...intent, priorSteps: Object.freeze(intent.priorSteps) })
 }
@@ -86,21 +86,14 @@ export function planningGenerationScope(selection: Pick<BeginGenerationRequest, 
     if (!isDeepStrictEqual(range, requestedRange)) throw new Error('GENERATION_PLANNING_INTENT_INVALID')
     return Object.freeze({ kind: 'directory', requestedRange: Object.freeze(requestedRange) })
   }
-  const step = selection.operation === 'generate-core-seed' ? 'premise'
-    : selection.operation === 'character-architecture' ? 'characters'
+  const step = selection.operation === 'character-architecture' ? 'characters'
       : selection.operation === 'generate-world-building' ? 'worldbuilding'
-        : selection.operation === 'generate-plot-outline' ? 'synopsis' : null
+        : null
   if (!step) return null
   const provided = planningInput(selection, 'architecture:planning-intent')
-  const config = planningInput(selection, 'architecture:author-config')
   const intent = architectureIntent(provided ?? { version: 'architecture-action-v1',
-    priorSteps: step === 'synopsis' ? [] : [step],
-    synopsisRange: step === 'synopsis' ? { from: 1, to: Math.min(Number(config?.totalChapters), DEFAULT_PLANNING_ACTION_CHAPTERS) } : null })
-  if (step === 'synopsis' ? !intent.synopsisRange : !intent.priorSteps.includes(step)) throw new Error('GENERATION_PLANNING_OPERATION_NOT_SELECTED')
-  if (intent.synopsisRange) {
-    planningRange(intent.synopsisRange.to, config?.totalChapters)
-    assertPlanningActionRange(intent.synopsisRange)
-  }
+    priorSteps: [step], synopsisRange: null })
+  if (!intent.priorSteps.includes(step)) throw new Error('GENERATION_PLANNING_OPERATION_NOT_SELECTED')
   return Object.freeze({ kind: 'architecture', intent, outlineProtocol: PLOT_OUTLINE_PROTOCOL, outlineContent: PLOT_OUTLINE_CONTENT })
 }
 

@@ -70,8 +70,8 @@ function project(): ProjectData {
     path: PROJECT_PATH,
     novelConfig: {
       genre: '悬疑', subGenre: '', targetAudience: '成人', totalChapters: 24, wordsPerChapter: 2600,
-      plotStructure: 'three_act', narrativePOV: 'third_limited', coreOutline: '雨夜列车', worldSetting: '',
-      goldenFinger: '', protagonistProfile: '', globalGuidance: '',
+      plotStructure: 'three_act', narrativePOV: 'third_limited', coreOutline: '雨夜列车',
+        globalGuidance: '',
     },
     characterStates: '',
     createdAt: '',
@@ -181,7 +181,7 @@ afterEach(async () => {
   useStageStore.setState(originalStage)
 })
 
-/** 旧的章节创作对话框在同一蓝图下交给工作流的全部输入（RD-10 删除对话框前从它取得），弹层必须与它一致。 */
+/** 旧的章节创作对话框在同一故事规划下交给工作流的全部输入（RD-10 删除对话框前从它取得），弹层必须与它一致。 */
 function expectedLaunch(changes: { generationModelId: string; userGuidance: string; knowledgeQueryHint?: string }) {
   const { generationModelId, userGuidance, knowledgeQueryHint } = changes
   return {
@@ -204,7 +204,7 @@ function expectedLaunch(changes: { generationModelId: string; userGuidance: stri
 }
 
 describe('写作此章弹层', () => {
-  it('同一蓝图下直接写作，交给工作流的参数与旧的章节创作对话框一致', async () => {
+  it('同一故事规划下直接写作，交给工作流的参数与旧的章节创作对话框一致', async () => {
     const prefill = blueprintWritePrefill(BLUEPRINT)
     await render(<WriteChapterPopover chapterNumber={BLUEPRINT.chapterNumber} blueprint={prefill} label="写第 5 章" />)
     await act(async () => page.getByRole('button', { name: '写第 5 章' }).click())
@@ -230,7 +230,7 @@ describe('写作此章弹层', () => {
     expect(launched()).toEqual(expectedLaunch({ generationModelId: 'glm', userGuidance: '结尾停在回头之前。', knowledgeQueryHint: '列车时刻表' }))
   })
 
-  it('选项只用于这一次：写完后再打开，指导、模型与检索关键词回到蓝图与默认', async () => {
+  it('选项只用于这一次：写完后再打开，指导、模型与检索关键词回到故事规划与默认', async () => {
     await render(<WriteChapterPopover chapterNumber={5} blueprint={blueprintWritePrefill(BLUEPRINT)} label="写第 5 章" />)
     await act(async () => page.getByRole('button', { name: '本次写作选项' }).click())
     const popover = page.getByRole('dialog', { name: '本次写作选项' })
@@ -265,7 +265,7 @@ describe('写作此章弹层', () => {
     await expect.element(page.getByRole('dialog', { name: '批量创作' }).getByLabelText(/本次模型/)).toHaveValue('glm')
   })
 
-  it('弹层只有本次模型、作者微操指导与折叠的更多，不重复蓝图字段', async () => {
+  it('弹层只有本次模型、作者微操指导与折叠的更多，不重复故事规划字段', async () => {
     await render(<WriteChapterPopover chapterNumber={5} blueprint={blueprintWritePrefill(BLUEPRINT)} label="写第 5 章" />)
     await act(async () => page.getByRole('button', { name: '本次写作选项' }).click())
     const popover = page.getByRole('dialog', { name: '本次写作选项' })
@@ -290,7 +290,7 @@ describe('写作此章弹层', () => {
     await expect.element(popover.getByText(/一致性预检 · 1 条线索提醒/)).toBeVisible()
     expect(startWorkflow).not.toHaveBeenCalled()
 
-    await act(async () => popover.getByRole('button', { name: '改蓝图后重检' }).click())
+    await act(async () => popover.getByRole('button', { name: '改故事规划后重检' }).click())
     await expect.element(popover.getByRole('region', { name: '一致性预检' })).toBeVisible()
     expect(startWorkflow).not.toHaveBeenCalled()
 
@@ -469,7 +469,7 @@ describe('写作此章弹层', () => {
     expect(startWorkflow).not.toHaveBeenCalled()
   })
 
-  it('保存安排还没返回时换了作品：保存成功后不在新作品里按旧蓝图开始写', async () => {
+  it('保存安排还没返回时换了作品：保存成功后不在新作品里按旧故事规划开始写', async () => {
     continuityProjections = DEAD_KEEPER
     let finishSave: (result: { success: boolean }) => void = () => {}
     exemptionSave = () => new Promise(resolve => { finishSave = resolve })

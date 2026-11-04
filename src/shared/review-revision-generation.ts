@@ -87,12 +87,11 @@ export function reviewRevisionAiBrief(context: ReviewRevisionContext): string {
 
 /** One immutable author-material block shared by renderer admission and main hash validation. */
 export function reviewRevisionAuthorMaterial(context: ReviewRevisionContext): string {
-  const text = (zh: string, en: string) => writingLanguageText(context.writingLanguage, zh, en)
+  const text = (zh: string, _en?: string) => { void _en; return writingLanguageText(context.writingLanguage, zh) }
   const snapshot = context.confirmation?.snapshot
   // Keep each source label, but emit an identical text/prefix only at its longest source.
   // The frozen originals stay intact for recovery and source validation.
   const sources: [string, string | undefined][] = [
-    ['config.worldSetting', context.config.worldSetting],
     ['config.coreOutline', context.config.coreOutline],
     ['worldbuilding', context.worldbuilding],
   ]
@@ -100,24 +99,23 @@ export function reviewRevisionAuthorMaterial(context: ReviewRevisionContext): st
   const authorText = (source: string, value: string | undefined) => {
     const original = value && sources.find(([, candidate]) => candidate?.startsWith(value))
     return original && original[0] !== source
-      ? text(`（本来源原文与 ${original[0]} 的完整前缀相同，见该来源原文。）`,
-        `(This source exactly matches a complete prefix of ${original[0]}; see that original text.)`)
+      ? text(`（本来源原文与 ${original[0]} 的完整前缀相同，见该来源原文。）`)
       : value
   }
   return [
-    text('【作者确认项目配置｜约束而非已发生事实】', '[Author-confirmed project configuration | constraints, not established history]'),
+    text('【作者确认项目配置｜约束而非已发生事实】'),
     JSON.stringify({ ...context.config, ...(context.operation === 'refine-draft' ? { writingStyle: undefined } : {}), globalGuidance: undefined,
       coreOutline: authorText('config.coreOutline', context.config.coreOutline),
-      worldSetting: authorText('config.worldSetting', context.config.worldSetting) }, null, 2),
-    text('【作者全局创作指导｜约束而非已发生事实】', '[Author global creative guidance | constraints, not established history]'),
+       }, null, 2),
+    text('【作者全局创作指导｜约束而非已发生事实】'),
     context.config.globalGuidance,
-    text('【世界观设定】', '[Worldbuilding]'), authorText('worldbuilding', context.worldbuilding),
-    text('【作者角色状态｜以标注时点为准】', '[Author character state | scoped to its annotated time]'), context.characterStates,
-    text('【本章作者指导｜约束】', '[Current chapter author guidance | constraints]'),
+    text('【世界观设定】'), authorText('worldbuilding', context.worldbuilding),
+    text('【作者角色状态｜以标注时点为准】'), context.characterStates,
+    text('【本章作者指导｜约束】'),
     JSON.stringify(context.blueprints.filter(blueprint => blueprint.chapterNumber === context.source.chapterNumber), null, 2),
-    text('【后续蓝图/计划｜非既定历史】', '[Future blueprints/plans | not established history]'),
+    text('【后续蓝图/计划｜非既定历史】'),
     JSON.stringify(context.blueprints.filter(blueprint => blueprint.chapterNumber !== context.source.chapterNumber), null, 2),
-    text('【本章冻结目标｜须由正文证明】', '[Frozen chapter goals | require manuscript evidence]'),
+    text('【本章冻结目标｜须由正文证明】'),
     JSON.stringify(context.frozenGoals),
     ...context.authorInputs.map(input => input.text),
     ...(snapshot ? [renderHumanConfirmedReviewBrief({ ...snapshot,

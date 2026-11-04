@@ -44,7 +44,7 @@ function confirmation(f: ReturnType<typeof fixture>) {
 describe('审修上下文实际 SQLite 捕获', () => {
   it('从主进程作者世界设定与活跃角色备注冻结本章必现，来源变化产生新清单', () => {
     const f = fixture()
-    f.db.exec("UPDATE project_core SET world_setting='普通背景。\n【第2章必现】城门在正文开启\n【第3章必现】钟楼倒塌' WHERE id='main'")
+    f.db.exec("UPDATE project_core SET worldbuilding='普通背景。\n【第2章必现】城门在正文开启\n【第3章必现】钟楼倒塌' WHERE id='main'")
     f.db.prepare('INSERT INTO characters(character_id,name,retired,notes) VALUES(?,?,?,?)')
       .run('active', '林岚', 0, '【第2章必现】林岚看见铜钥匙')
     f.db.prepare('INSERT INTO characters(character_id,name,retired,notes) VALUES(?,?,?,?)')
@@ -52,7 +52,7 @@ describe('审修上下文实际 SQLite 捕获', () => {
     expect(f.capture().frozenGoals).toMatchObject({ coverage: 'complete', items: [
       { text: '城门在正文开启' }, { text: '林岚看见铜钥匙' },
     ] })
-    f.db.exec("UPDATE project_core SET world_setting='普通背景。' WHERE id='main'")
+    f.db.exec("UPDATE project_core SET worldbuilding='普通背景。' WHERE id='main'")
     expect(f.capture().frozenGoals.items.map(item => item.text)).toEqual(['林岚看见铜钥匙'])
     f.db.prepare('UPDATE contents SET body=? WHERE id=1').run('来源已变')
     expect(f.capture).toThrow('GENERATION_REVIEW_SOURCE_CHANGED')

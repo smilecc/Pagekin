@@ -29,7 +29,6 @@ import {
 } from '../../../shared/blueprint-semantic-contract'
 import { requireWorkflowProjectSession, workflowUiLocale, workflowUiText, workflowWritingLanguage } from '../workflow-project-session'
 import { promptLanguageText } from '../../prompt-language'
-import { retryDirectoryCharacterSync } from '../directory-character-sync-recovery'
 export {
   retryDirectoryCharacterSync,
   type DirectoryCharacterSyncReceipt,
@@ -145,8 +144,7 @@ function blueprintCapacityGenerationContract(
   const { minimum: lowerBound, maximum: upperBound } = draftTargetUnitRange(targetWords)
   return promptLanguageText(
     writingLanguage,
-    `【章节容量合同】\n每章正文目标约 ${targetWords} 字，可接受范围 ${lowerBound}–${upperBound} 字；据此控制情节点容量。作者指定事件与字数目标均为权威事实，不得删除、改写或擅自调整。合并 role、purpose、keyEvents、架构与前章列表中对同一事件的重复表述，只计一个语义事件；不擅自增加独立事件，也不为凑字数补事件。背景设定只作为约束和参考；除非作者指定事件明确要求，不得把全部背景逐项演成场景。JSON 输出合同不变；容量兼容时，keyEvents 只写能在上述范围内完整演绎的推进与结果。若语义去重后仍不兼容，保留作者指定事件，并在现有 keyEvents 字符串中简短指出“容量冲突：…”供作者调整；不新增字段、不代替作者取舍，也不写章节正文。`,
-    `[Chapter capacity contract]\nTarget about ${targetWords} words per chapter, with an acceptable range of ${lowerBound}-${upperBound}; size the plot-point load accordingly. Author-specified events and the word target are authoritative facts: do not delete, rewrite, or adjust them. Merge duplicate descriptions of the same event across role, purpose, keyEvents, architecture, and the preceding chapter list, counting them as one semantic event; do not invent independent events or add events to fill space. Background facts are constraints and references, not a requirement to dramatize every fact as a scene unless an author-specified event requires it. Keep the JSON output contract unchanged. When capacity is compatible, keyEvents should state only the progression and outcome that can be fully dramatized within this range. If semantic deduplication still leaves an incompatible load, preserve the author-specified events and briefly state "Capacity conflict: ..." in the existing keyEvents string for the author to adjust; add no field, make no choice for the author, and do not write chapter prose.`,
+    `【章节容量合同】\n每章正文目标约 ${targetWords} 字，可接受范围 ${lowerBound}–${upperBound} 字；据此控制情节点容量。作者指定事件与字数目标均为权威事实，不得删除、改写或擅自调整。合并规划正文、架构与前章列表中对同一事件的重复表述，只计一个语义事件；不擅自增加独立事件，也不为凑字数补事件。背景设定只作为约束和参考；除非作者指定事件明确要求，不得把全部背景逐项演成场景。JSON 输出合同不变；容量兼容时，keyEvents 只写能在上述范围内完整演绎的推进与结果。若语义去重后仍不兼容，保留作者指定事件，并在现有 keyEvents 字符串中简短指出“容量冲突：…”供作者调整；不新增字段、不代替作者取舍，也不写章节正文。`,
   )
 }
 
@@ -174,36 +172,33 @@ function buildCompactBlueprintTask(input: {
       chapterNumber: chapter.chapterNumber,
       title: chapter.title,
       keyEvents: chapter.keyEvents,
-      suspenseHook: chapter.suspenseHook,
     })),
     globalGuidance: input.globalGuidance,
     pacingGuidance: input.pacingGuidance,
   }
   const prompt = [
-    promptLanguageText(input.writingLanguage, '仅根据下列有界事实生成该章完整蓝图。', 'Build the complete chapter blueprint from only the bounded facts below.'),
-    promptLanguageText(input.writingLanguage, '【有界事实】', '[Bounded facts]'),
+    promptLanguageText(input.writingLanguage, '仅根据下列有界事实生成该章完整蓝图。'),
+    promptLanguageText(input.writingLanguage, '【有界事实】'),
     JSON.stringify(facts),
-    promptLanguageText(input.writingLanguage, '【输出合同】', '[Output contract]'),
+    promptLanguageText(input.writingLanguage, '【输出合同】'),
     blueprintSemanticGenerationContract(input.writingLanguage),
     promptLanguageText(
       input.writingLanguage,
-      `【精确 JSON 形状】{"blueprints":[{"chapterNumber":${input.chapterNumber},"title":"短标题","role":"简短结构标签","purpose":"一句简洁陈述","keyEvents":"简洁事件摘要","characters":["完整姓名"],"relationships":[],"suspenseHook":"一句简洁陈述"}]}`,
-      `[Exact JSON shape] {"blueprints":[{"chapterNumber":${input.chapterNumber},"title":"short title","role":"short structural label","purpose":"one concise sentence","keyEvents":"concise event summary","characters":["full name"],"relationships":[],"suspenseHook":"one concise sentence"}]}`,
+      `【精确 JSON 形状】{"blueprints":[{"chapterNumber":${input.chapterNumber},"title":"章节名","keyEvents":"完整规划正文","characters":["角色姓名"]}]}`,
     ),
     ...(input.diagnostic
       ? [promptLanguageText(
           input.writingLanguage,
           `【上次合同违规】code=${input.diagnostic.code} path=${input.diagnostic.path} field=${input.diagnostic.field}。丢弃上次输出，按上述合同完整重建。`,
-          `[Previous contract violation] code=${input.diagnostic.code} path=${input.diagnostic.path} field=${input.diagnostic.field}. Discard the previous output and rebuild the complete item under the contract above.`,
         )]
       : []),
-    promptLanguageText(input.writingLanguage, `必须且只能返回 chapterNumber=${input.chapterNumber} 的一项。`, `Return exactly one item whose chapterNumber is ${input.chapterNumber}.`),
+    promptLanguageText(input.writingLanguage, `必须且只能返回 chapterNumber=${input.chapterNumber} 的一项。`),
 
     blueprintCapacityGenerationContract(input.writingLanguage, input.wordsPerChapter),
   ].join('\n')
   const systemRole = composePromptSystemRole({
     systemRole: input.systemRole
-      || promptLanguageText(input.writingLanguage, '你是一位经验丰富的章节架构师。', 'You are an experienced chapter architect.'),
+      || promptLanguageText(input.writingLanguage, '你是一位经验丰富的章节架构师。'),
   }, input.writingLanguage)
   return {
     purpose: `chapter-blueprint-directory:compact-single:chapter-${input.chapterNumber}`,
@@ -316,7 +311,7 @@ export class GenerateDirectoryCommand extends BaseWorkflowCommand<ChapterBluepri
         genre: modelFacts.genre,
         globalGuidance: novelConfig.globalGuidance || '',
         pacingGuidance: (context.data.pacingGuidance as string) || '',
-        systemRole: template.systemRole || promptLanguageText(writingLanguage, '你是一位经验丰富的小说架构师。', 'You are an experienced fiction architect.'),
+        systemRole: template.systemRole || promptLanguageText(writingLanguage, '你是一位经验丰富的小说架构师。'),
         writingLanguage,
         diagnostic,
       })
@@ -342,12 +337,11 @@ export class GenerateDirectoryCommand extends BaseWorkflowCommand<ChapterBluepri
           .map(chapter => promptLanguageText(
             writingLanguage,
             `第${chapter.chapterNumber}章 ${chapter.title}：${chapter.keyEvents}`,
-            `Chapter ${chapter.chapterNumber} — ${chapter.title}: ${chapter.keyEvents}`,
           ))
           .join('\n')
         const prompt = new DirectoryPromptBuilder(template, writingLanguage)
           .withNovelArchitecture(architecture)
-          .withChapterList(chapterList || promptLanguageText(writingLanguage, '（首批生成，尚无前置章节）', '(first batch; no preceding chapters)'))
+          .withChapterList(chapterList || promptLanguageText(writingLanguage, '（首批生成，尚无前置章节）'))
           .withNumberOfChapters(totalChapters)
           .withN(batchStart)
           .withM(batchEnd)
@@ -365,7 +359,7 @@ export class GenerateDirectoryCommand extends BaseWorkflowCommand<ChapterBluepri
             {
               role: 'system',
               content: composePromptSystemRole({
-                systemRole: template.systemRole || promptLanguageText(writingLanguage, '你是一位经验丰富的小说架构师。', 'You are an experienced fiction architect.'),
+                systemRole: template.systemRole || promptLanguageText(writingLanguage, '你是一位经验丰富的小说架构师。'),
               }, writingLanguage) + `\n\n${planningTargetInstruction('blueprint', targetUnits, writingLanguage)}`,
             },
             { role: 'user', content: prompt },
@@ -389,7 +383,6 @@ export class GenerateDirectoryCommand extends BaseWorkflowCommand<ChapterBluepri
         + promptLanguageText(
           writingLanguage,
           `本次必须且只能完整返回以下 chapterNumber：${items.join('、')}。`,
-          `Return complete items for exactly these chapterNumber values: ${items.join(', ')}.`,
         )
       ),
     }
@@ -435,9 +428,6 @@ export class GenerateDirectoryCommand extends BaseWorkflowCommand<ChapterBluepri
           context.data.newBlueprints = [...receipt.snapshot]
           context.data.remainingBlueprintRange = { startChapter: prefixEnd + 1, endChapter }
           if (context.cancelled) throw new DirectoryPostCommitCancellationError(receipt)
-          try {
-            await retryDirectoryCharacterSync(receipt.characterSyncOperation.operationId, expectedProjectPath, context.projectSession, workflowUiLocale(context))
-          } catch { throw new DirectoryPostCommitSyncError(receipt) }
           const remaining = `${prefixEnd + 1}–${endChapter}`
           throw new DirectoryPartialCommitError(receipt, { startChapter: prefixEnd + 1, endChapter }, batchResult.failure, batchResult.failure.terminal
             ? workflowUiText(context,
@@ -490,18 +480,6 @@ export class GenerateDirectoryCommand extends BaseWorkflowCommand<ChapterBluepri
       if (context.cancelled) {
         throw new DirectoryPostCommitCancellationError(commitReceipt)
       }
-      try {
-        const syncReceipt = await retryDirectoryCharacterSync(
-          commitReceipt.characterSyncOperation.operationId,
-          expectedProjectPath,
-          context.projectSession,
-          workflowUiLocale(context),
-        )
-        context.data.blueprintCharacterSyncReceipt = syncReceipt
-      } catch {
-        throw new DirectoryPostCommitSyncError(commitReceipt)
-      }
-
       context.data.newBlueprints = newBlueprints
       context.data.existingBlueprints = existingBlueprints
       callbacks.log(workflowUiText(

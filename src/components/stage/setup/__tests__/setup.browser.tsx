@@ -30,7 +30,7 @@ const PATH = 'C:\\novels\\island'
 const SESSION = { projectId: 'island', leaseId: 'lease-1', projectPath: PATH }
 const BLANK: Partial<NovelConfig> = {
   coreOutline: '', genre: '', subGenre: '', targetAudience: '', totalChapters: 24, wordsPerChapter: 3000,
-  worldSetting: '', goldenFinger: '', protagonistProfile: '', globalGuidance: '', writingStyle: '', referenceWorks: '',
+     globalGuidance: '', writingStyle: '', referenceWorks: '',
   narrativePOV: 'third_limited', plotStructure: 'three_act', writingLanguage: 'zh-CN',
 }
 
@@ -65,10 +65,10 @@ const byName = (name: string | RegExp) => [...document.querySelectorAll<HTMLButt
     const label = button.getAttribute('aria-label') ?? button.textContent?.trim() ?? ''
     return typeof name === 'string' ? label === name : name.test(label)
   })
-const next = () => byName(/^下一步：故事架构/)!
+const next = () => byName(/^下一步：故事规划/)!
 const hint = () => host!.querySelector('.stage-setup-foot [role="status"]')!.textContent
-const field = (label: RegExp) => [...host!.querySelectorAll<HTMLSelectElement | HTMLTextAreaElement>('select, textarea')]
-  .find(control => label.test(control.labels?.[0]?.textContent ?? ''))!
+const field = (label: RegExp) => [...host!.querySelectorAll<HTMLSelectElement | HTMLTextAreaElement | HTMLInputElement>('select, textarea, input')]
+  .find(control => label.test(control.getAttribute('aria-label') ?? control.labels?.[0]?.textContent ?? ''))!
 
 async function click(element: HTMLElement | undefined) {
   expect(element, '要点击的元素存在').toBeTruthy()
@@ -82,9 +82,9 @@ async function choose(select: HTMLSelectElement, value: string) {
   })
 }
 
-async function write(textarea: HTMLTextAreaElement, value: string) {
+async function write(textarea: HTMLInputElement, value: string) {
   await act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(textarea, value)
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(textarea, value)
     textarea.dispatchEvent(new Event('input', { bubbles: true }))
   })
 }
@@ -111,17 +111,15 @@ describe('设定页', () => {
     project({})
     await mount()
     expect(next().disabled).toBe(true)
-    expect(hint()).toBe('还差 3 项：核心大纲、类型、目标读者')
+    expect(hint()).toBe('还差 2 项：类型、目标读者')
     expect(next().getAttribute('aria-describedby')).toBe(host!.querySelector('.stage-setup-foot [role="status"]')!.id)
 
-    await write(field(/^核心大纲/) as HTMLTextAreaElement, '一个收到匿名信的年轻人登上末班车。')
     await choose(field(/^类型/) as HTMLSelectElement, '悬疑')
     expect(hint()).toBe('选好目标读者就能继续')
     expect(next().disabled).toBe(true)
-    expect(host!.querySelector('[data-missing]')?.textContent).toBe('目标读者 · 必填')
 
     await choose(field(/^目标读者/) as HTMLSelectElement, '全龄')
-    expect(hint()).toBe('设定已齐，可以往下走')
+    expect(hint()).toBe('基本信息已齐全')
     expect(next().disabled).toBe(false)
     expect([...host!.querySelectorAll('.pi-btn--primary')]).toHaveLength(1)
   })
@@ -132,7 +130,7 @@ describe('设定页', () => {
     await mount()
     await click(next())
     expect(useProjectStore.getState().saveProject).toHaveBeenCalledTimes(1)
-    expect(useEditorStore.getState().tabs.map(tab => tab.type)).toContain('world-building')
+    expect(useEditorStore.getState().tabs.map(tab => tab.type)).toContain('chapter-card')
   })
 
   describe('下一步的保存还没返回时作者已经离开，保存完成后不把作者拉去架构', () => {
@@ -197,48 +195,14 @@ describe('设定页', () => {
     })
     expect(next().disabled).toBe(false)
     await click(next())
-    expect(useEditorStore.getState().tabs.map(tab => tab.type)).toContain('world-building')
+    expect(useEditorStore.getState().tabs.map(tab => tab.type)).toContain('chapter-card')
     expect(useProjectStore.getState().saveProject).toHaveBeenCalledTimes(1)
-  })
-
-  it('新作品三项必填先用中性的「必填」；离开空着的一项或只差最后一项时才标红', async () => {
-    project({})
-    await mount()
-    const labels = () => [...host!.querySelectorAll('.stage-setup-label')].slice(0, 4).map(label => [label.textContent, label.hasAttribute('data-missing')])
-    expect(labels()).toEqual([['核心大纲 · 必填', false], ['类型 · 必填', false], ['篇幅', false], ['目标读者 · 必填', false]])
-
-    const outline = field(/^核心大纲/) as HTMLTextAreaElement
-    await act(async () => { outline.focus(); outline.blur() })
-    expect(labels()[0]).toEqual(['核心大纲 · 必填', true])
-    expect(labels()[1]).toEqual(['类型 · 必填', false])
-  })
-
-  it('篇幅没填全时，焦点离开篇幅也标红，与其他必填项同一时机', async () => {
-    project({ wordsPerChapter: 0 })
-    await mount()
-    const length = () => [...host!.querySelectorAll('.stage-setup-label')][2]
-    expect([length().textContent, length().hasAttribute('data-missing')]).toEqual(['篇幅 · 必填', false])
-
-    const chapters = host!.querySelector<HTMLInputElement>('input[aria-label="总章数"]')!
-    await act(async () => { chapters.focus(); chapters.blur() })
-    expect([length().textContent, length().hasAttribute('data-missing')]).toEqual(['篇幅 · 必填', true])
   })
 
   it('篇幅超出安全整数时仍算没填全，与预览卡（主进程按安全整数判断）一致', async () => {
     project({ totalChapters: 2 ** 53 })
     await mount()
-    expect([...host!.querySelectorAll('.stage-setup-label')][2].textContent).toBe('篇幅 · 必填')
-  })
-
-  it('点开一项更多设定：面板滚进视野，焦点落在面板的输入框里', async () => {
-    project({})
-    await mount()
-    const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView')
-    await click(byName(/^世界观/))
-    const panel = host!.querySelector('[aria-label="世界观"]')!
-    expect(scrolled.mock.contexts).toContain(panel)
-    expect(scrolled).toHaveBeenCalledWith({ block: 'nearest' })
-    expect(document.activeElement).toBe(panel.querySelector('textarea'))
+    expect(next().disabled).toBe(true)
   })
 
   it('AI 按钮不可用时读屏能听到原因', async () => {
@@ -247,15 +211,13 @@ describe('设定页', () => {
     await mount()
     const reason = (button: HTMLButtonElement | undefined) => document.getElementById(button!.getAttribute('aria-describedby') ?? '')?.textContent
     expect(reason(byName('AI 补全其余设定'))).toBe('先在设置里添加 AI 模型')
-    expect(reason(byName('AI 生成「核心大纲」'))).toBe('先在设置里添加 AI 模型')
     await act(async () => root!.unmount())
     host!.remove()
 
     useLLMStore.setState({ loaded: true, models: [{ id: 'model', purposes: ['generation'] }] as never, defaultModelId: 'model' })
     project({})
     await mount()
-    expect(reason(byName('AI 补全其余设定'))).toBe('先写核心大纲，AI 按它补全其余设定')
-    expect(byName('AI 生成「核心大纲」')?.hasAttribute('aria-describedby')).toBe(false)
+    expect(reason(byName('AI 补全其余设定'))).toBe('先写大纲，AI 按它补全其余设定')
   })
 
   it('AI 按钮按规划环节实际能用的模型判断，和点下去时的门槛一致', async () => {
@@ -263,14 +225,14 @@ describe('设定页', () => {
     useLLMStore.setState({ loaded: true, models: [{ id: 'model', purposes: ['refinement'] }] as never, defaultModelId: 'model', stageModelIds: {} })
     project({ coreOutline: '雾钟提前一刻响起。' })
     await mount()
-    expect(reason(byName('AI 生成「核心大纲」'))).toBe('先在设置里添加 AI 模型')
+    expect(reason(byName('AI 补全其余设定'))).toBe('先在设置里添加 AI 模型')
     await act(async () => root!.unmount())
     host!.remove()
 
     useLLMStore.setState({ loaded: true, models: [{ id: 'planner', purposes: ['generation'] }] as never, defaultModelId: null, stageModelIds: { planning: 'planner' } })
     project({ coreOutline: '雾钟提前一刻响起。' })
     await mount()
-    expect(byName('AI 生成「核心大纲」')?.hasAttribute('aria-describedby')).toBe(false)
+    expect(byName('AI 补全其余设定')?.disabled).toBe(false)
   })
 
   it('保存失败时页面写明设定还在、可以再保存；点保存、Ctrl S 都一样', async () => {
@@ -285,7 +247,7 @@ describe('设定页', () => {
     await expect.poll(alertText).toBe(SAVE_FAILED)
     expect(byName(/^保存/)?.disabled).toBe(false)
 
-    await write(field(/^核心大纲/) as HTMLTextAreaElement, '雾钟提前两刻响起。')
+    await write(field(/^细分类型/) as HTMLInputElement, '海港悬疑')
     expect(alertText()).toBe('')
     await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', code: 'KeyS', ...COMMAND, bubbles: true, cancelable: true })) })
     await expect.poll(alertText).toBe(SAVE_FAILED)
@@ -303,29 +265,15 @@ describe('设定页', () => {
     expect(useEditorStore.getState().tabs.map(tab => tab.type)).toEqual(['config'])
   })
 
-  it('单项 AI 生成失败时在那一项下面写明原因', async () => {
-    project({ coreOutline: '雾钟提前一刻响起。' })
-    await mount()
-    await click(byName('AI 生成「核心大纲」'))
-    await expect.poll(alertText).toBe('「核心大纲」没有生成：桌面接口 aiNovelAPI 未就绪，请重新启动应用。原来的内容没有改动。')
-    expect(host!.querySelector('.stage-setup-outline [role="alert"]')).not.toBeNull()
-    expect((field(/^核心大纲/) as HTMLTextAreaElement).value).toBe('雾钟提前一刻响起。')
-
-    await choose(field(/^类型/) as HTMLSelectElement, '悬疑')
-    expect(alertText()).not.toBe('')
-    await write(field(/^核心大纲/) as HTMLTextAreaElement, '雾钟提前两刻响起。')
-    expect(alertText()).toBe('')
-  })
-
-  it('AI 补全以核心大纲为脑洞启动；已有作者内容时先确认扩写', async () => {
-    project({ coreOutline: '雾钟提前一刻响起。', worldSetting: '旧港以潮汐计时。' })
+  it('AI 补全以大纲为脑洞启动；已有作者内容时先确认扩写', async () => {
+    project({ coreOutline: '雾钟提前一刻响起。',  })
     await mount()
     await click(byName('AI 补全其余设定'))
     const startWorkflow = useWorkflowStore.getState().startWorkflow
     expect(startWorkflow).not.toHaveBeenCalled()
     const dialog = document.querySelector('[role="dialog"]')!
     expect(dialog.querySelector('h2')?.textContent).toBe('扩写已有的设定？')
-    expect([...dialog.querySelectorAll('li')].map(item => item.textContent)).toEqual(['核心大纲', '世界观设定'])
+    expect([...dialog.querySelectorAll('li')].map(item => item.textContent)).toEqual(['大纲'])
 
     await click(byName('继续扩写'))
     expect(startWorkflow).toHaveBeenCalledWith(expect.objectContaining({ type: 'config_generation', projectPath: PATH, projectSession: SESSION }))
@@ -333,7 +281,7 @@ describe('设定页', () => {
   })
 
   it('另一个任务占着设定时 AI 补全不启动，扩写确认留着', async () => {
-    project({ coreOutline: '雾钟提前一刻响起。', worldSetting: '旧港以潮汐计时。' })
+    project({ coreOutline: '雾钟提前一刻响起。',  })
     useWorkflowStore.setState({ getResourceConflict: () => ({ title: '生成架构' }) } as never)
     await mount()
     await click(byName('AI 补全其余设定'))
@@ -342,7 +290,7 @@ describe('设定页', () => {
     expect(document.querySelector('[role="dialog"] h2')?.textContent).toBe('扩写已有的设定？')
   })
 
-  it('没有核心大纲时 AI 补全不可用；没有模型时所有 AI 按钮不可用并给出添加模型的入口', async () => {
+  it('没有大纲时 AI 补全不可用；没有模型时所有 AI 按钮不可用并给出添加模型的入口', async () => {
     project({})
     await mount()
     expect(byName('AI 补全其余设定')?.disabled).toBe(true)
@@ -353,32 +301,15 @@ describe('设定页', () => {
     project({ coreOutline: '雾钟提前一刻响起。' })
     await mount()
     expect(byName('AI 补全其余设定')?.disabled).toBe(true)
-    expect(byName('AI 生成「核心大纲」')?.disabled).toBe(true)
     expect(host!.textContent).toContain('还没有连接 AI 模型')
     await click(byName('添加模型'))
     expect(useLayoutStore.getState()).toMatchObject({ settingsOpen: true, settingsSection: 'llm' })
   })
 
-  it('更多设定点开才出现，每项可以单独收起', async () => {
-    project({ subGenre: '海港悬疑' })
-    await mount()
-    const chip = byName(/^细分类型/)!
-    expect(chip.textContent).toBe('细分类型 · 海港悬疑')
-    expect(chip.getAttribute('aria-expanded')).toBe('false')
-    expect(host!.querySelector('[aria-label="细分类型"]')).toBeNull()
-
-    await click(chip)
-    expect(chip.getAttribute('aria-expanded')).toBe('true')
-    expect(host!.querySelector<HTMLInputElement>('[aria-label="细分类型"] input')?.value).toBe('海港悬疑')
-    await click(byName('收起「细分类型」'))
-    expect(host!.querySelector('[aria-label="细分类型"]')).toBeNull()
-  })
-
   it('伏笔沉寂提醒清空后重新输入：退格删掉 5 再输 7 得 7，不是 17；空着离开回到默认的 3 章', async () => {
     project({ narrativeThreadDormantChapterThreshold: 5 })
     await mount()
-    await click(byName(/^高级/))
-    const input = host!.querySelector<HTMLInputElement>('.stage-setup-adv-ctl input')!
+const input = host!.querySelector<HTMLInputElement>('input[aria-label="伏笔沉寂提醒（章）"]')!
     // 上一条用例留下的提示会挡住指针，直接聚焦后用键盘输入。
     await act(async () => input.focus())
     await userEvent.keyboard('{End}{Backspace}')

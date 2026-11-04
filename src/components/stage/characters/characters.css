@@ -546,3 +546,5 @@
     border-bottom: 1px solid var(--rule);
   }
 }
+
+.cast-generate-button { width: 100%; justify-content: center; }

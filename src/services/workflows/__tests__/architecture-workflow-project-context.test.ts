@@ -7,9 +7,9 @@ import { useLocaleStore } from '../../../stores/locale-store'
 import { useLLMStore } from '../../../stores/llm-store'
 import { useProjectStore } from '../../../stores/project-store'
 import { createArchitectureWorkflow, createConfigGenerationWorkflow } from '../architecture-workflow'
-import { GeneratePlotArchitectureCommand } from '../commands/architecture.command'
-import type { BeginGenerationRequest } from '../../../shared/generation-owner-contract'
-import type { NovelConfig } from '../../../shared/ipc-channels'
+import { } from '../commands/architecture.command'
+
+
 
 const originalLocale = useLocaleStore.getState().locale
 const originalDefaultModelId = useLLMStore.getState().defaultModelId
@@ -32,9 +32,9 @@ const validGeneratedConfig = {
   plotStructure: 'three_act',
   narrativePOV: 'third_limited',
   coreOutline: '主角从危机中醒来，发现故乡即将毁灭，必须争夺失落传承并阻止终局灾难。',
-  worldSetting: '灵脉决定城邦兴衰，宗门垄断修炼资源，边境正在发生无法逆转的异变。',
-  goldenFinger: '主角可以解析残缺功法，但每次使用都会付出记忆损耗的代价。',
-  protagonistProfile: '外表克制谨慎，内心执着于守护家人，在利益与承诺之间不断作出选择。',
+
+
+
   globalGuidance: '保持因果推进。\n维持角色动机一致。\n控制场景节奏。\n及时回收伏笔。',
   writingStyle: '节奏紧凑，场景切换清晰，对话简洁有张力，战斗描写强调行动因果与人物选择。',
 }
@@ -102,43 +102,7 @@ function arrangeConfigGenerationJourney(responses: Array<{ content: string; fini
 }
 
 describe('architecture workflow project context', () => {
-  it('sends the frozen whole-action intent on the first premise and builds only the explicit range for a standalone plot', async () => {
-    const projectSession = { projectId: 'project-A', leaseId: 'lease-A', projectPath: 'C:/projects/A' }
-    const novelConfig = { totalChapters: 200 } as NovelConfig
-    useProjectStore.setState({ currentProject: { id: projectSession.projectId, path: projectSession.projectPath,
-      sessionLease: projectSession.leaseId, name: 'A', novelConfig, characterStates: '', createdAt: '', updatedAt: '' } })
-    useLLMStore.setState({ models: [{ id: 'model', purposes: ['generation'] }] as never, defaultModelId: 'model' })
-    const begins: BeginGenerationRequest[] = []
-    const invoke = vi.fn(async (channel: string, request: BeginGenerationRequest) => {
-      if (channel === 'generation:begin') { begins.push(request); throw new Error('captured-first-begin') }
-      if (channel === 'fs:check-exists') return false
-      throw new Error(`unexpected IPC ${channel}`)
-    })
-    vi.stubGlobal('window', { aiNovelAPI: { invoke, on: vi.fn(() => () => {}), once: vi.fn(), send: vi.fn() } })
-    const synopsisRange = { from: 11, to: 20 }
-    const selectedSteps: Array<'premise' | 'characters' | 'worldbuilding' | 'synopsis'> = ['synopsis', 'characters', 'premise', 'characters', 'worldbuilding']
-    const workflow = createArchitectureWorkflow({ projectPath: projectSession.projectPath, projectSession, selectedSteps, synopsisRange })
-    selectedSteps.splice(0)
-    synopsisRange.to = 200
-    const context = { runId: 'architecture-run', projectPath: projectSession.projectPath, projectSession,
-      writingLanguage: 'zh-CN' as const, uiLocale: 'zh-CN' as const, data: {}, cancelled: false }
-    const callbacks = { log: vi.fn(), setProgress: vi.fn(), appendText: vi.fn() }
-    await expect(workflow.steps[0].executor({ id: 'premise', name: '', description: '', status: 'running', logs: [] }, context, callbacks)).rejects.toThrow('captured-first-begin')
-    expect(begins[0].operation).toBe('generate-core-seed')
-    expect(JSON.parse(begins[0].authorInputs!.find(input => input.id === 'architecture:planning-intent')!.text)).toEqual({
-      version: 'architecture-action-v1', priorSteps: ['premise', 'characters', 'worldbuilding'], synopsisRange: { from: 11, to: 20 },
-    })
-    const plot = new GeneratePlotArchitectureCommand(['synopsis'], { expectedProjectPath: projectSession.projectPath, novelConfig }, undefined,
-      { synopsisRange: { from: 151, to: 160 } })
-    await expect(plot.execute({ step: {}, context: { ...context, data: {} }, callbacks })).rejects.toThrow('captured-first-begin')
-    expect(JSON.parse(begins[1].authorInputs!.find(input => input.id === 'architecture:planning-intent')!.text)).toEqual({
-      version: 'architecture-action-v1', priorSteps: [], synopsisRange: { from: 151, to: 160 },
-    })
-    expect(() => createArchitectureWorkflow({ projectPath: projectSession.projectPath, projectSession,
-      selectedSteps: ['synopsis'], synopsisRange: { from: 151, to: 200 } })).toThrow('GENERATION_PLANNING_RANGE_INVALID')
-    expect(createArchitectureWorkflow({ projectPath: projectSession.projectPath, projectSession,
-      resumeSynopsis: true, synopsisRange: { from: 151, to: 200 } }).steps).toHaveLength(1)
-  })
+
 
   it('creates visible workflow copy in English when the UI locale is English', () => {
     useLocaleStore.setState({ locale: 'en-US' })
@@ -158,15 +122,15 @@ describe('architecture workflow project context', () => {
     const workflow = createArchitectureWorkflow({
       projectPath: 'C:/projects/A',
       projectSession: { projectId: 'project-A', leaseId: 'lease-A', projectPath: 'C:/projects/A' },
-      selectedSteps: ['premise'],
+      selectedSteps: ['worldbuilding'],
     })
 
     expect(workflow.title).toBe('Generate story architecture')
     expect(workflow.resourceKeys).toEqual(['architecture'])
     expect(workflow.readResourceKeys).toEqual(['novel-config'])
     expect(workflow.steps[0]).toMatchObject({
-      name: 'Story premise',
-      description: 'Refine the story premise and its core appeal',
+      name: 'World building',
+      description: 'Build a world matrix with its own conflict engine',
     })
     expect(workflow.onComplete?.message).toBe(
       'Story architecture is ready. Open Story Architecture from the sidebar.',
@@ -193,13 +157,13 @@ describe('architecture workflow project context', () => {
     const workflow = createArchitectureWorkflow({
       projectPath: 'C:/projects/A',
       projectSession: { projectId: 'project-A', leaseId: 'lease-A', projectPath: 'C:/projects/A' },
-      selectedSteps: ['premise'],
+      selectedSteps: ['worldbuilding'],
     }, frozenLocale)
 
     expect(workflow).toMatchObject({
       uiLocale: 'en-US',
       title: 'Generate story architecture',
-      steps: [expect.objectContaining({ name: 'Story premise' })],
+      steps: [expect.objectContaining({ name: 'World building' })],
     })
   })
 
@@ -219,7 +183,7 @@ describe('architecture workflow project context', () => {
     const workflow = createArchitectureWorkflow({
       projectPath: 'C:/projects/A',
       projectSession: { projectId: 'project-A', leaseId: 'lease-A', projectPath: 'C:/projects/A' },
-      selectedSteps: ['premise', 'characters'],
+      selectedSteps: ['characters', 'worldbuilding'],
     })
     expect(workflow.resourceKeys).toEqual(['architecture', 'character-roster'])
     expect(workflow.readResourceKeys).toEqual(['novel-config'])
@@ -273,7 +237,7 @@ describe('architecture workflow project context', () => {
     const workflow = createArchitectureWorkflow({
       projectPath: 'C:/projects/A',
       projectSession: { projectId: 'project-A', leaseId: 'lease-A', projectPath: 'C:/projects/A' },
-      selectedSteps: ['premise'],
+      selectedSteps: ['worldbuilding'],
     })
 
     expect(workflow.projectSession).toMatchObject({
@@ -298,7 +262,7 @@ describe('architecture workflow project context', () => {
     expect(() => createArchitectureWorkflow({
       projectPath: 'C:/projects/A',
       projectSession: workflow.projectSession,
-      selectedSteps: ['premise'],
+      selectedSteps: ['worldbuilding'],
     })).toThrow('当前项目已切换，无法启动架构生成')
   })
 })
@@ -407,18 +371,18 @@ describe('config generation full journey completion contract', () => {
 
 
 describe('恢复按钮确认的运行身份', () => {
-  it.each(['worldbuilding', 'synopsis'] as const)('在 %s 检查点换成另一运行后拒绝续写', async kind => {
+  it.each(['worldbuilding'] as const)('在 %s 检查点换成另一运行后拒绝续写', async kind => {
     const journey = arrangeConfigGenerationJourney([])
     const expected = { projectId: 'project-A', epoch: '原会话', rootActionId: '原作者动作', runId: '已确认候选运行' }
     const replacement = { ...expected, runId: '后来覆盖的运行' }
-    const prefix = kind === 'worldbuilding' ? 'world_building' : 'synopsis'
+    const prefix = 'world_building'
     journey.invoke.mockImplementation(async (channel: string) => {
       if (channel === 'fs:read-json') return { success: true, data: { [prefix + '_incomplete']: true, [prefix + '_generation_handle']: replacement } }
       throw new Error('不应触达后续通道：' + channel)
     })
     const workflow = createArchitectureWorkflow({
       projectPath: 'C:/projects/A', projectSession: { projectId: 'project-A', leaseId: 'lease-A', projectPath: 'C:/projects/A' },
-      resumeWorldBuilding: kind === 'worldbuilding', resumeSynopsis: kind === 'synopsis', expectedRecoveryHandle: expected,
+      resumeWorldBuilding: true, expectedRecoveryHandle: expected,
     })
     const context = { runId: '恢复动作', projectPath: 'C:/projects/A', projectSession: workflow.projectSession,
       writingLanguage: 'zh-CN' as const, uiLocale: 'zh-CN' as const, data: {}, cancelled: false }

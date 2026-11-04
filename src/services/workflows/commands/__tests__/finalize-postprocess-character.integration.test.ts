@@ -312,7 +312,7 @@ function installModel(): void {
     defaultModelId: 'test-model',
     generateStream: vi.fn(async (messages, streamCallbacks) => {
       const system = messages.find((message: { role: string; content: string }) => message.role === 'system')?.content ?? ''
-      if (system.includes('character records') || system.includes('角色档案')) {
+      if (system.includes('角色档案') || system.includes('角色档案')) {
         observedCharacterPrompt = messages.find((message: { role: string; content: string }) => message.role === 'user')?.content ?? ''
         streamCallbacks.onDone?.(modelFixtureResponse(cardResponse), undefined, 'stop')
       } else {
@@ -376,7 +376,7 @@ beforeEach(() => {
     runId: 'finalize-character-run',
     projectPath,
     projectSession: { projectId: 'test', leaseId: 'lease-test', projectPath },
-    writingLanguage: 'en-US',
+    writingLanguage: 'zh-CN',
     uiLocale: 'en-US',
     data: {},
     cancelled: false,
@@ -387,7 +387,7 @@ beforeEach(() => {
       sessionLease: 'lease-test',
       name: 'Test',
       path: projectPath,
-      novelConfig: { writingLanguage: 'en-US', wordsPerChapter: 3000 },
+      novelConfig: { writingLanguage: 'zh-CN', wordsPerChapter: 3000 },
     } as never,
   })
   cardResponse = '{"updates":[]}'
@@ -588,16 +588,16 @@ describe('RunFinalizePostProcessCommand character-state persistence', () => {
     expect(observedCharacterPrompt).toContain(draftContent)
     expect(observedChapterNotesPrompt).toContain(draftContent)
     expect(observedChapterNotesPrompt).toContain(
-      'an explicitly stated cause, location, witness, or source of knowledge',
+      '正文明确写出其原因、发生地点、知情者或获知来源',
     )
     expect(observedChapterNotesPrompt).toContain(
-      'Do not infer missing details or require every note to contain all of these elements',
+      '正文未明确的信息不得补全或推测，也不要求每条凑齐这些要素',
     )
     expect(observedChapterNotesPrompt).toContain(
-      "preserve the affected character's last correction and current conditions in Character Dynamics or Foreshadowing and Hooks",
+      '保留相关角色的最后更正及当前条件',
     )
     expect(observedChapterNotesPrompt).toContain(
-      'Do not substitute a more prominent earlier event for the current plan or describe a plan as executed',
+      '不得用更显著的旧事件替代当前安排，也不得把计划写成已执行',
     )
     expect(status.steps).toMatchObject({ chapter_notes: { ok: true }, character_cards: { ok: true, attemptCount: 1 } })
     expect(selections).toMatchObject([{ slot: { stepKey: 'chapter_notes', source: { draftId: 7 } } }, { slot: { stepKey: 'character_cards', source: { draftId: 7 } } }])
@@ -833,7 +833,7 @@ describe('RunFinalizePostProcessCommand character-state persistence', () => {
   it('repairs malformed structured output within the original durable slot and commits only the valid candidate', async () => {
     let stateCalls = 0
     useLLMStore.setState({ defaultModelId: 'test-model', generateStream: vi.fn(async (messages, streamCallbacks) => {
-      const isCharacter = messages.some((message: { role: string; content: string }) => message.role === 'system' && message.content.includes('character records'))
+      const isCharacter = messages.some((message: { role: string; content: string }) => message.role === 'system' && message.content.includes('角色档案'))
       const content = !isCharacter ? 'Lin Lan arrives at the harbor.' : ++stateCalls === 1 ? '{"updates":{}}'
         : modelFixtureResponse(JSON.stringify({ updates: [{ name: 'Lin Lan', currentState: { location: 'harbor' } }] }))
       streamCallbacks.onDone?.(content, undefined, 'stop')
@@ -855,7 +855,7 @@ describe('RunFinalizePostProcessCommand character-state persistence', () => {
       defaultModelId: 'test-model',
       generateStream: vi.fn(async (messages, streamCallbacks) => {
         const system = messages.find((message: { role: string; content: string }) => message.role === 'system')?.content ?? ''
-        if (system.includes('character records')) {
+        if (system.includes('角色档案')) {
           if (!cancelledOnce) {
             cancelledOnce = true
             workflowContext.cancelled = true
@@ -975,7 +975,7 @@ describe('#552 换了「定稿后处理」的分工模型后重试角色状态�
       defaultModelId: 'test-model', stageModelIds: {},
       generateStream: vi.fn(async (messages, streamCallbacks, modelId) => {
         const system = messages.find((message: { role: string; content: string }) => message.role === 'system')?.content ?? ''
-        if (!system.includes('character records')) { notesCalls++; streamCallbacks.onDone?.('Lin Lan waits for the inspection.', undefined, 'stop'); return 'notes' }
+        if (!system.includes('角色档案')) { notesCalls++; streamCallbacks.onDone?.('Lin Lan waits for the inspection.', undefined, 'stop'); return 'notes' }
         characterModels.push(String(modelId))
         const good = { characterId, currentState: { recentEvents: 'The inspection is pending.' }, evidence: { text: content } }
         const paraphrased = { ...good, currentState: { location: 'the archive' }, evidence: { text: 'Lin Lan says, the inspection is still pending.' } }
@@ -1040,7 +1040,7 @@ it('#420 角色状态断流后，用户重试每次只发一次新请求，失�
  let failures = 2
  useLLMStore.setState({ defaultModelId: 'test-model', generateStream: vi.fn(async (messages, streamCallbacks) => {
   const system = messages.find((message: { role: string; content: string }) => message.role === 'system')?.content ?? ''
-  if (!system.includes('character records')) { streamCallbacks.onDone?.('The handoff is complete.', undefined, 'stop'); return 'notes' }
+  if (!system.includes('角色档案')) { streamCallbacks.onDone?.('The handoff is complete.', undefined, 'stop'); return 'notes' }
   characterCalls++
   if (failures-- > 0) { streamCallbacks.onError?.('synthetic stream interrupted'); return 'interrupted' }
   streamCallbacks.onDone?.(modelFixtureResponse(JSON.stringify({ updates: [{ name: 'Lin Lan', currentState: { location: 'harbor' } }] })), undefined, 'stop')
@@ -1073,7 +1073,7 @@ it('#420 模型正常结束但返回空文本：步骤记结果不可用（不�
  let notesCalls = 0
  useLLMStore.setState({ defaultModelId: 'test-model', generateStream: vi.fn(async (messages, streamCallbacks) => {
   const system = messages.find((message: { role: string; content: string }) => message.role === 'system')?.content ?? ''
-  if (system.includes('character records')) { streamCallbacks.onDone?.(modelFixtureResponse('{"updates":[]}'), undefined, 'stop'); return 'characters' }
+  if (system.includes('角色档案')) { streamCallbacks.onDone?.(modelFixtureResponse('{"updates":[]}'), undefined, 'stop'); return 'characters' }
   if (++notesCalls === 1) { streamCallbacks.onDone?.('', undefined, 'stop'); return '' }
   streamCallbacks.onDone?.('The handoff is complete.', undefined, 'stop')
   return 'notes'
@@ -1092,7 +1092,7 @@ it('#420 运行中取消后，界面的重试（retryInvalidResult）在新运�
  let characterCalls = 0
  useLLMStore.setState({ defaultModelId: 'test-model', generateStream: vi.fn(async (messages, streamCallbacks) => {
   const system = messages.find((message: { role: string; content: string }) => message.role === 'system')?.content ?? ''
-  if (!system.includes('character records')) { streamCallbacks.onDone?.('The handoff is complete.', undefined, 'stop'); return 'notes' }
+  if (!system.includes('角色档案')) { streamCallbacks.onDone?.('The handoff is complete.', undefined, 'stop'); return 'notes' }
   if (++characterCalls === 1) workflowContext.cancelled = true
   streamCallbacks.onDone?.(modelFixtureResponse(JSON.stringify({ updates: [{ name: 'Lin Lan', currentState: { location: 'harbor' } }] })), undefined, 'stop')
   return 'character'
@@ -1114,7 +1114,7 @@ it('#420 章节要点断流后作者改了本章蓝图要点，重试在新开�
  let notesCalls = 0
  useLLMStore.setState({ defaultModelId: 'test-model', generateStream: vi.fn(async (messages, streamCallbacks) => {
   const system = messages.find((message: { role: string; content: string }) => message.role === 'system')?.content ?? ''
-  if (system.includes('character records')) { streamCallbacks.onDone?.(modelFixtureResponse('{"updates":[]}'), undefined, 'stop'); return 'characters' }
+  if (system.includes('角色档案')) { streamCallbacks.onDone?.(modelFixtureResponse('{"updates":[]}'), undefined, 'stop'); return 'characters' }
   if (++notesCalls === 1) { streamCallbacks.onError?.('synthetic stream interrupted'); return 'interrupted' }
   streamCallbacks.onDone?.('The handoff is complete.', undefined, 'stop')
   return 'notes'
@@ -1135,7 +1135,7 @@ it('#420 角色状态运行已开始但还没发请求，重试按本运行的�
  let characterCalls = 0
  useLLMStore.setState({ defaultModelId: 'test-model', generateStream: vi.fn(async (messages, streamCallbacks) => {
   const system = messages.find((message: { role: string; content: string }) => message.role === 'system')?.content ?? ''
-  if (!system.includes('character records')) { streamCallbacks.onDone?.('The handoff is complete.', undefined, 'stop'); return 'notes' }
+  if (!system.includes('角色档案')) { streamCallbacks.onDone?.('The handoff is complete.', undefined, 'stop'); return 'notes' }
   characterCalls++
   streamCallbacks.onDone?.(modelFixtureResponse(JSON.stringify({ updates: [{ name: 'Lin Lan', currentState: { location: 'harbor' } }] })), undefined, 'stop')
   return 'characters'
@@ -1156,7 +1156,7 @@ it('#420 生成根被超时阻断后，重试记下额度用完的错误码，�
  let characterCalls = 0
  useLLMStore.setState({ defaultModelId: 'test-model', generateStream: vi.fn(async (messages, streamCallbacks) => {
   const system = messages.find((message: { role: string; content: string }) => message.role === 'system')?.content ?? ''
-  if (!system.includes('character records')) { streamCallbacks.onDone?.('The handoff is complete.', undefined, 'stop'); return 'notes' }
+  if (!system.includes('角色档案')) { streamCallbacks.onDone?.('The handoff is complete.', undefined, 'stop'); return 'notes' }
   characterCalls++
   streamCallbacks.onError?.('synthetic stream interrupted')
   return 'interrupted'
@@ -1176,7 +1176,7 @@ it('#420 断流后重试拿到坏 JSON 时，同一次点击里自动修正一�
  let characterCalls = 0
  useLLMStore.setState({ defaultModelId: 'test-model', generateStream: vi.fn(async (messages, streamCallbacks) => {
   const system = messages.find((message: { role: string; content: string }) => message.role === 'system')?.content ?? ''
-  if (!system.includes('character records')) { streamCallbacks.onDone?.('The handoff is complete.', undefined, 'stop'); return 'notes' }
+  if (!system.includes('角色档案')) { streamCallbacks.onDone?.('The handoff is complete.', undefined, 'stop'); return 'notes' }
   const reply = replies[characterCalls++]
   if (reply === 'interrupted') streamCallbacks.onError?.('synthetic stream interrupted')
   else streamCallbacks.onDone?.(modelFixtureResponse(reply), undefined, 'stop')
@@ -1218,7 +1218,7 @@ describe('cast refresh after the character-state step', () => {
     let interrupted = false
     useLLMStore.setState({ defaultModelId: 'test-model', generateStream: vi.fn(async (messages, streamCallbacks) => {
       const system = messages.find((message: { role: string; content: string }) => message.role === 'system')?.content ?? ''
-      if (!system.includes('character records')) streamCallbacks.onDone?.('The handoff is complete.', undefined, 'stop')
+      if (!system.includes('角色档案')) streamCallbacks.onDone?.('The handoff is complete.', undefined, 'stop')
       else if (!interrupted) { interrupted = true; streamCallbacks.onError?.('synthetic stream interrupted') }
       else streamCallbacks.onDone?.(modelFixtureResponse(harbor), undefined, 'stop')
       return 'synthetic-request'
@@ -1238,7 +1238,7 @@ describe('cast refresh after the character-state step', () => {
     let interrupted = false
     useLLMStore.setState({ defaultModelId: 'test-model', generateStream: vi.fn(async (messages, streamCallbacks) => {
       const system = messages.find((message: { role: string; content: string }) => message.role === 'system')?.content ?? ''
-      if (!system.includes('character records')) streamCallbacks.onDone?.('The handoff is complete.', undefined, 'stop')
+      if (!system.includes('角色档案')) streamCallbacks.onDone?.('The handoff is complete.', undefined, 'stop')
       else if (!interrupted) { interrupted = true; streamCallbacks.onError?.('synthetic stream interrupted') }
       else streamCallbacks.onDone?.(modelFixtureResponse(harbor), undefined, 'stop')
       return 'synthetic-request'

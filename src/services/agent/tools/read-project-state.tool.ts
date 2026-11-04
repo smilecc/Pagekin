@@ -35,14 +35,11 @@ export const readProjectStateTool = buildAgentTool({
     const { project, projectSession } = requireAgentProject(context)
     const writingLanguage = context?.writingLanguage
       ?? resolveWritingLanguage(project.novelConfig.writingLanguage)
-    const english = writingLanguage === 'en-US'
 
     const includeConfig = (args.include_config as boolean) !== false
     const includeSummary = (args.include_summary as boolean) !== false
 
-    const parts: string[] = [english
-      ? `# Project status: "${project.name}"\n`
-      : `# 📊 项目状态：《${project.name}》\n`]
+    const parts: string[] = [`# 📊 项目状态：《${project.name}》\n`]
 
     if (includeConfig) {
       // 读取小说配置
@@ -56,7 +53,7 @@ export const readProjectStateTool = buildAgentTool({
             plotStructure: core.plotStructure,
             narrativePOV: core.narrativePov,
           }, writingLanguage)
-          parts.push(`${english ? '## Novel configuration' : '## 小说配置'}\n\`\`\`json\n${JSON.stringify({
+          parts.push(`${'## 小说配置'}\n\`\`\`json\n${JSON.stringify({
             projectName: core.projectName,
             genre: localizedFacts.genre,
             subGenre: core.subGenre,
@@ -70,9 +67,7 @@ export const readProjectStateTool = buildAgentTool({
         }
       } catch {
         // Fallback
-        parts.push(english
-          ? '## Novel configuration\nFailed to load configuration.'
-          : '## 小说配置\n⚠️ 获取配置失败')
+        parts.push('## 小说配置\n⚠️ 获取配置失败')
       }
     }
 
@@ -87,9 +82,7 @@ export const readProjectStateTool = buildAgentTool({
           const sorted = bps.sort((a, b) => b.chapterNumber - a.chapterNumber)
           for (const bp of sorted) {
             if (bp.notes && bp.notes.trim()) {
-              notesParts.unshift(english
-                ? `### Chapter ${bp.chapterNumber} ${bp.title || ''}\n${bp.notes}`
-                : `### 第${bp.chapterNumber}章 ${bp.title || ''}\n${bp.notes}`)
+              notesParts.unshift(`### 第${bp.chapterNumber}章 ${bp.title || ''}\n${bp.notes}`)
               if (notesParts.length >= 5) break
             }
           }
@@ -97,11 +90,9 @@ export const readProjectStateTool = buildAgentTool({
       } catch { /* 忽略 */ }
 
       if (notesParts.length > 0) {
-        parts.push(`${english ? '## Recent chapter notes' : '## 近章要点'}\n${notesParts.join('\n\n')}`)
+        parts.push(`${'## 近章要点'}\n${notesParts.join('\n\n')}`)
       } else {
-        parts.push(english
-          ? '## Recent chapter notes\nNo chapter notes yet. Chapter notes are generated after finalization and saved to the blueprint.'
-          : '## 近章要点\n暂无章节要点。章节要点会在定稿后自动生成并写入蓝图。')
+        parts.push('## 近章要点\n暂无章节要点。章节要点会在定稿后自动生成并写入蓝图。')
       }
     }
 

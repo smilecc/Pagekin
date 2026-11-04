@@ -52,7 +52,7 @@ interface PlotThreadsProps {
 }
 
 /**
- * 伏笔线索：左列线索计划与各自的埋设、推进、解决路线；右列把定稿里的变化记进线索，以及按蓝图请 AI 建议伏笔。
+ * 伏笔线索：左列线索计划与各自的埋设、推进、解决路线；右列把定稿里的变化记进线索，以及按故事规划请 AI 建议伏笔。
  * 新建与编辑线索在对话框里完成；删除线索在每行的「更多」里，走危险确认。
  */
 export default function PlotThreads({ plot, onDelete }: PlotThreadsProps) {
@@ -99,7 +99,7 @@ export default function PlotThreads({ plot, onDelete }: PlotThreadsProps) {
         {plot.threads.length === 0 ? (
           <EmptyState
             heading={text('还没有伏笔线索', 'No threads yet')}
-            description={text('为一条伏笔定下埋设与回收的章节，写作时会提醒它；也可以让 AI 按蓝图先给出建议。', 'Set where a foreshadowing thread is planted and paid off and writing will keep it in mind. AI can also suggest some from the blueprint.')}
+            description={text('为一条伏笔定下埋设与回收的章节，写作时会提醒它；也可以让 AI 按故事规划先给出建议。', 'Set where a foreshadowing thread is planted and paid off and writing will keep it in mind. AI can also suggest some from the blueprint.')}
             action={<Button variant="secondary" onClick={() => openForm()}><Plus size={14} aria-hidden="true" />{text('新建线索', 'New thread')}</Button>}
           />
         ) : (
@@ -196,9 +196,9 @@ export default function PlotThreads({ plot, onDelete }: PlotThreadsProps) {
 
         <section className="stage-threads-card" aria-label={text('AI 建议的伏笔', 'Suggested threads')}>
           <h2 className="stage-plot-h2">{text('AI 建议的伏笔', 'Suggested threads')}</h2>
-          <p className="stage-plot-help">{text('AI 读一章蓝图，建议可以提前埋下的伏笔。建议只列在这里，由你决定是否加入计划。', 'AI reads a chapter of the blueprint and suggests threads to plant early. Suggestions stay here until you add them.')}</p>
+          <p className="stage-plot-help">{text('AI 读一章故事规划，建议可以提前埋下的伏笔。建议只列在这里，由你决定是否加入计划。', 'AI reads a chapter of the blueprint and suggests threads to plant early. Suggestions stay here until you add them.')}</p>
           <div className="stage-threads-ai">
-            <select className="pi-input" aria-label={text('蓝图章节', 'Blueprint chapter')} value={plot.aiBlueprintChapter} disabled={plot.aiBusy} onChange={event => plot.setAiBlueprintChapter(Number(event.target.value))}>
+            <select className="pi-input" aria-label={text('故事规划章节', 'Blueprint chapter')} value={plot.aiBlueprintChapter} disabled={plot.aiBusy} onChange={event => plot.setAiBlueprintChapter(Number(event.target.value))}>
               {plot.blueprints.map(blueprint => <option key={blueprint.chapterNumber} value={blueprint.chapterNumber}>{text(`第 ${blueprint.chapterNumber} 章 · ${blueprint.title}`, `Chapter ${blueprint.chapterNumber} · ${blueprint.title}`)}</option>)}
             </select>
             <select className="pi-input" aria-label={text('本次识别用的模型', 'Model for this analysis')} value={plot.selectedModelId ?? ''} disabled={plot.aiBusy || plot.generationModels.length === 0} onChange={event => plot.setAiModelId(event.target.value || null)}>
@@ -206,7 +206,7 @@ export default function PlotThreads({ plot, onDelete }: PlotThreadsProps) {
               {plot.generationModels.map(model => <option key={model.id} value={model.id}>{model.name || model.modelName}</option>)}
             </select>
             <Button variant="secondary" disabled={generating || plot.blueprints.length === 0 || !plot.aiBlueprintChapter || Boolean(plot.modelSelectionError)} onClick={suggestPlans}>
-              <Sparkles size={14} aria-hidden="true" />{plot.aiBusy && plot.aiMode === 'plan' ? text('建议中…', 'Suggesting…') : text('根据蓝图建议伏笔', 'Suggest from the blueprint')}
+              <Sparkles size={14} aria-hidden="true" />{plot.aiBusy && plot.aiMode === 'plan' ? text('建议中…', 'Suggesting…') : text('根据故事规划建议伏笔', 'Suggest from the blueprint')}
             </Button>
           </div>
           {plot.modelSelectionError && <p role="alert" className="stage-plot-error">{plot.modelSelectionError}</p>}

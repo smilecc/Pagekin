@@ -22,9 +22,7 @@ export function appendRequiredPromptContext(
       return [`${getPromptVariableDescription(builtinTemplate, key, writingLanguage)}:\n${value}`]
     })
   if (requiredContext.length === 0) return content
-  const heading = writingLanguage === 'en-US'
-    ? '[Authoritative project context omitted by the custom template — must still be followed]'
-    : '【自定义模板未引用但仍必须遵循的权威项目设定】'
+  const heading = '【自定义模板未引用但仍必须遵循的权威项目设定】'
   return `${content}\n\n${heading}\n${requiredContext.join('\n\n')}`
 }
 
@@ -37,13 +35,12 @@ function fillVariables(text: string, variables: Record<string, string>): string 
 export function renderPromptTaskGuidance(
   template: Pick<PromptTemplate, 'taskGuidance'>,
   variables: Record<string, string>,
-  writingLanguage: WritingLanguage,
+  _writingLanguage: WritingLanguage,
 ): string {
+  void _writingLanguage;
   if (!template.taskGuidance?.trim()) return ''
   const guidance = fillVariables(template.taskGuidance, variables)
-  const heading = writingLanguage === 'en-US'
-    ? '[User-defined creative guidance]'
-    : '【用户自定义创作指导】'
+  const heading = '【用户自定义创作指导】'
   return `${heading}\n${guidance.trim()}`
 }
 

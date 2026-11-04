@@ -51,19 +51,13 @@ describe('chapter materials', () => {
     expect(bundle.decision.omitted).not.toContainEqual(expect.objectContaining({ sourceId: 'reference:0', reason: 'deduplicated-against-finalized' }))
   })
   it.each([
-    {
+{
       writingLanguage: 'zh-CN' as const,
       expectedBoundary: '后续计划边界（只约束当前章，不是当前章任务）',
       expectedTiming: '明确安排在后续章节的知情变化、物品转交、行动和完成状态不得前移',
       expectedForeshadowing: '允许不改变这些时点的铺垫',
-    },
-    {
-      writingLanguage: 'en-US' as const,
-      expectedBoundary: 'Future-plan boundary (constrains the current chapter; not a current-chapter task)',
-      expectedTiming: 'Knowledge changes, item transfers, actions, and completed states explicitly assigned to later chapters must not be moved earlier',
-      expectedForeshadowing: 'foreshadowing that does not change those timings is allowed',
-    },
-  ])('keeps $writingLanguage future plans verbatim while making their timing role explicit', async ({
+    }
+])('keeps $writingLanguage future plans verbatim while making their timing role explicit', async ({
     writingLanguage,
     expectedBoundary,
     expectedTiming,
@@ -370,7 +364,7 @@ describe('chapter materials', () => {
     }
 
     it.each([
-      {
+{
         name: 'no evidence window (zh-CN)',
         writingLanguage: 'zh-CN' as const,
         content: ['开场交代。', '中段。'.repeat(150), `收束。${endingSentinel}`].join('\n\n'),
@@ -380,7 +374,7 @@ describe('chapter materials', () => {
         filler: '参',
         sentinel: endingSentinel,
       },
-      {
+{
         name: 'evidence located inside the ending (zh-CN)',
         writingLanguage: 'zh-CN' as const,
         content: ['铺垫。'.repeat(700), '走廊很长。'.repeat(30), `${evidenceLine}门锁响了。`, endingSentinel].join('\n\n'),
@@ -389,18 +383,8 @@ describe('chapter materials', () => {
         term: '参考词',
         filler: '参',
         sentinel: endingSentinel,
-      },
-      {
-        name: 'no evidence window (en-US)',
-        writingLanguage: 'en-US' as const,
-        content: ['Opening scene.', Array(30).fill('Middle passage.').join(' '), 'Closing line. PREVIOUS_ENDING_SENTINEL.'].join('\n\n'),
-        evidence: [] as string[],
-        header: '[Finalized manuscript · Chapter 1 · draft 11]',
-        term: 'refword',
-        filler: 'x',
-        sentinel: 'PREVIOUS_ENDING_SENTINEL.',
-      },
-    ])('keeps the full predecessor ahead of competing optional material: $name', async scenario => {
+      }
+])('keeps the full predecessor ahead of competing optional material: $name', async scenario => {
       const source = previousFinalized(scenario.content, { evidence: scenario.evidence, includeEnding: true })
       const base = {
         writingLanguage: scenario.writingLanguage, authorProjectFacts: [], characterProfiles: '', futurePlans: '（无）',

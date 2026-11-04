@@ -78,7 +78,7 @@ export async function resolveDirectoryContinuation(params: DirectoryWorkflowPara
   if (!pacing || !config) {
     throw new Error(localize(
       uiLocale,
-      '旧目录进度缺少冻结作者输入，不能自动继续；已保存蓝图保持不变。',
+      '旧目录进度缺少冻结作者输入，不能自动继续；已保存故事规划保持不变。',
       'This older blueprint progress has no frozen author input, so it cannot continue automatically. The saved blueprints are unchanged.',
     ))
   }
@@ -97,11 +97,12 @@ export interface DirectoryWorkflowProjectSnapshot {
     wordsPerChapter?: number
     globalGuidance?: string
     genre?: string
+    coreOutline?: string
   }>
 }
 
 // ==========================================
-// 2. 蓝图文件访问与工具函数
+// 2. 故事规划文件访问与工具函数
 // ==========================================
 
 function extractJsonPayload(content: string): string | null {
@@ -120,7 +121,8 @@ function extractJsonPayload(content: string): string | null {
 
 function persistedBlueprint(item: BlueprintSemanticItem): ChapterBlueprint {
   return {
-    ...item,
+    chapterNumber: item.chapterNumber, title: item.title, keyEvents: item.keyEvents,
+    role: '', purpose: '', characters: [...item.characters], suspenseHook: '',
     userGuidance: '',
     notes: '',
     notesUpdatedAt: '',
@@ -168,7 +170,7 @@ export function parseTextBlueprintsStrict(
   source: 'model' | 'author' = 'model',
 ): ChapterBlueprint[] {
   try {
-    if (source === 'author') return parseBlueprintAuthorResponseText(content, chapterRange(startNum, endNum))
+    if (source === 'author') return parseBlueprintAuthorResponseText(content, chapterRange(startNum, endNum)).map(persistedBlueprint)
     return parseBlueprintSemanticResponseText(
       stripThinkingTags(content),
       chapterRange(startNum, endNum),
@@ -176,7 +178,7 @@ export function parseTextBlueprintsStrict(
   } catch (error) {
     if (structuredContractDiagnostic(error)) throw error
     const detail = displayedErrorMessage(uiLocale, error)
-    throw new Error(localize(uiLocale, `蓝图 JSON 解析失败：${detail}`, `Could not parse the blueprint JSON: ${detail}`))
+    throw new Error(localize(uiLocale, `故事规划 JSON 解析失败：${detail}`, `Could not parse the blueprint JSON: ${detail}`))
   }
 }
 
@@ -196,7 +198,7 @@ export async function saveChapterBlueprint(
 ): Promise<void> {
   const result = await ipc.invokeWithProjectSession(projectSession, 'db:blueprint-upsert', blueprint, expectedProjectPath)
   if (!result.success) {
-    throw workflowMainProcessError({ uiLocale }, result.error, '保存章节蓝图失败', 'Could not save the chapter blueprint.')
+    throw workflowMainProcessError({ uiLocale }, result.error, '保存故事规划失败', 'Could not save the chapter blueprint.')
   }
 }
 
@@ -208,7 +210,7 @@ export async function saveAllBlueprints(
 ): Promise<void> {
   const result = await ipc.invokeWithProjectSession(projectSession, 'db:blueprint-upsert-many', blueprints, expectedProjectPath)
   if (!result.success) {
-    throw workflowMainProcessError({ uiLocale }, result.error, '保存章节蓝图失败', 'Could not save the chapter blueprints.')
+    throw workflowMainProcessError({ uiLocale }, result.error, '保存故事规划失败', 'Could not save the chapter blueprints.')
   }
 }
 
@@ -236,7 +238,7 @@ export async function commitDirectoryBlueprintRange(
     expectedProjectPath,
   )
   if (!result.success || !result.receipt) {
-    throw workflowMainProcessError({ uiLocale }, result.error, '提交章节蓝图失败', 'Could not commit the chapter blueprints.')
+    throw workflowMainProcessError({ uiLocale }, result.error, '提交故事规划失败', 'Could not commit the chapter blueprints.')
   }
   globalEventBus.emit('REFRESH_RESOURCE', {
     resources: ['blueprints'],
@@ -278,7 +280,7 @@ export function createDirectoryWorkflow(
     || !sameProjectSessionContext(sourceProjectSession, currentProjectSession)
   ) {
     throw new Error(text(
-      '项目已切换，无法启动章节蓝图生成',
+      '项目已切换，无法启动故事规划生成',
       'The project changed, so chapter-blueprint generation could not start.',
     ))
   }
@@ -290,6 +292,7 @@ export function createDirectoryWorkflow(
       wordsPerChapter: projectAtStart.novelConfig.wordsPerChapter,
       globalGuidance: projectAtStart.novelConfig.globalGuidance,
       genre: projectAtStart.novelConfig.genre,
+      coreOutline: projectAtStart.novelConfig.coreOutline,
     },
   }
 
@@ -298,10 +301,10 @@ export function createDirectoryWorkflow(
     uiLocale: frozenUiLocale,
     title: params.mode === 'append'
       ? text(
-        `续写章节蓝图${params.startChapter ? `（从第 ${params.startChapter} 章）` : ''}`,
+        `续写故事规划${params.startChapter ? `（从第 ${params.startChapter} 章）` : ''}`,
         `Continue chapter blueprints${params.startChapter ? ` (from chapter ${params.startChapter})` : ''}`,
       )
-      : text('生成章节蓝图（全量）', 'Generate chapter blueprints (all)'),
+      : text('生成故事规划（全量）', 'Generate chapter blueprints (all)'),
     projectPath: expectedProjectPath,
     projectSession,
     resourceKeys: [
@@ -330,10 +333,9 @@ export function createDirectoryWorkflow(
           ))
 
           const parts: string[] = []
-          if (core.premise && core.premise.length > 50) parts.push(core.premise)
+          if (projectSnapshot.novelConfig.coreOutline?.trim()) parts.push(projectSnapshot.novelConfig.coreOutline)
           if (core.charactersArch && core.charactersArch.length > 50) parts.push(core.charactersArch)
           if (core.worldbuilding && core.worldbuilding.length > 50) parts.push(core.worldbuilding)
-          if (core.synopsis && core.synopsis.length > 50) parts.push(core.synopsis)
 
           if (parts.length === 0) throw new Error(text(
             '项目主要架构均未生成',
@@ -347,7 +349,7 @@ export function createDirectoryWorkflow(
             const existing = await loadDirectoryBlueprints(expectedProjectPath, projectSession)
             context.data.existingBlueprints = existing
             callbacks.log(text(
-              `已加载 ${existing.length} 章已有蓝图`,
+              `已加载 ${existing.length} 章已有故事规划`,
               `Loaded ${existing.length} existing chapter blueprint${existing.length === 1 ? '' : 's'}`,
             ))
           }
@@ -358,9 +360,9 @@ export function createDirectoryWorkflow(
         },
       },
       {
-        name: text('生成蓝图', 'Generate blueprints'),
+        name: text('生成故事规划', 'Generate blueprints'),
         description: text(
-          '基于架构文件生成、完整验证并原子提交章节蓝图',
+          '基于架构文件生成、完整验证并原子提交故事规划',
           'Generate, fully validate, and atomically commit chapter blueprints from the architecture',
         ),
         executor: async (_step, context, callbacks) => {
@@ -376,13 +378,13 @@ export function createDirectoryWorkflow(
             if (error instanceof PromptBudgetExceededError || error instanceof directoryCommand.DirectoryPartialCommitError) throw error
             if (error instanceof directoryCommand.DirectoryPostCommitSyncError) {
               throw new Error(text(
-                '章节蓝图已保存，但角色同步失败。请重试角色同步。',
+                '故事规划已保存，但角色同步失败。请重试角色同步。',
                 'Chapter blueprints were saved, but character synchronization failed. Retry character synchronization.',
               ))
             }
             if (error instanceof directoryCommand.DirectoryPostCommitCancellationError) {
               throw new Error(text(
-                '章节蓝图已保存，但任务取消后角色同步可能未完成。',
+                '故事规划已保存，但任务取消后角色同步可能未完成。',
                 'Chapter blueprints were saved, but character synchronization may be incomplete because the workflow was cancelled.',
               ))
             }
@@ -397,13 +399,13 @@ export function createDirectoryWorkflow(
             }
             if (error instanceof TerminalProviderFailureError) throw error
             throw new Error(text(
-              '章节蓝图生成失败，请重试。',
+              '故事规划生成失败，请重试。',
               'Chapter-blueprint generation failed. Please try again.',
             ))
           }
           // 返回可读摘要字符串（step.result 必须是 string，否则 AIOutputPanel 渲染会崩溃）
           return text(
-            `已生成 ${blueprints.length} 章蓝图`,
+            `已生成 ${blueprints.length} 章故事规划`,
             `Generated ${blueprints.length} chapter blueprint${blueprints.length === 1 ? '' : 's'}`,
           )
         },
@@ -412,8 +414,8 @@ export function createDirectoryWorkflow(
     onComplete: {
       mode: 'silent',
       message: params.mode === 'append'
-        ? text('续写蓝图生成完成', 'Chapter blueprint continuation completed')
-        : text('本次章节蓝图已生成完成。', 'The requested chapter blueprints have been generated.'),
+        ? text('续写故事规划生成完成', 'Chapter blueprint continuation completed')
+        : text('本次故事规划已生成完成。', 'The requested chapter blueprints have been generated.'),
     },
   }
 }

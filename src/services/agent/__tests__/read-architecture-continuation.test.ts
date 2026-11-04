@@ -11,7 +11,7 @@ const project = { id: session.projectId, sessionLease: session.leaseId, path: se
 const LIMIT = 3000
 const TRUNCATION_NOTE = /\n\n…（内容已截断[\s\S]*$/u
 
-type Core = { premise: string; worldbuilding: string; charactersArch: string; synopsis: string }
+type Core = { worldbuilding: string; charactersArch: string }
 let fixture: AgentHostFixture
 let core: Core
 let doneText = ''
@@ -57,7 +57,7 @@ function joinSegments(observations: readonly string[]): string {
 
 describe('read_architecture 超过工具结果上限时可以续读（#557）', () => {
   beforeEach(() => {
-    core = { premise: '', worldbuilding: '', charactersArch: '', synopsis: '' }
+    core = { worldbuilding: '', charactersArch: '' }
     useProjectStore.setState({ currentProject: structuredClone(project) as never })
     fixture = new AgentHostFixture(session).install()
     const hostInvoke = fixture.invoke.getMockImplementation()!
@@ -71,21 +71,21 @@ describe('read_architecture 超过工具结果上限时可以续读（#557）', 
     useProjectStore.setState({ currentProject: null })
   })
 
-  it('7000 字剧情大纲按截断提示连续读三次，拼起来与存储内容逐字相等', async () => {
-    core.synopsis = longText(7000, '主角在雨夜离开故乡')
-    followContinuation({ file_name: '剧情大纲' })
+  it('7000 字世界观按截断提示连续读三次，拼起来与存储内容逐字相等', async () => {
+    core.worldbuilding = longText(7000, '主角在雨夜离开故乡')
+    followContinuation({ file_name: '世界观' })
 
     const observations = await runHosted()
 
     expect(observations).toHaveLength(3)
     expect(observations.slice(0, -1).every(observation => /offset=\d+/u.test(observation))).toBe(true)
     const joined = joinSegments(observations)
-    expect(joined).toBe(`📐 架构文件：剧情大纲\n\n${core.synopsis}`)
-    expect(joined.slice(joined.indexOf('\n\n') + 2)).toBe(core.synopsis)
+    expect(joined).toBe(`📐 架构文件：世界观\n\n${core.worldbuilding}`)
+    expect(joined.slice(joined.indexOf('\n\n') + 2)).toBe(core.worldbuilding)
   })
 
-  it('不传 file_name 读四段、合计超过上限时，同样能逐段读完全部架构', async () => {
-    core = { premise: longText(1200, '前提'), worldbuilding: longText(1500, '世界'), charactersArch: longText(1400, '角色'), synopsis: longText(1800, '大纲') }
+  it('不传 file_name 读两个文件、合计超过上限时，同样能逐段读完全部架构', async () => {
+    core = { worldbuilding: longText(2200, '世界'), charactersArch: longText(2200, '角色') }
     followContinuation({})
 
     const observations = await runHosted()
@@ -94,48 +94,46 @@ describe('read_architecture 超过工具结果上限时可以续读（#557）', 
     const joined = joinSegments(observations)
     for (const section of Object.values(core)) expect(joined).toContain(section)
     expect(joined).toBe([
-      '📐 故事架构（4 个文件）\n\n',
-      `## 📄 premise.md\n\n${core.premise}`,
-      `\n\n---\n\n## 📄 worldbuilding.md\n\n${core.worldbuilding}`,
+      '📐 故事架构（2 个文件）\n\n',
+      `## 📄 worldbuilding.md\n\n${core.worldbuilding}`,
       `\n\n---\n\n## 📄 characters.md\n\n${core.charactersArch}`,
-      `\n\n---\n\n## 📄 synopsis.md\n\n${core.synopsis}`,
     ].join(''))
   })
 
   it('不超过上限的读取，结果与原来逐字相同，也不带续读提示', async () => {
-    core.synopsis = longText(800, '短大纲')
-    followContinuation({ file_name: '剧情大纲' })
+    core.worldbuilding = longText(800, '短大纲')
+    followContinuation({ file_name: '世界观' })
 
     const observations = await runHosted()
 
-    expect(observations).toEqual([`📐 架构文件：剧情大纲\n\n${core.synopsis}`])
+    expect(observations).toEqual([`📐 架构文件：世界观\n\n${core.worldbuilding}`])
   })
 
   it('截断点落在代理对中间时不切开字符，每段都是合法文本且拼回原文', async () => {
-    const header = '📐 架构文件：剧情大纲\n\n'
-    core.synopsis = `${longText(LIMIT - header.length - 1, '甲')}𠀀${longText(500, '乙')}`
-    followContinuation({ file_name: '剧情大纲' })
+    const header = '📐 架构文件：世界观\n\n'
+    core.worldbuilding = `${longText(LIMIT - header.length - 1, '甲')}𠀀${longText(500, '乙')}`
+    followContinuation({ file_name: '世界观' })
 
     const observations = await runHosted()
 
     const loneSurrogate = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/
     expect(observations.filter(observation => loneSurrogate.test(observation))).toEqual([])
-    expect(joinSegments(observations)).toBe(`${header}${core.synopsis}`)
+    expect(joinSegments(observations)).toBe(`${header}${core.worldbuilding}`)
   })
 
   it('offset 超出内容长度时返回说明而不抛错', async () => {
-    core.synopsis = longText(7000, '大纲')
-    const result = await readArchitectureTool.execute({ file_name: '剧情大纲', offset: 999_999 },
+    core.worldbuilding = longText(7000, '大纲')
+    const result = await readArchitectureTool.execute({ file_name: '世界观', offset: 999_999 },
       { projectSession: session, selectedModelId: null, writingLanguage: 'zh-CN', uiLocale: 'zh-CN' })
 
     expect(result.success).toBe(true)
-    expect(result.content).not.toContain(core.synopsis.slice(0, 20))
-    expect(result.content).toContain(String('📐 架构文件：剧情大纲\n\n'.length + 7000))
+    expect(result.content).not.toContain(core.worldbuilding.slice(0, 20))
+    expect(result.content).toContain(String('📐 架构文件：世界观\n\n'.length + 7000))
   })
 
   it.each([-1, 1.5, 'abc', '3000', true, null, []])('offset=%s 不是非负整数时报错而不是静默从头读', async offset => {
-    core.synopsis = longText(7000, '大纲')
-    const result = await readArchitectureTool.execute({ file_name: '剧情大纲', offset },
+    core.worldbuilding = longText(7000, '大纲')
+    const result = await readArchitectureTool.execute({ file_name: '世界观', offset },
       { projectSession: session, selectedModelId: null, writingLanguage: 'zh-CN', uiLocale: 'zh-CN' })
 
     expect(result.success).toBe(false)
@@ -143,8 +141,8 @@ describe('read_architecture 超过工具结果上限时可以续读（#557）', 
   })
 
   it('内容长到工具轮次不够读完时，最后一段提示改为根据已读内容回答，助手仍有一轮回复作者', async () => {
-    core.synopsis = longText(40_000, '超长大纲')
-    followContinuation({ file_name: '剧情大纲' })
+    core.worldbuilding = longText(40_000, '超长大纲')
+    followContinuation({ file_name: '世界观' })
 
     const observations = await runHosted()
 
@@ -161,8 +159,8 @@ describe('read_architecture 超过工具结果上限时可以续读（#557）', 
       const last = messages.at(-1)!
       if (last.role === 'user' && last.content.includes('<tool_result')) observations.push(last.content)
       const next = CONTINUE.exec(observations.at(-1) ?? '')
-      if (generate.mock.calls.length === 1) return toolCall({ file_name: '剧情大纲' })
-      return next ? toolCall({ file_name: '剧情大纲', offset: Number(next[1]) }) : '已读完。'
+      if (generate.mock.calls.length === 1) return toolCall({ file_name: '世界观' })
+      return next ? toolCall({ file_name: '世界观', offset: Number(next[1]) }) : '已读完。'
     })
     const ui = { onTextChunk: vi.fn(), onToolCallStart: vi.fn(), onToolCallComplete: vi.fn(), onDone: vi.fn(), onError: vi.fn(),
       onToolCallConfirmRequired: vi.fn(async () => true) }
@@ -175,16 +173,16 @@ describe('read_architecture 超过工具结果上限时可以续读（#557）', 
   }
 
   it('旧版（非宿主）循环也给出同样有效的续读提示', async () => {
-    core.synopsis = longText(7000, '大纲')
+    core.worldbuilding = longText(7000, '大纲')
 
     const { segments } = await runLegacy()
 
     expect(segments).toHaveLength(3)
-    expect(joinSegments(segments)).toBe(`📐 架构文件：剧情大纲\n\n${core.synopsis}`)
+    expect(joinSegments(segments)).toBe(`📐 架构文件：世界观\n\n${core.worldbuilding}`)
   })
 
   it('旧版循环在轮次不够读完时同样留一轮回复作者', async () => {
-    core.synopsis = longText(40_000, '超长大纲')
+    core.worldbuilding = longText(40_000, '超长大纲')
 
     const legacy = await runLegacy()
 

@@ -659,9 +659,9 @@ export interface NovelConfig {
   plotStructure: 'three_act' | 'heros_journey' | 'save_the_cat' | 'kishotenketsu' | 'multi_thread' | 'freeform'
   narrativePOV: 'third_limited' | 'first_person' | 'third_omniscient' | 'multi_pov'
   coreOutline: string
-  worldSetting: string
-  goldenFinger: string
-  protagonistProfile: string
+
+
+
   globalGuidance: string
   writingStyle?: string
   referenceWorks?: string

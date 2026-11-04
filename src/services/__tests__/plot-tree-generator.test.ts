@@ -82,7 +82,7 @@ function sources(): PlotTreeSourceBundle {
     }],
   }
   return {
-    writingLanguage: 'en-US',
+    writingLanguage: 'zh-CN',
     synopsis: {
       content: 'A clerk investigates a ledger that vanished from a sealed safe.',
     },
@@ -218,7 +218,7 @@ describe('plot tree AI boundary', () => {
     )).toMatchObject({
       version: 1,
       generatedAt: '2026-09-02T03:04:05.000Z',
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
       sourceRevision: '0'.repeat(64),
       tracks: modelResponse.tracks,
     })
@@ -293,7 +293,7 @@ describe('plot tree AI boundary', () => {
     }), sources())).toThrow(/支线|父轨道/u)
   })
 
-  it('freezes the selected model into one bilingual structured generation call', async () => {
+  it('freezes the selected model into one structured generation call', async () => {
     let task: GenerationTask | undefined
     const runtime = {
       execute: vi.fn(async operation => operation({
@@ -339,7 +339,7 @@ describe('plot tree AI boundary', () => {
       reasoningStage: 'planning',
       output: 'structured-data',
     })
-    expect(task?.messages[0]?.content).not.toMatch(/[\u3400-\u9fff]/u)
+    expect(task?.messages[0]?.content).toContain('小说剧情结构编辑')
     expect(result.generatedAt).toBe('2026-09-02T03:04:05.000Z')
     expect(result.tracks).toEqual(modelResponse.tracks)
     expect(runtime.close).toHaveBeenCalledOnce()
@@ -740,10 +740,10 @@ describe('plot tree AI boundary', () => {
   })
 
   it.each([
-    ['length', 'maximum output length'],
-    ['content_filter', 'content policy'],
-    ['cancelled', 'cancelled'],
-    ['error', 'did not complete'],
+    ['length', '模型最大长度'],
+    ['content_filter', '内容限制'],
+    ['cancelled', '已取消'],
+    ['error', '未正常完成'],
   ] as const)('preserves the %s terminal reason in the user-visible failure', async (finishReason, message) => {
     const runtime = {
       execute: vi.fn(async operation => operation({

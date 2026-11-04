@@ -119,6 +119,39 @@ describe('novel import external-file capability', () => {
     expect(inspections.activeCount()).toBe(1)
   })
 
+  it.each([
+    ['（三）', '（四）', '（三）', '（四）'],
+    ['(3)', '(4)', '(3)', '(4)'],
+    ['（三） 重逢', '(4): 离别', '重逢', '离别'],
+    ['## （三） 重逢', '# (4) 离别', '重逢', '离别'],
+  ])('splits parenthesized headings %s and %s', async (first, second, firstTitle, secondTitle) => {
+    const selected = path.join(temporaryRoot, 'parenthesized.txt')
+    fs.writeFileSync(selected, `  ${first}\r\n第一段正文\r\n${second}\r\n第二段正文`, 'utf8')
+    mocks.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [selected] })
+
+    const result = await handler('dialog:select-novel-files')(event())
+    expect(result).toMatchObject({
+      success: true,
+      inspection: {
+        chapterCount: 2,
+        totalWords: countDraftUnits('第一段正文') + countDraftUnits('第二段正文'),
+        preview: [{ title: firstTitle }, { title: secondTitle }],
+      },
+    })
+  })
+
+  it('keeps inline, non-numeric, and mismatched parentheses in the chapter body', async () => {
+    const selected = path.join(temporaryRoot, 'parenthesized-body.txt')
+    const body = '正文里的（三）不是标题\n（回忆）\n（三)\n（三）他继续往前走。'
+    fs.writeFileSync(selected, `第1章 开始\n${body}`, 'utf8')
+    mocks.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [selected] })
+
+    expect(await handler('dialog:select-novel-files')(event())).toMatchObject({
+      success: true,
+      inspection: { chapterCount: 1, totalWords: countDraftUnits(body), preview: [{ title: '开始' }] },
+    })
+  })
+
   it('reads EPUB bytes and splits multiple chapter headings inside one spine document', async () => {
     const selected = path.join(temporaryRoot, '长篇参考.epub')
     const archive = storedZip({

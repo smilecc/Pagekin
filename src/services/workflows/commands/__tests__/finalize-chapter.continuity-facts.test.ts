@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import { EN_US_BUILTIN_PROMPTS } from '../../../prompt-language'
 import { BUILTIN_PROMPTS } from '../../../prompt-templates'
 import { buildFinalizedContinuityFacts } from '../finalize-chapter.command'
 
@@ -103,17 +102,12 @@ describe('buildFinalizedContinuityFacts', () => {
 
   it('asks chapter notes to preserve only explicit continuity context without filling every field', () => {
     const zh = BUILTIN_PROMPTS.find(template => template.key === 'generate_chapter_notes')
-    const en = EN_US_BUILTIN_PROMPTS.generate_chapter_notes
 
     expect(zh?.content).toContain('若正文明确写出其原因、发生地点、知情者或获知来源')
     expect(zh?.content).toContain('不要求每条凑齐这些要素')
     expect(zh?.content).toContain('正文未明确的信息不得补全或推测')
     expect(zh?.content).not.toContain('每项不超过 30 字')
-    expect(en.content).toContain('an explicitly stated cause, location, witness, or source of knowledge')
-    expect(en.content).toContain('Do not infer missing details or require every note to contain all of these elements')
     expect(zh?.content).toContain('在角色动态或伏笔与钩子中保留相关角色的最后更正及当前条件')
     expect(zh?.content).toContain('不得用更显著的旧事件替代当前安排，也不得把计划写成已执行')
-    expect(en.content).toContain('preserve the affected character\'s last correction and current conditions in Character Dynamics or Foreshadowing and Hooks')
-    expect(en.content).toContain('Do not substitute a more prominent earlier event for the current plan or describe a plan as executed')
   })
 })

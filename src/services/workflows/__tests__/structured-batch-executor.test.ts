@@ -765,7 +765,7 @@ describe('StructuredBatchExecutor seam', () => {
     expect(complete).toHaveBeenCalledTimes(2)
   })
 
-  it('sends the syntax-repair instruction in the frozen project writing language without changing UTF-8 evidence', async () => {
+  it('sends the syntax-repair instruction for the current writing language without changing UTF-8 evidence', async () => {
     const malformedCandidate = '{"blueprints":[{"chapterNumber":1,"title":"café 航站楼"}'
     const complete = vi.fn<GenerationSession['complete']>(async (task) => {
       if (task.purpose === 'chapter-blueprints') {
@@ -779,9 +779,8 @@ describe('StructuredBatchExecutor seam', () => {
 
       const systemMessage = task.messages.find(message => message.role === 'system')?.content ?? ''
       const userMessage = task.messages.find(message => message.role === 'user')?.content ?? ''
-      expect(systemMessage).toContain('You repair JSON syntax')
-      expect(systemMessage).not.toContain('你是结构化 JSON 语法修复器')
-      expect(userMessage).toContain('Return the complete replacement JSON')
+      expect(systemMessage).toContain('你是结构化 JSON 语法修复器')
+      expect(userMessage).toContain('返回完整替代 JSON')
       expect(userMessage).toContain(malformedCandidate)
       return {
         status: 'completed',
@@ -793,7 +792,7 @@ describe('StructuredBatchExecutor seam', () => {
     const executor = createStructuredBatchExecutor({
       contract: blueprintContract,
       session: { complete },
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
     })
 
     const result = await executor.execute({

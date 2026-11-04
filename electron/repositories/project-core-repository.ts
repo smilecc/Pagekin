@@ -59,10 +59,10 @@ export interface ProjectCoreData {
     writingStyle: string
     referenceWorks: string
     globalGuidance: string
-    goldenFinger: string
+
     coreOutline: string
-    worldSetting: string
-    protagonistProfile: string
+
+
     premise: string
     worldbuilding: string
     charactersArch: string
@@ -114,10 +114,10 @@ function rowToData(row: ProjectCoreRow): ProjectCoreData {
         writingStyle: row.writing_style,
         referenceWorks: row.reference_works,
         globalGuidance: row.global_guidance,
-        goldenFinger: row.golden_finger,
+
         coreOutline: row.core_outline,
-        worldSetting: row.world_setting,
-        protagonistProfile: row.protagonist_profile,
+
+
         premise: row.premise,
         worldbuilding: row.worldbuilding,
         charactersArch: row.characters_arch,
@@ -175,10 +175,10 @@ export class ProjectCoreRepository {
             writingStyle: 'writing_style',
             referenceWorks: 'reference_works',
             globalGuidance: 'global_guidance',
-            goldenFinger: 'golden_finger',
+
             coreOutline: 'core_outline',
-            worldSetting: 'world_setting',
-            protagonistProfile: 'protagonist_profile',
+
+
             premise: 'premise',
             worldbuilding: 'worldbuilding',
             synopsis: 'synopsis',
@@ -250,10 +250,10 @@ export class ProjectCoreRepository {
             writingStyle: '',
             referenceWorks: '',
             globalGuidance: '',
-            goldenFinger: '',
+
             coreOutline: '',
-            worldSetting: '',
-            protagonistProfile: '',
+
+
             premise: '',
             worldbuilding: '',
             synopsis: '',

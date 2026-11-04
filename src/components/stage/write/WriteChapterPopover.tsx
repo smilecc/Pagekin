@@ -25,17 +25,17 @@ import WritePreflight from './WritePreflight'
 
 interface WriteChapterPopoverProps {
   chapterNumber: number
-  /** 这一章的蓝图，按旧蓝图页「写作此章」的同一组字段（出场人物以顿号连接）。 */
+  /** 这一章的故事规划，按旧故事规划页「写作此章」的同一组字段（出场人物以顿号连接）。 */
   blueprint: ChapterWritePrefill
-  /** 主按钮文字：蓝图页是「写第 N 章」，单章视图是「写作此章」。 */
+  /** 主按钮文字：故事规划页是「写第 N 章」，单章视图是「写作此章」。 */
   label: string
-  /** 弹层与按钮哪边对齐：蓝图页按钮在右侧，弹层向左展开（end）；单章视图按钮在左侧，向右展开（start）。 */
+  /** 弹层与按钮哪边对齐：故事规划页按钮在右侧，弹层向左展开（end）；单章视图按钮在左侧，向右展开（start）。 */
   align?: 'start' | 'end'
 }
 
 /**
- * 写作此章：拆分主按钮加一个小弹层。主按钮直接按蓝图开始写；箭头打开弹层，只能改本次模型、作者微操指导和收在「更多」里的检索关键词。
- * 其余参数都取自蓝图，经 launchChapterWrite 启动。一致性预检有提醒、或前置条件不满足时，弹层自己打开说明原因。
+ * 写作此章：拆分主按钮加一个小弹层。主按钮直接按故事规划开始写；箭头打开弹层，只能改本次模型、作者微操指导和收在「更多」里的检索关键词。
+ * 其余参数都取自故事规划，经 launchChapterWrite 启动。一致性预检有提醒、或前置条件不满足时，弹层自己打开说明原因。
  */
 export default function WriteChapterPopover({ chapterNumber, blueprint, label, align = 'end' }: WriteChapterPopoverProps) {
   const text = useLocaleStore(s => s.text)
@@ -80,7 +80,7 @@ export default function WriteChapterPopover({ chapterNumber, blueprint, label, a
     }).catch(() => undefined)
   }, [open])
 
-  /** expected 是发起时的那次打开：保存安排后接着开写时，作品已换就不写，蓝图与章号属于原来那部。 */
+  /** expected 是发起时的那次打开：保存安排后接着开写时，作品已换就不写，故事规划与章号属于原来那部。 */
   const start = async (ignoreFindingsOnce: boolean, expected?: ProjectSessionContext) => {
     const project = useProjectStore.getState().currentProject
     const session = captureProjectSession(project)
@@ -102,7 +102,7 @@ export default function WriteChapterPopover({ chapterNumber, blueprint, label, a
         case 'stale':
           return
         case 'started':
-          // 这些选项只用于本次写作；写完后再打开弹层，回到蓝图里的指导与写稿环节的模型。
+          // 这些选项只用于本次写作；写完后再打开弹层，回到故事规划里的指导与写稿环节的模型。
           setModelId(null)
           setGuidance(null)
           setKnowledgeHint('')

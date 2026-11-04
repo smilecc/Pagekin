@@ -5,10 +5,8 @@ export type ModelStage = typeof MODEL_STAGES[number]
 
 export const MODEL_STAGE_BY_OPERATION = {
   'generate-global-config': 'planning',
-  'generate-core-seed': 'planning',
   'character-architecture': 'planning',
   'generate-world-building': 'planning',
-  'generate-plot-outline': 'planning',
   'chapter-blueprint-directory': 'planning',
   'generate-field': 'planning',
   'planning-material-character-extraction': 'planning',

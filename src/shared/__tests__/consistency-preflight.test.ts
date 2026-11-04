@@ -8,7 +8,7 @@ it('本章候选名单超过八人时仍识别后续事实中的角色', () => {
   const facts = buildFinalizedContinuityFacts(1, '顾舟已经死亡。', '顾舟已经死亡。', names)
   expect(facts[0]?.entities).toEqual(['顾舟'])
   expect(findBlueprintContinuityRisks([{ draftId: 1, chapterNumber: 1, chapterTitle: '', chapterNotes: '', sourceStatus: 'current', facts }], {
-    chapterNumber: 2, title: '归来', role: '', purpose: '', keyEvents: '顾舟出现', characters: ['顾舟'], suspenseHook: '', userGuidance: '', notes: '',
+    chapterNumber: 2, title: '归来',   keyEvents: '顾舟出现',
   }, [])).toHaveLength(1)
 })
 
@@ -32,8 +32,8 @@ describe('findBlueprintContinuityRisks', () => {
     'does not promote a %s projection to a deterministic finding',
     (sourceStatus) => {
       const findings = findBlueprintContinuityRisks([{ ...projection[0]!, sourceStatus }], {
-        chapterNumber: 2, title: '重逢', role: '发展', purpose: '顾舟归来', keyEvents: '顾舟敲门',
-        characters: ['顾舟'], suspenseHook: '', userGuidance: '', notes: '',
+        chapterNumber: 2, title: '重逢',   keyEvents: '顾舟敲门',
+
       }, [])
       expect(findings).toEqual([])
     },
@@ -43,13 +43,13 @@ describe('findBlueprintContinuityRisks', () => {
     const findings = findBlueprintContinuityRisks(projection, {
       chapterNumber: 2,
       title: '新的清晨',
-      role: '发展',
-      purpose: '主角拜访证人',
-      keyEvents: '主角前往车站。',
-      characters: ['林岚', '顾舟'],
-      suspenseHook: '证人突然失踪。',
-      userGuidance: '',
-      notes: '',
+
+
+      keyEvents: '主角前往车站会见顾舟。',
+
+
+
+
     }, [])
 
     expect(findings).toEqual([expect.objectContaining({
@@ -60,6 +60,14 @@ describe('findBlueprintContinuityRisks', () => {
     })])
     expect(findings[0]?.issue.zhCN).toContain('顾舟')
     expect(findings[0]?.issue.enUS).toContain('顾舟')
+  })
+
+  it('checks explicit cast even when planning prose uses only titles', () => {
+    const findings = findBlueprintContinuityRisks(projection, {
+      chapterNumber: 2, title: '新的清晨', keyEvents: '她在车站遇见师父。', characters: ['顾舟'],
+    }, [])
+    expect(findings).toHaveLength(1)
+    expect(findings[0]?.issue.zhCN).toContain('顾舟')
   })
 
   it('reports the named terminal subject instead of another entity or a witness', () => {
@@ -82,13 +90,13 @@ describe('findBlueprintContinuityRisks', () => {
     }], {
       chapterNumber: 5,
       title: '回声中的证人',
-      role: '收束',
-      purpose: '出席听证会',
+
+
       keyEvents: '林海亲自现身。',
-      characters: ['林舟', '苏遥', '林海'],
-      suspenseHook: '',
-      userGuidance: '',
-      notes: '',
+
+
+
+
     }, [])
 
     expect(findings).toHaveLength(1)
@@ -104,31 +112,31 @@ describe('findBlueprintContinuityRisks', () => {
     const continued = findBlueprintContinuityRisks(openThreadProjection, {
       chapterNumber: 2,
       title: '怀表坐标',
-      role: '发展',
-      purpose: '调查银色怀表',
+
+
       keyEvents: '林岚解读坐标。',
-      characters: ['林岚'],
-      suspenseHook: '坐标指向旧码头。',
-      userGuidance: '',
-      notes: '',
+
+
+
+
     }, [])
     expect(continued).toEqual([])
 
     const ignored = findBlueprintContinuityRisks(projection, {
       chapterNumber: 2,
-      title: '新的清晨', role: '发展', purpose: '拜访证人', keyEvents: '前往车站',
-      characters: ['林岚', '顾舟'], suspenseHook: '证人失踪', userGuidance: '', notes: '',
+      title: '新的清晨',   keyEvents: '前往车站',
+
     }, [{ stableFactKey: findBlueprintContinuityRisks(projection, {
-      chapterNumber: 2, title: '重逢', role: '发展', purpose: '顾舟归来', keyEvents: '顾舟敲门',
-      characters: ['顾舟'], suspenseHook: '', userGuidance: '', notes: '',
+      chapterNumber: 2, title: '重逢',   keyEvents: '顾舟敲门',
+
     }, [])[0]!.stableFactKey, reason: '回忆场景', revoked: false }])
     expect(ignored).toEqual([])
   })
 
   it('maps deterministic findings into the existing review item shape', () => {
     const finding = findBlueprintContinuityRisks(projection, {
-      chapterNumber: 2, title: '重逢', role: '发展', purpose: '顾舟归来', keyEvents: '顾舟敲门',
-      characters: ['顾舟'], suspenseHook: '他为何归来', userGuidance: '', notes: '',
+      chapterNumber: 2, title: '重逢',   keyEvents: '顾舟敲门',
+
     }, [])[0]!
     const review = mergeConsistencyFindingsIntoReview({ summary: 'AI summary', items: [] }, [finding], 'en-US')
     expect(review.items).toEqual([expect.objectContaining({

@@ -26,7 +26,6 @@ async function renderChineseCard(notesUpdatedAt: string) {
     <BlueprintCard
       blueprint={{ chapterNumber: 3, title: '雾钟', role: '发展', purpose: '', keyEvents: '', characters: [], suspenseHook: '', userGuidance: '',
         notes: '林岚发现钟声提前一刻。', notesUpdatedAt }}
-      row={undefined}
       saving={false}
       onField={ignore}
       onSave={ignore}
@@ -35,9 +34,9 @@ async function renderChineseCard(notesUpdatedAt: string) {
   )
 }
 
-describe('蓝图卡的章节要点日期（固定在东八区）', () => {
-  it('数据库记的 UTC 2026-10-13 23:30 在东八区是 10 月 14 日', async () => {
+describe('故事规划卡不再展示章节要点字段', () => {
+  it('有章节要点日期时也不再渲染旧字段', async () => {
     expect(sqliteTime('2026-10-13 23:30:00').toISOString()).toBe('2026-10-13T23:30:00.000Z')
-    expect(await renderChineseCard('2026-10-13 23:30:00')).toContain('定稿后自动生成 · 2026/10/14')
+    expect(await renderChineseCard('2026-10-13 23:30:00')).not.toContain('定稿后自动生成')
   })
 })

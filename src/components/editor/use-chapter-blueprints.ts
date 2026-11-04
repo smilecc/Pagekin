@@ -73,8 +73,8 @@ export function isCurrentProjectSession(projectSession: ProjectSessionContext): 
 }
 
 /**
- * 章节蓝图的数据：读写蓝图表、未保存修改的草稿账本（顶栏保存状态与 ⌘S 都认它）、权威下一章、蓝图恢复候选。
- * 蓝图阶段用它；删除、清空、生成前警告的确认由页面负责。
+ * 故事规划的数据：读写故事规划表、未保存修改的草稿账本（顶栏保存状态与 ⌘S 都认它）、权威下一章、故事规划恢复候选。
+ * 故事规划阶段用它；删除、清空、生成前警告的确认由页面负责。
  */
 export function useChapterBlueprints({
   projectKey,
@@ -294,7 +294,7 @@ export function useChapterBlueprints({
       if (isLatestProjectRequest()) {
         const message = displayedErrorMessage(useLocaleStore.getState().locale, error)
         setAuthorityError(message)
-        addLog('error', text('读取章节蓝图失败', 'Could not load chapter blueprints'))
+        addLog('error', text('读取故事规划失败', 'Could not load story plans'))
       }
     } finally {
       if (isLatestProjectRequest()) setLoading(false)
@@ -318,7 +318,7 @@ export function useChapterBlueprints({
     return () => { mounted = false }
   }, [loadBlueprints, projectKey])
 
-  // 监听工作流完成事件，如果蓝图生成完毕则自动刷新
+  // 监听工作流完成事件，如果故事规划生成完毕则自动刷新
   useEffect(() => {
     return globalEventBus.on('WORKFLOW_COMPLETE', (payload) => {
       if (
@@ -361,7 +361,7 @@ export function useChapterBlueprints({
 
   const selected = projectDataReady ? blueprints[selectedIdx] ?? null : null
 
-  /** 更新选中章节蓝图的字段 */
+  /** 更新选中故事规划的字段 */
   const updateField = <K extends EditableChapterBlueprintField>(
     key: K,
     value: ChapterBlueprint[K],
@@ -373,7 +373,7 @@ export function useChapterBlueprints({
   }
 
   /**
-   * 保存后让流程脊的章节标题与 Ctrl P 的蓝图快照重读。本地已是保存后的内容，自己的监听认出这一条就不重读，
+   * 保存后让流程脊的章节标题与 Ctrl P 的故事规划快照重读。本地已是保存后的内容，自己的监听认出这一条就不重读，
    * 免得编辑器闪成加载态、丢焦点与滚动。
    */
   const announceSaved = (projectSession: ProjectSessionContext) => {
@@ -382,7 +382,7 @@ export function useChapterBlueprints({
     globalEventBus.emit('REFRESH_RESOURCE', payload)
   }
 
-  /** 保存当前章节蓝图 */
+  /** 保存当前故事规划 */
   const handleSaveOne = async (propagateFailure = false) => {
     const projectSession = currentProjectSessionForPath(projectKey)
     if (
@@ -406,11 +406,11 @@ export function useChapterBlueprints({
       persistProjectDraftState(projectKey, projectSession, current.blueprints, nextDirty)
       setSaveOutcome(nextDirty.size === 0 ? 'saved' : 'idle')
       announceSaved(projectSession)
-      addLog('info', text(`第 ${selected.chapterNumber} 章蓝图已保存`, `Saved blueprint for Chapter ${selected.chapterNumber}`))
+      addLog('info', text(`第 ${selected.chapterNumber} 章故事规划已保存`, `Saved blueprint for Chapter ${selected.chapterNumber}`))
     } catch (err) {
       if (!isCurrentProjectSession(projectSession)) return
       const message = displayedErrorMessage(useLocaleStore.getState().locale, err)
-      addLog('error', text(`保存第 ${selected.chapterNumber} 章蓝图失败：${message}`, englishWithReason(`Could not save the blueprint for Chapter ${selected.chapterNumber}.`, message)))
+      addLog('error', text(`保存第 ${selected.chapterNumber} 章故事规划失败：${message}`, englishWithReason(`Could not save the blueprint for Chapter ${selected.chapterNumber}.`, message)))
       toast.error(text(`保存失败\n\n${message}`, englishWithReason('Could not save the blueprint.', message, '\n\n')))
       setSaveOutcome('failed')
       if (propagateFailure) throw err
@@ -443,11 +443,11 @@ export function useChapterBlueprints({
       persistProjectDraftState(projectKey, projectSession, current.blueprints, nextDirty)
       setSaveOutcome(nextDirty.size === 0 ? 'saved' : 'idle')
       announceSaved(projectSession)
-      addLog('info', text(`已保存全部 ${saveInput.length} 章蓝图`, `Saved ${saveInput.length} chapter ${pluralEn(saveInput.length, 'blueprint')}`))
+      addLog('info', text(`已保存全部 ${saveInput.length} 章故事规划`, `Saved ${saveInput.length} chapter ${pluralEn(saveInput.length, 'blueprint')}`))
     } catch (err) {
       if (!isCurrentProjectSession(projectSession)) return
       const message = displayedErrorMessage(useLocaleStore.getState().locale, err)
-      addLog('error', text(`保存全部蓝图失败：${message}`, englishWithReason('Could not save all chapter blueprints.', message)))
+      addLog('error', text(`保存全部故事规划失败：${message}`, englishWithReason('Could not save all story plans.', message)))
       toast.error(text(`保存失败\n\n${message}`, englishWithReason('Could not save the blueprints.', message, '\n\n')))
       setSaveOutcome('failed')
       if (propagateFailure) throw err
@@ -506,7 +506,7 @@ export function useChapterBlueprints({
     setSelectedChapter(newBlueprint.chapterNumber)
     if (authoritativeBlueprintExists) {
       toast.info(text(
-        `第 ${nextWriteChapter} 章蓝图已存在，已新增第 ${chapterNumber} 章；写作入口仍为第 ${nextWriteChapter} 章。`,
+        `第 ${nextWriteChapter} 章故事规划已存在，已新增第 ${chapterNumber} 章；写作入口仍为第 ${nextWriteChapter} 章。`,
         `The Chapter ${nextWriteChapter} blueprint already exists. Added Chapter ${chapterNumber}; the writing entry remains Chapter ${nextWriteChapter}.`,
       ))
     }
@@ -532,7 +532,7 @@ export function useChapterBlueprints({
     if (!isCurrentProjectSession(projectSession)) return
     if (!result.success) {
       const reason = displayedErrorMessage(useLocaleStore.getState().locale, result.error)
-      toast.error(text(`删除失败\n\n${reason}`, englishWithReason('Could not delete the chapter blueprint.', reason, '\n\n')))
+      toast.error(text(`删除失败\n\n${reason}`, englishWithReason('Could not delete the story plan.', reason, '\n\n')))
       return
     }
     const current = currentWorkingState(projectKey, projectSession)
@@ -552,10 +552,10 @@ export function useChapterBlueprints({
       projectPath: projectKey,
       projectSession,
     })
-    toast.success(text(`已删除第 ${target.chapterNumber} 章蓝图`, `Deleted the blueprint for Chapter ${target.chapterNumber}`))
+    toast.success(text(`已删除第 ${target.chapterNumber} 章故事规划`, `Deleted the blueprint for Chapter ${target.chapterNumber}`))
   }
 
-  /** 清空全部章节蓝图 */
+  /** 清空全部故事规划 */
   const handleClearAllBlueprints = async () => {
     const projectSession = currentProjectSessionForPath(projectKey)
     if (
@@ -573,7 +573,7 @@ export function useChapterBlueprints({
     if (!isCurrentProjectSession(projectSession)) return
     if (!result.success) {
       const reason = displayedErrorMessage(useLocaleStore.getState().locale, result.error)
-      toast.error(text(`清空失败\n\n${reason}`, englishWithReason('Could not clear the chapter blueprints.', reason, '\n\n')))
+      toast.error(text(`清空失败\n\n${reason}`, englishWithReason('Could not clear the story plans.', reason, '\n\n')))
       return
     }
     const current = currentWorkingState(projectKey, projectSession)
@@ -585,13 +585,13 @@ export function useChapterBlueprints({
       projectPath: projectKey,
       projectSession,
     })
-    toast.success(text('已清空全部蓝图', 'All chapter blueprints cleared'))
+    toast.success(text('已清空全部故事规划', 'All story plans cleared'))
   }
 
-  /** 触发蓝图批量生成（来自生成对话框的确认回调）。返回是否已启动：作者取消架构警告时返回 false。 */
+  /** 触发故事规划批量生成（来自生成对话框的确认回调）。返回是否已启动：作者取消架构警告时返回 false。 */
   const handleBatchGenerate = async (params: DirectoryWorkflowParams, confirmWarning: (message: string) => Promise<boolean>): Promise<boolean> => {
     const projectSession = currentProjectSessionForPath(projectKey)
-    if (!projectMatches || !projectSession) throw new Error(text('项目会话已切换，未启动章节蓝图生成', 'The project changed, so blueprint generation was not started.'))
+    if (!projectMatches || !projectSession) throw new Error(text('项目会话已切换，未启动故事规划生成', 'The project changed, so blueprint generation was not started.'))
     const expectedProjectPath = projectKey
 
     // 前置校验：故事架构是否就绪
@@ -599,7 +599,7 @@ export function useChapterBlueprints({
     if (!isCurrentProjectSession(projectSession)) return false
     if (!guard.ok) {
       // 校验失败：阻断并提示
-      const reason = displayedErrorMessage(useLocaleStore.getState().locale, guard.message, text('章节蓝图生成前置条件未满足', 'Blueprint prerequisites are not met.'))
+      const reason = displayedErrorMessage(useLocaleStore.getState().locale, guard.message, text('故事规划生成前置条件未满足', 'Blueprint prerequisites are not met.'))
       addLog('error', text(`前置条件未满足：${reason}`, 'A required precondition is not met.'))
       throw new Error(reason)
     }
@@ -609,16 +609,16 @@ export function useChapterBlueprints({
     }
 
     if (!isCurrentProjectSession(projectSession)) {
-      addLog('error', text('项目已切换，未启动章节蓝图生成', 'The project changed, so chapter blueprint generation was not started.'))
-      throw new Error(text('项目已切换，未启动章节蓝图生成', 'The project changed, so blueprint generation was not started.'))
+      addLog('error', text('项目已切换，未启动故事规划生成', 'The project changed, so story plan generation was not started.'))
+      throw new Error(text('项目已切换，未启动故事规划生成', 'The project changed, so blueprint generation was not started.'))
     }
     await launchCreativeWorkflow({ workflow: 'generate_blueprint', params }, projectSession)
-    addLog('info', text('已启动章节蓝图生成', 'Chapter blueprint generation started'))
+    addLog('info', text('已启动故事规划生成', 'Story planning generation started'))
     return true
   }
 
   /**
-   * 写作此章 — 将当前蓝图信息注入创作弹窗
+   * 写作此章 — 将当前故事规划信息注入创作弹窗
    * 支持指定章节（默认为当前选中章）
    */
   const handleWriteChapter = (bp: ChapterBlueprint) => {

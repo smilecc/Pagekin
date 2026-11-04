@@ -44,10 +44,8 @@ export const ARCH_FILES: Array<{
   descZh: string
   descEn: string
 }> = [
-    { key: 'premise', fileName: 'premise.md', iconName: 'target', descZh: '故事钩子 · 核心冲突链 · 主角优势 · 悬念骨架', descEn: 'Story hook · core conflict · protagonist edge · suspense structure' },
     { key: 'characters', fileName: 'characters.md', iconName: 'users', descZh: '角色弧光 · 关系网络 · 矛盾交织', descEn: 'Character arcs · relationships · interlocking tensions' },
     { key: 'worldbuilding', fileName: 'worldbuilding.md', iconName: 'globe', descZh: '核心规则 · 社会结构 · 深层危机', descEn: 'Core rules · social structure · underlying crisis' },
-    { key: 'synopsis', fileName: 'synopsis.md', iconName: 'map', descZh: '结构推进 · 转折节奏 · 伏笔闭环', descEn: 'Story progression · turning points · setup and payoff' },
   ]
 
 interface GenerateIntent {

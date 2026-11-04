@@ -93,6 +93,6 @@ test('经 junction 或符号链接运行时照样检查，有违规就退出 1',
     assert.equal(run.status, 1, run.stdout)
     assert.match(run.stderr, /src\/components\/ui\/Fresh\.tsx:1 颜色字面量 #fff/u)
   } finally {
-    fs.rmSync(link, { recursive: false, force: true })
+    fs.unlinkSync(link)
   }
 })

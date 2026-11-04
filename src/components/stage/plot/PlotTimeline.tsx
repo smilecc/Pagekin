@@ -15,7 +15,7 @@ type Text = (zh: string, en: string) => string
 const WINDOW = 6
 
 function sourceLabel(source: PlotTreeSourceReference, text: Text): string {
-  if (source.type === 'blueprint') return text(`第 ${source.chapterNumber} 章蓝图`, `Chapter ${source.chapterNumber} blueprint`)
+  if (source.type === 'blueprint') return text(`第 ${source.chapterNumber} 章故事规划`, `Chapter ${source.chapterNumber} blueprint`)
   if (source.type === 'finalized-chapter') return text(`第 ${source.chapterNumber} 章定稿`, `Chapter ${source.chapterNumber} final`)
   return text('伏笔线索计划', 'Thread plan')
 }
@@ -26,7 +26,7 @@ interface Selection {
 }
 
 /**
- * 剧情树：轨道为行、章为列的只读时间轴，一页 6 章。快照来自蓝图、定稿与线索计划的整理，
+ * 剧情树：轨道为行、章为列的只读时间轴，一页 6 章。快照来自故事规划、定稿与线索计划的整理，
  * 页面顶部写明它不参与写作；清除剧情树在「更多」里，走危险确认。
  */
 export default function PlotTimeline({ plot, onShowRecords, onClear }: { plot: PlotThreads; onShowRecords: () => void; onClear: () => void }) {
@@ -59,7 +59,7 @@ export default function PlotTimeline({ plot, onShowRecords, onClear }: { plot: P
       <p className="stage-plot-note">
         <Eye size={14} aria-hidden="true" />
         <span>{text(
-          '剧情树是从蓝图和定稿整理出的只读快照，用来回看故事走向，不参与写作。要改剧情，请到蓝图或正文里改。',
+          '剧情树是从故事规划和定稿整理出的只读快照，用来回看故事走向，不参与写作。要改剧情，请到故事规划或正文里改。',
           'The plot tree is a read-only snapshot built from the blueprint and finals to look back at the story. It is not used for writing. To change the plot, edit the blueprint or the manuscript.',
         )}</span>
       </p>
@@ -79,7 +79,7 @@ export default function PlotTimeline({ plot, onShowRecords, onClear }: { plot: P
         {snapshot && (
           <div className="stage-plot-legend" aria-hidden="true">
             <span><i data-state="occurred" />{text('已定稿发生', 'Happened in a final')}</span>
-            <span><i data-state="planned" />{text('蓝图计划', 'Planned in the blueprint')}</span>
+            <span><i data-state="planned" />{text('故事规划计划', 'Planned in the blueprint')}</span>
           </div>
         )}
         <div className="stage-plot-actions">
@@ -125,7 +125,7 @@ export default function PlotTimeline({ plot, onShowRecords, onClear }: { plot: P
           heading={text('还没有剧情树', 'No plot tree yet')}
           description={sourceReady
             ? text('整理一次，就能按章回看主线与支线的走向。', 'Build it once to look back at the main plot and subplots chapter by chapter.')
-            : text('先在蓝图里规划章节，或定稿一章、建一条伏笔线索，再来整理剧情树。', 'Plan chapters in the blueprint, finalize a chapter or add a thread first.')}
+            : text('先在故事规划里规划章节，或定稿一章、建一条伏笔线索，再来整理剧情树。', 'Plan chapters in the blueprint, finalize a chapter or add a thread first.')}
           action={generateButton}
         />
       ) : (
@@ -177,7 +177,7 @@ export default function PlotTimeline({ plot, onShowRecords, onClear }: { plot: P
         <section className="stage-plot-detail" aria-label={text('事件详情', 'Event details')}>
           <div>
             <div className="stage-plot-meta">
-              {selection.track.role === 'main' ? text('主线', 'Main plot') : text('支线', 'Subplot')} · {text(`第 ${selection.event.chapterNumber} 章`, `Chapter ${selection.event.chapterNumber}`)} · {selection.event.status === 'occurred' ? text('已定稿发生', 'Happened in a final') : text('蓝图计划', 'Planned in the blueprint')}
+              {selection.track.role === 'main' ? text('主线', 'Main plot') : text('支线', 'Subplot')} · {text(`第 ${selection.event.chapterNumber} 章`, `Chapter ${selection.event.chapterNumber}`)} · {selection.event.status === 'occurred' ? text('已定稿发生', 'Happened in a final') : text('故事规划计划', 'Planned in the blueprint')}
             </div>
             <h3>{selection.event.summary}</h3>
           </div>

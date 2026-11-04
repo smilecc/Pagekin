@@ -21,12 +21,12 @@ export const AGENT_TOOL_CANCELLED_ERROR_EN = 'This tool operation was cancelled 
 export function agentToolText(
   context: AgentExecutionContext | undefined,
   zhCN: string,
-  enUS: string,
+  _enUS: string,
 ): string {
+  void _enUS;
   return writingLanguageText(
     context?.writingLanguage ?? DEFAULT_WRITING_LANGUAGE,
     zhCN,
-    enUS,
   )
 }
 

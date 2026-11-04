@@ -81,9 +81,9 @@ function validInference() {
       plotStructure: 'three_act',
       narrativePOV: 'third_limited',
       coreOutline: '主角在冲突中逐步认识世界。',
-      worldSetting: '现实社会。',
-      goldenFinger: '无。',
-      protagonistProfile: '敏感而倔强。',
+
+
+
       globalGuidance: '保持克制叙事。',
     },
     architectureFiles: {
@@ -197,9 +197,9 @@ beforeEach(() => {
         plotStructure: 'three_act',
         narrativePOV: 'third_limited',
         coreOutline: '',
-        worldSetting: '',
-        goldenFinger: '',
-        protagonistProfile: '',
+
+
+
         globalGuidance: '',
       },
       characterStates: '',

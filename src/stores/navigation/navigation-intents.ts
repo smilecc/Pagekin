@@ -2,7 +2,7 @@ import type { ChapterWritePrefill, SettingsSection } from '../layout-store'
 import { stageNavigate } from './stage-navigation'
 
 /** 作品流程脊的四个阶段，顺序即创作顺序。 */
-export type WorkStage = 'setup' | 'architecture' | 'blueprint' | 'manuscript'
+export type WorkStage = 'setup' | 'architecture' | 'outline' | 'world' | 'cast' | 'style' | 'guidance' | 'blueprint' | 'manuscript'
 
 /** 流程脊下方的作品资料页。 */
 export type ResourcePage = 'plot' | 'knowledge' | 'history'

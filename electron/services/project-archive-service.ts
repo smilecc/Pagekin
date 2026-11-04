@@ -511,11 +511,9 @@ function assertReviewContext(value: unknown): Record<string, unknown> {
   contentHash(context.sourceHash)
   const config = object(context.config, ['writingLanguage', 'creativeStrategy',
     'narrativeThreadDormantChapterThreshold', 'genre', 'subGenre', 'targetAudience', 'totalChapters',
-    'wordsPerChapter', 'plotStructure', 'narrativePOV', 'coreOutline', 'worldSetting', 'goldenFinger',
-    'protagonistProfile', 'globalGuidance', 'writingStyle', 'referenceWorks'])
+    'wordsPerChapter', 'plotStructure', 'narrativePOV', 'coreOutline', 'globalGuidance', 'writingStyle', 'referenceWorks'])
   reviewTextFields(config, ['writingLanguage', 'creativeStrategy', 'genre', 'subGenre', 'targetAudience',
-    'plotStructure', 'narrativePOV', 'coreOutline', 'worldSetting', 'goldenFinger', 'protagonistProfile',
-    'globalGuidance', 'writingStyle', 'referenceWorks'])
+    'plotStructure', 'narrativePOV', 'coreOutline', 'globalGuidance', 'writingStyle', 'referenceWorks'])
   reviewIntegerFields(config, ['narrativeThreadDormantChapterThreshold', 'totalChapters', 'wordsPerChapter'])
   reviewTextFields(context, ['writingLanguage', 'uiLocale', 'characterStates', 'worldbuilding'])
   for (const value of reviewArray(context.authorInputs)) {

@@ -4,22 +4,21 @@
 import { buildAgentTool } from '../tool-registry'
 import { ipc } from '../../ipc-client'
 import { agentToolText, assertAgentProjectCurrent, requireAgentProject, agentToolErrorDetail } from './project-context'
-import { containsHan } from '../../../i18n/app-errors'
 import { pluralEn } from '../../../shared/plural-en'
 
 
 export const readArchitectureTool = buildAgentTool({
   name: 'read_architecture',
-  description: '读取小说的故事架构文件（四段式架构：故事前提、世界观、角色图谱、剧情大纲等）。是理解小说全局结构的核心工具。',
-  descriptionEn: 'Read the story architecture, including the premise, worldbuilding, character graph, and plot synopsis.',
+  description: '读取小说的故事架构文件（大纲、世界观、角色名单、文风、全局写作要求）。是理解小说全局结构的核心工具。',
+  descriptionEn: 'Read the story architecture, including the outline, worldbuilding, cast, style, and writing guidance.',
   source: 'builtin',
   inputSchema: {
     type: 'object',
     properties: {
       file_name: {
         type: 'string',
-        description: '架构文件名（可选）。不填则列出所有架构文件。例如 "故事前提.md"、"世界观.md"',
-        descriptionEn: 'Optional architecture file name. Omit it to list all architecture files, for example "premise.md" or "worldbuilding.md"',
+        description: '架构文件名（可选）。不填则列出所有架构文件。例如 "大纲.md"、"世界观.md"',
+        descriptionEn: 'Optional architecture file name. Omit it to list all architecture files, for example "outline.md" or "worldbuilding.md"',
       },
       offset: {
         type: 'number',
@@ -54,15 +53,17 @@ export const readArchitectureTool = buildAgentTool({
 
       if (fileName) {
         // Find property based on suffix
-        const isPremise = fileName.includes('前提') || fileName.includes('premise')
+        const isStyle = fileName.includes('文风') || fileName.includes('style')
+        const isGuidance = fileName.includes('写作要求') || fileName.includes('guidance')
         const isWorld = fileName.includes('世界') || fileName.includes('world')
         const isChar = fileName.includes('角色') || fileName.includes('character')
-        const isSynopsis = fileName.includes('大纲') || fileName.includes('synopsis')
+        const isSynopsis = fileName.includes('大纲') || fileName.includes('outline')
         let property = ''
-        if (isPremise) property = core.premise
+        if (isStyle) property = project.novelConfig.writingStyle || ''
+        else if (isGuidance) property = project.novelConfig.globalGuidance || ''
         else if (isWorld) property = core.worldbuilding
         else if (isChar) property = core.charactersArch
-        else if (isSynopsis) property = core.synopsis
+        else if (isSynopsis) property = project.novelConfig.coreOutline || ''
 
         if (!property) {
           return { success: false, content: '', error: text(`架构文件内容为空：${fileName}`, `The architecture content is empty: ${fileName}`) }
@@ -71,10 +72,11 @@ export const readArchitectureTool = buildAgentTool({
       }
 
       const contents: string[] = []
-      if (core.premise) contents.push(`## 📄 premise.md\n\n${core.premise}`)
+      if (project.novelConfig.coreOutline) contents.push(`## 📄 outline.md\n\n${project.novelConfig.coreOutline}`)
       if (core.worldbuilding) contents.push(`## 📄 worldbuilding.md\n\n${core.worldbuilding}`)
       if (core.charactersArch) contents.push(`## 📄 characters.md\n\n${core.charactersArch}`)
-      if (core.synopsis) contents.push(`## 📄 synopsis.md\n\n${core.synopsis}`)
+      if (project.novelConfig.writingStyle) contents.push(`## 📄 style.md\n\n${project.novelConfig.writingStyle}`)
+      if (project.novelConfig.globalGuidance) contents.push(`## 📄 guidance.md\n\n${project.novelConfig.globalGuidance}`)
 
       if (contents.length === 0) {
         return { success: true, content: text('⚠️ 架构为空，暂无架构文件。建议通过工作流生成故事架构。', '⚠️ The architecture is empty. Generate the story architecture with the workflow first.') }
@@ -86,9 +88,7 @@ export const readArchitectureTool = buildAgentTool({
       return {
         success: false,
         content: '',
-        error: !detail || (context?.writingLanguage === 'en-US' && containsHan(detail))
-          ? text('读取架构失败', 'Could not read the architecture')
-          : text(`读取架构失败：${detail}`, `Could not read the architecture: ${detail}`),
+        error: detail ? text(`读取架构失败：${detail}`, `Could not read the architecture: ${detail}`) : text('读取架构失败', 'Could not read the architecture'),
       }
     }
   },

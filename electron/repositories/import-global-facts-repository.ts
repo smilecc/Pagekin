@@ -24,8 +24,7 @@ interface OperationRow {
 
 const CORE_TEXT_FIELDS = [
   'genre', 'subGenre', 'targetAudience', 'plotStructure', 'narrativePov',
-  'goldenFinger', 'globalGuidance', 'coreOutline', 'worldSetting', 'protagonistProfile',
-  'premise', 'worldbuilding', 'synopsis',
+  'globalGuidance', 'coreOutline', 'worldbuilding',
 ] as const
 const CORE_FILL_FIELDS = IMPORT_FILL_FIELDS.filter((field): field is keyof ImportGlobalFactsCore => field !== 'writingStyle')
 const PLOT_STRUCTURES = new Set(['three_act', 'heros_journey', 'save_the_cat', 'kishotenketsu', 'multi_thread', 'freeform'])
@@ -84,14 +83,12 @@ function coreSnapshot(): ImportGlobalFactsCore {
     wordsPerChapter: core.wordsPerChapter,
     plotStructure: core.plotStructure as ImportGlobalFactsCore['plotStructure'],
     narrativePov: core.narrativePov as ImportGlobalFactsCore['narrativePov'],
-    goldenFinger: core.goldenFinger,
+
     globalGuidance: core.globalGuidance,
     coreOutline: core.coreOutline,
-    worldSetting: core.worldSetting,
-    protagonistProfile: core.protagonistProfile,
-    premise: core.premise,
+
     worldbuilding: core.worldbuilding,
-    synopsis: core.synopsis,
+
   }
 }
 

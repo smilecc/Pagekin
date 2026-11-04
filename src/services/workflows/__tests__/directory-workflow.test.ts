@@ -24,12 +24,12 @@ import { TerminalProviderFailureError } from '../../generation/generation-harnes
 const blueprint: ChapterBlueprint = {
   chapterNumber: 1,
   title: '启程',
-  role: '建置',
-  purpose: '引出主角目标',
+  role: '',
+  purpose: '',
   keyEvents: '主角发现异常',
   characters: ['主角'],
   relationshipHints: [],
-  suspenseHook: '门外传来敲门声',
+  suspenseHook: '',
   userGuidance: '',
   notes: '',
   notesUpdatedAt: '',
@@ -81,10 +81,10 @@ function project(path: string): ProjectData {
       wordsPerChapter: 3000,
       plotStructure: 'three_act',
       narrativePOV: 'third_limited',
-      coreOutline: '',
-      worldSetting: '',
-      goldenFinger: '',
-      protagonistProfile: '',
+      coreOutline: '主角在港口调查失踪案。',
+
+
+
       globalGuidance: '',
     },
     characterStates: '',
@@ -111,12 +111,12 @@ describe('parseTextBlueprints', () => {
           {
             chapterNumber: 1,
             title: '启程',
-            role: '建置',
-            purpose: '引出主角目标',
+            role: '',
+            purpose: '',
             keyEvents: '主角发现异常',
             characters: ['主角'],
             relationships: [],
-            suspenseHook: '门外传来敲门声',
+            suspenseHook: '',
           },
         ],
       }),
@@ -128,11 +128,11 @@ describe('parseTextBlueprints', () => {
     expect(result[0]).toMatchObject({
       chapterNumber: 1,
       title: '启程',
-      role: '建置',
-      purpose: '引出主角目标',
+      role: '',
+      purpose: '',
       keyEvents: '主角发现异常',
       characters: ['主角'],
-      suspenseHook: '门外传来敲门声',
+      suspenseHook: '',
     })
   })
 
@@ -142,9 +142,9 @@ describe('parseTextBlueprints', () => {
         {
           chapter_number: 2,
           title: '暗线',
-          role: '铺垫',
+          role: '',
           purpose: '让主角发现反派留下的暗线',
-          key_events: '反派留下线索',
+          keyEvents: '反派留下线索',
           characters: ['主角'],
           relationships: [],
           suspense_hook: '线索指向故人',
@@ -158,9 +158,9 @@ describe('parseTextBlueprints', () => {
     expect(result[0]).toMatchObject({
       chapterNumber: 2,
       title: '暗线',
-      role: '铺垫',
+      role: '',
       keyEvents: '反派留下线索',
-      suspenseHook: '线索指向故人',
+      suspenseHook: '',
     })
   })
 
@@ -225,13 +225,6 @@ describe('parseTextBlueprints', () => {
 })
 
 describe('parseTextBlueprintsStrict', () => {
-  it('preserves author recovery fields exactly while model parsing retains its existing persistence boundary', () => {
-    const fields = { userGuidance: '  作者指导。\r\n', notes: '<think>作者原文</think>', notesUpdatedAt: '2026-10-04T13:00:00.000Z' }
-    const raw = JSON.stringify([{ ...blueprint, ...fields }])
-    expect(parseTextBlueprintsStrict(raw, 1, 1, 'zh-CN', 'author')[0]).toMatchObject(fields)
-    expect(parseTextBlueprintsStrict(raw, 1, 1, 'zh-CN')[0]).toMatchObject({ userGuidance: '', notes: '', notesUpdatedAt: '' })
-    expect(() => parseTextBlueprintsStrict(JSON.stringify([{ ...blueprint, notes: 123 }]), 1, 1, 'zh-CN', 'author')).toThrow('invalid_type')
-  })
   it('returns parsed blueprints for valid array input', () => {
     const result = parseTextBlueprintsStrict(JSON.stringify([{ ...blueprint, relationships: [] }]), 1, 1, 'zh-CN')
 
@@ -272,10 +265,10 @@ describe('parseTextBlueprintsStrict', () => {
 
   it('rejects a structurally valid JSON blueprint when required semantic facts are missing', () => {
     const incomplete = { ...blueprint } as Record<string, unknown>
-    delete incomplete.relationshipHints
+    delete incomplete.keyEvents
 
     expect(() => parseTextBlueprintsStrict(JSON.stringify([incomplete]), 1, 1, 'zh-CN'))
-      .toThrow('结构化合同诊断 code=missing_field path=blueprints[0].relationships field=relationships')
+      .toThrow('结构化合同诊断 code=missing_field path=blueprints[0].keyEvents field=keyEvents')
   })
 })
 
@@ -285,7 +278,7 @@ describe('blueprint persistence helpers', () => {
   it('throws when saving one blueprint returns an IPC failure', async () => {
     stubIpcInvoke({ success: false, error: 'DB 未打开' })
 
-    await expect(saveChapterBlueprint(blueprint, 'C:/NovelA', session, 'zh-CN')).rejects.toThrow('保存章节蓝图失败：DB 未打开')
+    await expect(saveChapterBlueprint(blueprint, 'C:/NovelA', session, 'zh-CN')).rejects.toThrow('保存故事规划失败：DB 未打开')
   })
 
   it('英文界面下主进程拒绝保存蓝图：报英文说明，不转出主进程的中文原文（#471）', async () => {
@@ -443,7 +436,7 @@ describe('directory workflow project context', () => {
         cancelled: false,
       },
       { log: vi.fn(), setProgress: vi.fn(), appendText: vi.fn() },
-    )).resolves.toBe('已生成 0 章蓝图')
+    )).resolves.toBe('已生成 0 章故事规划')
     expect(execute).toHaveBeenCalledOnce()
   })
 
@@ -620,7 +613,7 @@ describe('directory workflow project context', () => {
       .resolves.toContain('架构加载完成')
     expect(invoke).toHaveBeenCalledWith('db:project-core-get', projectA.path, context.projectSession)
 
-    expect(workflow.steps.map(step => step.name)).toEqual(['读取架构', '生成蓝图'])
+    expect(workflow.steps.map(step => step.name)).toEqual(['读取架构', '生成故事规划'])
     expect(invoke.mock.calls.map(([channel]) => channel)).not.toContain('db:blueprint-upsert-many')
   })
 })

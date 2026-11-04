@@ -26,7 +26,7 @@ const cleanup: (() => void)[] = []
 afterEach(() => { for (const dispose of cleanup.splice(0)) dispose(); vi.restoreAllMocks() })
 const prose = '林岚走进了北塔。'
 
-function fixture(dispatch?: GenerationRunServiceDependencies['dispatch'], options: { content?: string; writingLanguage?: 'en-US'; builtinPrompts?: boolean; seed?: (db: import('better-sqlite3').Database) => void; transferOrigin?: () => string | undefined } = {}) {
+function fixture(dispatch?: GenerationRunServiceDependencies['dispatch'], options: { content?: string; writingLanguage?: 'zh-CN'; builtinPrompts?: boolean; seed?: (db: import('better-sqlite3').Database) => void; transferOrigin?: () => string | undefined } = {}) {
   const content = options.content ?? prose
   const base = path.resolve('.runtime/.cache/novel-quality-modernization/finalization-generation-tests')
   fs.mkdirSync(base, { recursive: true })
@@ -98,11 +98,9 @@ async function generated(stepKey:FinalizationGenerationSlot['stepKey']='chapter_
  const receipt=await f.owner.executeFinalizationGeneration({handle:recovery.view.handle})
  return Object.assign(f,{slot,recovery,receipt,commitRequest:{handle:recovery.view.handle,artifact:f.artifactOf(receipt)}})
 }
-it.each([undefined, 'en-US'] as const)('notes源文支持合同随完整冻结正文出站：%s', async writingLanguage => {
-  const content = writingLanguage
-    ? 'Mira waited outside the archive. Her deposit was not refunded. She carried a sealed box.\n\nThe cause of the discrepancy remained unknown; the inspection had not started.'
-    : '陆遥停在档案室外，预付款没有退还，封好的匣子由她随身携带。\n\n记录差异的原因仍未查明，核查尚未开始。'
-  const notes = writingLanguage ? '# Chapter 1 Notes\n\n## Character Dynamics\nMira waited outside the archive.' : '# 第1章 要点\n\n## 角色动态\n陆遥停在档案室外。'
+it.each([undefined] as const)('notes源文支持合同随完整冻结正文出站：%s', async writingLanguage => {
+  const content = '陆遥停在档案室外，预付款没有退还，封好的匣子由她随身携带。\n\n记录差异的原因仍未查明，核查尚未开始。'
+  const notes = '# 第1章 要点\n\n## 角色动态\n陆遥停在档案室外。'
   const f = fixture(async (_request, options) => {
     options.onVisible({ kind: 'delta', text: notes }); return { finishReason: 'stop', usage: null }
   }, { content, writingLanguage, builtinPrompts: true })
@@ -110,9 +108,9 @@ it.each([undefined, 'en-US'] as const)('notes源文支持合同随完整冻结�
   const receipt = await f.owner.executeFinalizationGeneration({ handle: recovery.view.handle })
   const prompt = lastUserMessage(f.dispatch.mock.calls[0]![0])
   expect(prompt).toContain(content)
-  expect(prompt).toContain(writingLanguage ? 'Leave a section empty or omit it when the manuscript states no corresponding fact' : '栏目没有对应的明示事实时可留空或省略')
-  expect(prompt).toContain(writingLanguage ? 'Co-occurrence does not establish ownership, causation, responsibility, or narrative purpose' : '共现不构成归属、因果、责任或叙事用途的依据')
-  expect(prompt).toContain(writingLanguage ? 'Preserve the original predicates and modality where possible' : '尽量保留原文谓词和模态')
+  expect(prompt).toContain('栏目没有对应的明示事实时可留空或省略')
+  expect(prompt).toContain('共现不构成归属、因果、责任或叙事用途的依据')
+  expect(prompt).toContain('尽量保留原文谓词和模态')
   // Deterministic output proves the existing save path only, not model interpretation.
   expect(f.owner.commitFinalizationGeneration({ handle: recovery.view.handle, artifact: f.artifactOf(receipt) })).toMatchObject({ chapterNotes: notes })
   expect(f.db.prepare('SELECT content_snapshot FROM finalization_outbox').pluck().get()).toBe(content)
@@ -415,7 +413,7 @@ it.each(['same-project', 'authorized-origin', 'unknown-origin'] as const)('cards
  if (origin !== 'unknown-origin') expect(f.owner.commitFinalizationGeneration(request)).toMatchObject({ applied: 1 })
  expect(f.dispatch).toHaveBeenCalledTimes(1)
 })
-async function splitEvidenceRun(writingLanguage?:'en-US',replies:((characterId:string)=>unknown)[]=[]){
+async function splitEvidenceRun(writingLanguage?:'zh-CN',replies:((characterId:string)=>unknown)[]=[]){
  const f=fixture(undefined,{content:splitProse,writingLanguage})
  for(const reply of replies)f.dispatch.mockImplementationOnce(async(_request,options)=>{
   const value=reply(f.characterId);options.onVisible({kind:'delta',text:typeof value==='string'?value:JSON.stringify(value)});return {finishReason:'stop',usage:null}})
@@ -427,11 +425,9 @@ async function splitEvidenceRun(writingLanguage?:'en-US',replies:((characterId:s
 const joined=(offsets:boolean)=>(characterId:string)=>({updates:[{characterId,currentState:{location:'记录室'},evidence:offsets?{start:0,end:joinedQuote.length,text:joinedQuote}:{text:joinedQuote}}]})
 const single=(characterId:string)=>({updates:[{characterId,currentState:{location:'记录室'},evidence:{text:'林岚更正记录：核查仍未开始，原定安排等待雨停。'}}]})
 
-it('characters初始提示要求evidence为单一连续片段（中英）',async()=>{
+it('characters初始提示要求evidence为单一连续片段',async()=>{
  const zh=await splitEvidenceRun(undefined,[single])
  expect(lastUserMessage(zh.dispatch.mock.calls[0]![0])).toContain('不得跨段落或空行拼接')
- const en=await splitEvidenceRun('en-US',[single])
- expect(lastUserMessage(en.dispatch.mock.calls[0]![0])).toContain('never join sentences across paragraphs or blank lines')
 })
 
 it('characters跨空行拼接证据：修复消息给出连续片段规则，合法单句后提交',async()=>{
@@ -443,14 +439,6 @@ it('characters跨空行拼接证据：修复消息给出连续片段规则，合
  expect(repair).not.toContain('上一份回答未满足要求的 JSON 结构或原文证据校验')
  expect(repair).not.toContain(joinedQuote)
  expect(f.owner.commitFinalizationGeneration({handle:f.handle,artifact:f.artifactOf(f.result)})).toMatchObject({success:true,applied:1})
-})
-
-it('characters英文项目证据修复消息为英文',async()=>{
- const f=await splitEvidenceRun('en-US',[joined(false),single])
- const repair=lastUserMessage(f.dispatch.mock.calls[1]![0])
- expect(repair).toContain('never join sentences across paragraphs or blank lines')
- expect(repair).toContain('omit start/end')
- expect(repair).not.toMatch(/[一-鿿]/)
 })
 
 it('characters三次跨段拼接证据仍封顶拒写，事实门不放宽',async()=>{
@@ -495,16 +483,6 @@ it('characters缺evidence：修复消息点名缺失字段并要求保留有据�
  expect(f.owner.commitFinalizationGeneration({handle:f.handle,artifact:f.artifactOf(f.result)})).toMatchObject({success:true,applied:1})
 })
 
-it('characters英文项目缺evidence修复消息为英文',async()=>{
- const f=await splitEvidenceRun('en-US',[templateShaped,single])
- const repair=lastUserMessage(f.dispatch.mock.calls[1]![0])
- expect(repair).toContain('At least one update had no evidence object')
- expect(repair).toContain('instead of returning an empty list because evidence was missing')
- expect(repair).toContain('remove newCharacters')
- expect(repair).not.toContain('never join sentences across paragraphs or blank lines')
- expect(repair).not.toMatch(/[一-鿿]/)
-})
-
 it('characters缺evidence三次仍封顶拒写',async()=>{
  const f=await splitEvidenceRun(undefined,[templateShaped,templateShaped,templateShaped])
  expect(f.dispatch).toHaveBeenCalledTimes(3)
@@ -513,17 +491,13 @@ it('characters缺evidence三次仍封顶拒写',async()=>{
  expect(f.owner.readFinalizationGeneration({slot:f.slot})?.effect).toBeUndefined()
 })
 
-it('characters初始提示以最终合同覆盖模板示例（中英）',async()=>{
+it('characters初始提示以最终合同覆盖模板示例',async()=>{
  const zh=lastUserMessage((await splitEvidenceRun(undefined,[single])).dispatch.mock.calls[0]![0])
  expect(zh).toContain('【最终输出合同，覆盖上文【输出格式（JSON）】】')
  expect(zh.indexOf('【最终输出合同')).toBeLessThan(zh.indexOf('只返回一个 JSON 对象'))
- const en=lastUserMessage((await splitEvidenceRun('en-US',[single])).dispatch.mock.calls[0]![0])
- expect(en).toContain('[Final output contract: this overrides the [JSON output contract] above]')
- expect(en).toContain("that card's exact characterId")
- expect(en.indexOf('[Final output contract')).toBeLessThan(en.indexOf('Return one JSON object'))
 })
 
-it.each([undefined, 'en-US'] as const)('末次安排合同保留原snapshot并按原来源保存单次角色提取：%s', async writingLanguage => {
+it.each([undefined] as const)('末次安排合同保留原snapshot并按原来源保存单次角色提取：%s', async writingLanguage => {
  const cases = [
   { content: '林岚被拒绝入塔，已经损失六枚铜币。\n\n顾砚决定留守渡口。\n\n林岚更正记录：核查尚未开始，原定安排等待雨停。',
     current: '林岚更正记录：核查尚未开始，原定安排等待雨停。' },
@@ -542,15 +516,9 @@ it.each([undefined, 'en-US'] as const)('末次安排合同保留原snapshot并�
   const result = await f.owner.executeFinalizationGeneration({ handle })
   const prompt = lastUserMessage(f.dispatch.mock.calls[0]![0])
   expect(prompt).toContain(content)
-  expect(prompt).toContain(writingLanguage === 'en-US'
-   ? 'prioritize that correction and its current conditions over a more prominent earlier event'
-   : '优先保留该更正及当前条件，不得被更显著的旧事件挤掉')
-  expect(prompt).toContain(writingLanguage === 'en-US'
-   ? 'Do not apply another character\'s change of plan to this character'
-   : '不得将其他角色的安排变化套到该角色')
-  expect(prompt).toContain(writingLanguage === 'en-US'
-   ? 'Without a correction, retain this character\'s relevant event or still-pending plan'
-   : '没有更正时，保留该角色有关事件或仍待执行的安排')
+  expect(prompt).toContain('优先保留该更正及当前条件，不得被更显著的旧事件挤掉')
+  expect(prompt).toContain('不得将其他角色的安排变化套到该角色')
+  expect(prompt).toContain('没有更正时，保留该角色有关事件或仍待执行的安排')
   expect(f.owner.commitFinalizationGeneration({ handle, artifact: f.artifactOf(result) })).toMatchObject({ success: true, applied: 1 })
   expect(f.db.prepare('SELECT cs_recent_events FROM characters WHERE character_id=?').pluck().get(f.characterId)).toBe(current)
   expect(f.db.prepare("SELECT cs_recent_events FROM characters WHERE character_id='character-gu'").pluck().get()).toBe('顾砚原有状态')
@@ -559,9 +527,8 @@ it.each([undefined, 'en-US'] as const)('末次安排合同保留原snapshot并�
  }
 })
 
-it('characters最终合同要求每个update含recentEvents，且与渲染端副本一致（中英）',async()=>{
+it('characters最终合同要求每个update含recentEvents，且与渲染端副本一致',async()=>{
  const zh=lastUserMessage((await splitEvidenceRun(undefined,[single])).dispatch.mock.calls[0]![0])
- const en=lastUserMessage((await splitEvidenceRun('en-US',[single])).dispatch.mock.calls[0]![0])
  expect(zh).toContain('每个 update 必须填写 recentEvents（本章结束时该角色的最新状态，50字以内）')
  expect(zh).toContain('location 只写正文明确写出的人物当前所在地点，不写事件或进度')
  expect(zh).toContain('正文只写了计划、决定或打算前往某处时，人物仍在原处')
@@ -569,15 +536,8 @@ it('characters最终合同要求每个update含recentEvents，且与渲染端副
  expect(zh).not.toContain('location 只写地点，不写事件或进度')
  expect(zh).toContain('只返回一个 JSON 对象：{"updates":[{"characterId":"冻结名单中的精确ID","currentState":{"recentEvents":"本章事件","location":"新地点"},"evidence":{"text":"原文精确引用"}}]}')
  expect(zh).not.toContain('只列出实际变化的字段')
- expect(en).toContain("Every update must include recentEvents (this character's latest state at the end of the chapter, within 50 words)")
- expect(en).toContain('location is only the place the chapter prose explicitly states the character is currently in, never an event or progress')
- expect(en).toContain('the character is still where they were')
- expect(en).toContain('do not list location')
- expect(en).not.toContain('location is a place, never an event or progress')
- expect(en).toContain('Return one JSON object: {"updates":[{"characterId":"exact ID from the frozen list","currentState":{"recentEvents":"this chapter\'s event","location":"new place"},"evidence":{"text":"exact source quote"}}]}')
- expect(en).not.toContain('list only the fields that actually changed')
  const renderer=fs.readFileSync(path.resolve('src/services/workflows/commands/finalize-chapter.command.ts'),'utf8')
- for(const [message,prefix] of [[zh,'【最终输出合同'],[en,'[Final output contract']] as const){
+ for(const [message,prefix] of [[zh,'【最终输出合同']] as const){
   const contract=message.slice(message.indexOf(prefix))
   expect(renderer).toContain(`'${contract.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}'`)
  }

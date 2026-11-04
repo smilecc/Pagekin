@@ -1,5 +1,6 @@
 import { useEditorStore } from './editor-store'
 import { useProjectStore } from './project-store'
+import { useLocaleStore } from './locale-store'
 
 /** 打开内置编辑器 */
 export function openBuiltinEditor(
@@ -11,6 +12,10 @@ export function openBuiltinEditor(
 ): void {
   const projectKey = useProjectStore.getState().currentProject?.path
   if (!projectKey) return
+  if (type === 'world-building') {
+    useEditorStore.getState().openFile({ id: 'config', name: useLocaleStore.getState().text('写作选项', 'Writing options'), type: 'config', projectKey })
+    return
+  }
   useEditorStore.getState().openFile({
     id,
     name,

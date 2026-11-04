@@ -14,7 +14,7 @@ type Pair = readonly [string, string]
 const STAGE_COPY: Record<ModelStage, { name: Pair; scope: Pair }> = {
   planning: {
     name: ['规划', 'Planning'],
-    scope: ['设定、架构、角色、大纲与蓝图；剧情树与伏笔线索；资料提取、文风分析、导入和旧角色名单修复。',
+    scope: ['设定、架构、角色、大纲与故事规划；剧情树与伏笔线索；资料提取、文风分析、导入和旧角色名单修复。',
       'Setup, architecture, characters, outline and blueprints; the plot tree and foreshadowing threads; material extraction, style analysis, imports and legacy cast repair.'],
   },
   drafting: {

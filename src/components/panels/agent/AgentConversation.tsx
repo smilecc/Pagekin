@@ -198,7 +198,7 @@ function ActiveConversation() {
 
 /**
  * 重构后的工具栏：贴合小说创作场景
- * 左侧：快速引用按钮（架构、角色、蓝图）
+ * 左侧：快速引用按钮（架构、角色、故事规划）
  * 右侧：打开运行侧页的按钮
  */
 function AgentToolbar() {

@@ -54,7 +54,7 @@ describe('新外壳下 navigate 的落点，调用方与旧外壳相同', () => 
     navigate({ kind: 'resource', page: 'knowledge' })
     navigate({ kind: 'resource', page: 'history' })
     navigate({ kind: 'stage', stage: 'setup' })
-    expect(tabTypes()).toEqual(['config', 'world-building', 'chapter-card', 'narrative-thread', 'knowledge', 'version-history'])
+    expect(tabTypes()).toEqual(['config', 'chapter-card', 'narrative-thread', 'knowledge', 'version-history'])
     expect(useEditorStore.getState().tabs.find(tab => tab.id === useEditorStore.getState().activeTabId)?.type).toBe('config')
     expect(useStageStore.getState().focus).toBe(false)
   })

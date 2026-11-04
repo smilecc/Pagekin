@@ -137,7 +137,7 @@ function generateDescription(
         && typeof args.start_chapter === 'number' && typeof args.chapter_count === 'number' && typeof args.target_units === 'number') {
         const end = args.start_chapter + args.chapter_count - 1
         const unit = writingLanguage === 'zh-CN' ? text('字', 'characters') : text('词', 'words')
-        const name = args.workflow === 'generate_architecture' ? text('故事架构', 'story architecture') : text('章节蓝图', 'chapter blueprints')
+        const name = args.workflow === 'generate_architecture' ? text('故事架构', 'story architecture') : text('故事规划', 'story plans')
         return text(`将生成${name}，范围为第 ${args.start_chapter}–${end} 章，每章规划目标 ${args.target_units} ${unit}。实际内容可多可少。`,
           `Generate ${name}: chapters ${args.start_chapter}-${end}, aiming for ${args.target_units} ${unit} per chapter. Actual content may be longer or shorter.`)
       }
@@ -149,7 +149,7 @@ function generateDescription(
       return text('小说配置变更提案', 'Novel configuration change proposal')
     case 'propose_chapter_blueprint':
       return text(
-        `第 ${args.chapter_number ?? '？'} 章蓝图变更提案`,
+        `第 ${args.chapter_number ?? '？'} 章故事规划变更提案`,
         `Chapter ${args.chapter_number ?? '?'} blueprint change proposal`,
       )
     default:

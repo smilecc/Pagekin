@@ -50,7 +50,7 @@ function captureGuardProject(
 
 /**
  * 生成故事架构（架构文件）前的前置校验：
- * 要求「核心大纲」或「主角人设」至少填写其中之一。
+ * 要求「大纲」或「世界观」至少填写其中之一。
  */
 export function guardArchitectureGeneration(
   expectedProjectPath?: string,
@@ -66,13 +66,11 @@ export function guardArchitectureGeneration(
   }
 
   const { project } = captured
-  const { coreOutline, protagonistProfile, worldSetting, genre } = project.novelConfig
+  const { coreOutline, genre } = project.novelConfig
 
   // 校验：小说配置是否有实质内容
   const hasConfig = !!(
-    coreOutline?.trim() ||
-    protagonistProfile?.trim() ||
-    worldSetting?.trim()
+    coreOutline?.trim()
   )
 
   if (!hasConfig) {
@@ -80,8 +78,8 @@ export function guardArchitectureGeneration(
       ok: false,
       message: localize(
         uiLocale,
-        `请先填写「小说配置」中的核心大纲或主角人设，AI 才能据此生成故事架构。\n\n当前类型：${genre || '未设置'}`,
-        `Fill in the core outline or protagonist profile in Novel Configuration before generating the story architecture.\n\nCurrent genre: ${genre || 'Not set'}`,
+        `请先填写「小说配置」中的大纲，AI 才能据此生成故事架构。\n\n当前类型：${genre || '未设置'}`,
+        `Fill in the outline in Novel Configuration before generating the story architecture.\n\nCurrent genre: ${genre || 'Not set'}`,
       ),
       action: 'open-config',
     }
@@ -90,12 +88,12 @@ export function guardArchitectureGeneration(
   return { ok: true }
 }
 
-// ===== Guard 2：生成章节蓝图前 → 校验故事架构完成度 =====
+// ===== Guard 2：生成故事规划前 → 校验故事架构完成度 =====
 
 /**
- * 生成章节蓝图前的前置校验：
- * 要求至少有 1 个架构信息（故事前提）已生成，
- * 建议 4 个都完成，但允许继续（仅提示警告）。
+ * 生成故事规划前的前置校验：
+ * 要求已填写大纲，
+ * 建议角色与世界观都完成，但允许继续（仅提示警告）。
  */
 export async function guardDirectoryGeneration(
   expectedProjectPath?: string,
@@ -119,19 +117,18 @@ export async function guardDirectoryGeneration(
 
   const checkHasContent = (text: string | null | undefined) => text && text.length > 50 && !text.includes('> 待生成')
 
-  const premiseMissing = !core || !checkHasContent(core.premise)
+  const outlineMissing = !captured.project.novelConfig.coreOutline?.trim()
   if (!core || !checkHasContent(core.charactersArch)) missing.push(ARCH_STEP_NAMES.characters)
   if (!core || !checkHasContent(core.worldbuilding)) missing.push(['世界观', 'Worldbuilding'])
-  if (!core || !checkHasContent(core.synopsis)) missing.push(['情节大纲', 'Plot outline'])
 
-  // 故事前提是必须的（第一个大块）
-  if (premiseMissing) {
+  // 大纲是生成故事规划的必要输入
+  if (outlineMissing) {
     return {
       ok: false,
       message: localize(
         shown(),
-        '「故事前提」尚未生成，它是章节蓝图的基础。\n\n请先在「故事架构」中点击「AI 生成架构」，生成故事前提后再来生成章节蓝图。',
-        'The story premise has not been generated, and chapter blueprints depend on it.\n\nGenerate the story premise in Story Architecture before generating chapter blueprints.',
+        '请先填写「大纲」，再生成故事规划。',
+        'Write the outline before generating story plans.',
       ),
       action: 'open-world-building',
     }
@@ -144,8 +141,8 @@ export async function guardDirectoryGeneration(
       ok: false,
       message: localize(
         shown(),
-        '角色卡不存在（数据库中没有角色记录）。\n\n请先在架构里生成角色名单（会同时建立角色卡），或手动添加角色。',
-        'No character cards exist (the database has no character records).\n\nGenerate the cast in the architecture (this creates the cards), or add characters manually.',
+        '角色卡不存在（数据库中没有角色记录）。\n\n请先在角色名单页生成角色（会同时建立角色卡），或手动添加角色。',
+        'No character cards exist (the database has no character records).\n\nGenerate characters on the cast page (this creates the cards), or add characters manually.',
       ),
     }
   }
@@ -157,7 +154,7 @@ export async function guardDirectoryGeneration(
       ok: true, // 允许继续，但携带警告信息
       message: localize(
         shown(),
-        `注意：以下架构信息尚未生成，蓝图质量可能受影响：\n${labels.map(m => `• ${m}`).join('\n')}\n\n建议先生成完整架构，或继续使用现有内容。`,
+        `注意：以下架构信息尚未生成，故事规划质量可能受影响：\n${labels.map(m => `• ${m}`).join('\n')}\n\n建议先生成完整架构，或继续使用现有内容。`,
         `The following architecture sections have not been generated, which may affect blueprint quality:\n${labels.map(m => `• ${m}`).join('\n')}\n\nGenerate the complete architecture first, or continue with the available content.`,
       ),
     }
@@ -166,11 +163,11 @@ export async function guardDirectoryGeneration(
   return { ok: true }
 }
 
-// ===== Guard 3：章节写稿前 → 校验章节蓝图存在 =====
+// ===== Guard 3：章节写稿前 → 校验故事规划存在 =====
 
 /**
  * 章节写稿前的前置校验：
- * 1. 要求 blueprints/ 目录中存在至少一个章节蓝图 JSON 文件。
+ * 1. 要求 blueprints/ 目录中存在至少一个故事规划 JSON 文件。
  * 2. 如果指定了章节号且 > 1，要求前一章已定稿（存在于 manuscript/ 中），否则上下文会断裂。
  */
 export async function guardChapterWriting(
@@ -196,7 +193,7 @@ export async function guardChapterWriting(
       ok: false,
       message: localize(
         shown(),
-        '尚未生成章节蓝图（数据库为空）。\n\n请先在「章节蓝图」中点击「AI 生成蓝图」，让 AI 规划每章内容后，再回来写稿。',
+        '尚未生成故事规划（数据库为空）。\n\n请先在「故事规划」中点击「AI 生成故事规划」，让 AI 规划每章内容后，再回来写稿。',
         'No chapter blueprints have been generated (the database is empty).\n\nGenerate chapter blueprints first, then return to draft the chapter.',
       ),
       action: 'open-blueprint',
@@ -210,8 +207,8 @@ export async function guardChapterWriting(
       ok: false,
       message: localize(
         shown(),
-        '角色卡不存在（数据库中没有角色记录）。\n\nAI 写稿需要角色状态作为上下文，请先在架构里生成角色名单，或手动添加角色。',
-        'No character cards exist (the database has no character records).\n\nAI drafting needs character state as context. Generate the cast in the architecture, or add characters manually.',
+        '角色卡不存在（数据库中没有角色记录）。\n\nAI 写稿需要角色状态作为上下文，请先在角色名单页生成角色，或手动添加角色。',
+        'No character cards exist (the database has no character records).\n\nAI drafting needs character state as context. Generate characters on the cast page, or add characters manually.',
       ),
     }
   }
@@ -251,12 +248,12 @@ export async function guardChapterWriting(
   return { ok: true }
 }
 
-// ===== Guard 4：角色卡重新生成前 → 检查蓝图是否为空 =====
+// ===== Guard 4：角色卡重新生成前 → 检查故事规划是否为空 =====
 
 /**
  * 角色卡重新生成/补齐的前置校验：
- * 不变量 1：角色卡仅允许在蓝图目录为空时重新生成，
- * 否则会破坏已有蓝图/章节的角色状态链。
+ * 不变量 1：角色卡仅允许在故事规划目录为空时重新生成，
+ * 否则会破坏已有故事规划/章节的角色状态链。
  */
 export async function guardCharacterRegeneration(
   expectedProjectSession?: ProjectSessionContext,
@@ -279,7 +276,7 @@ export async function guardCharacterRegeneration(
       ok: false,
       message: localize(
         useLocaleStore.getState().locale,
-        '已有章节蓝图，角色卡不可重新生成。\n\n蓝图生成已依赖角色数据，重新生成角色卡会导致现有蓝图和已写章节全部失效。\n如需修改角色，请手动编辑现有角色卡。',
+        '已有故事规划，角色卡不可重新生成。\n\n故事规划生成已依赖角色数据，重新生成角色卡会导致现有故事规划和已写章节全部失效。\n如需修改角色，请手动编辑现有角色卡。',
         'Character cards cannot be regenerated while chapter blueprints exist.\n\nThe blueprints already depend on character data. Regenerating the cards would invalidate existing blueprints and drafted chapters. Edit the existing character cards manually instead.',
       ),
     }

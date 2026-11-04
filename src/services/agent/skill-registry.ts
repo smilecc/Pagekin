@@ -332,9 +332,7 @@ class SkillRegistryImpl {
 
           return {
             success: true,
-            content: `[Skill: ${writingLanguage === 'en-US'
-              ? (skill.writingSkill.metadata.displayName ?? skill.metadata.name)
-              : (skill.metadata.displayName ?? skill.metadata.name)}]\n\n${content}`,
+            content: `[Skill: ${(skill.metadata.displayName ?? skill.metadata.name)}]\n\n${content}`,
           }
         },
       }

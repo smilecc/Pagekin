@@ -4,7 +4,6 @@
 import { buildAgentTool } from '../tool-registry'
 import { ipc } from '../../ipc-client'
 import { agentToolText, assertAgentProjectCurrent, requireAgentProject, agentToolErrorDetail } from './project-context'
-import { containsHan } from '../../../i18n/app-errors'
 
 
 export const readBlueprintTool = buildAgentTool({
@@ -37,8 +36,9 @@ export const readBlueprintTool = buildAgentTool({
         return { success: false, content: '', error: text(`第 ${chapterNum} 章蓝图不存在或读取失败`, `The blueprint for Chapter ${chapterNum} does not exist or could not be read`) }
       }
       return { success: true, content: text(
-        `📋 第 ${chapterNum} 章蓝图\n\n标题: ${bp.title}\n作用: ${bp.role}\n目的: ${bp.purpose}\n关键事件: ${bp.keyEvents}\n角色: ${bp.characters.join(', ')}\n悬念: ${bp.suspenseHook}\n备注: ${bp.notes}\n用户指引: ${bp.userGuidance}`,
-        `📋 Chapter ${chapterNum} blueprint\n\nTitle: ${bp.title}\nRole: ${bp.role}\nPurpose: ${bp.purpose}\nKey events: ${bp.keyEvents}\nCharacters: ${bp.characters.join(', ')}\nSuspense hook: ${bp.suspenseHook}\nNotes: ${bp.notes}\nUser guidance: ${bp.userGuidance}`,
+        `📋 第 ${chapterNum} 章故事规划\n\n章节名: ${bp.title}\n出场角色: ${bp.characters.join("、")}\n规划正文: ${bp.keyEvents}`,
+        `📋 Chapter ${chapterNum} plan\n\nTitle: ${bp.title}\nCharacters: ${bp.characters.join(", ")}\nPlan: ${bp.keyEvents}`,
+
       ) }
     }
 
@@ -60,9 +60,7 @@ export const readBlueprintTool = buildAgentTool({
       return {
         success: false,
         content: '',
-        error: !detail || (context?.writingLanguage === 'en-US' && containsHan(detail))
-          ? text('读取蓝图失败', 'Could not read blueprints')
-          : text(`读取蓝图失败：${detail}`, `Could not read blueprints: ${detail}`),
+        error: text(`读取蓝图失败：${detail}`, `Could not read blueprints: ${detail}`),
       }
     }
   },

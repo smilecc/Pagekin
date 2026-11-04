@@ -55,9 +55,7 @@ function editInstruction(context: EditorInlineContext, english: boolean): string
 }
 function systemRole(context: EditorInlineContext): Pick<PromptTemplate, 'systemRole'> {
   if (context.action !== 'instruct') return context.template
-  const rule = context.writingLanguage === 'en-US'
-    ? "The author's note is itself the newest explicit author fact. Where the note conflicts with the preservation requirements above, or with the explicit-facts clause of the contract below, follow the note; keep everything the note does not mention."
-    : '作者这次的意见本身就是最新的作者明确事实。意见与上述保留要求冲突时，或与下文合同里「作者与项目的明确事实」那一条冲突时，以作者意见为准；意见没提到的部分照常保留。'
+  const rule = '作者这次的意见本身就是最新的作者明确事实。意见与上述保留要求冲突时，或与下文合同里「作者与项目的明确事实」那一条冲突时，以作者意见为准；意见没提到的部分照常保留。'
   return { systemRole: [context.template.systemRole?.trim(), rule].filter(Boolean).join('\n') }
 }
 export function editorInlineTask(context: EditorInlineContext): GenerationTask {

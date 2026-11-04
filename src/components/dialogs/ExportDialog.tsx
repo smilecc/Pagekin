@@ -52,6 +52,7 @@ export default function ExportDialog({ isOpen, onClose }: Props) {
       name: currentProject.name,
       novelConfig: Object.freeze({
         genre: currentProject.novelConfig.genre,
+        coreOutline: currentProject.novelConfig.coreOutline,
         targetAudience: currentProject.novelConfig.targetAudience,
         writingLanguage: resolveWritingLanguage(currentProject.novelConfig.writingLanguage),
       }),

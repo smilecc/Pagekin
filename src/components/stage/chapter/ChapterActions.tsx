@@ -550,7 +550,7 @@ export default function ChapterActions({ sheetSlot, tab, stage, chapterNumber, t
         )}
       >
         <ul className="stage-ch-commit">
-          <li><b>{text('后面的章节不会跟着改。', 'Later chapters are not changed.')}</b>{text('已写的后续章、蓝图和角色状态都保留；新稿定稿后会列出可能和它不符的地方。', 'Later chapters, blueprints and character states are kept. After the new draft is finalized, you see what may no longer match it.')}</li>
+          <li><b>{text('后面的章节不会跟着改。', 'Later chapters are not changed.')}</b>{text('已写的后续章、故事规划和角色状态都保留；新稿定稿后会列出可能和它不符的地方。', 'Later chapters, blueprints and character states are kept. After the new draft is finalized, you see what may no longer match it.')}</li>
           <li><b>{text('随时可以放弃。', 'You can discard it.')}</b>{text(`在「更多」里放弃修改，第 ${chapterNumber} 章回到现在的定稿。`, `Choose Discard changes under More to return chapter ${chapterNumber} to its current final.`)}</li>
         </ul>
       </InkDialog>

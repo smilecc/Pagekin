@@ -24,13 +24,8 @@ export interface ReviewLike {
 export interface BlueprintForPreflight {
   chapterNumber: number
   title: string
-  role: string
-  purpose: string
   keyEvents: string
-  characters: string[]
-  suspenseHook: string
-  userGuidance: string
-  notes: string
+  characters?: string[]
 }
 
 function normalizedKeyPart(value: string): string {
@@ -89,7 +84,7 @@ export function findBlueprintContinuityRisks(
   const activeExemptions = new Set(
     exemptions.filter(exemption => !exemption.revoked).map(exemption => exemption.stableFactKey),
   )
-  const characters = new Set(blueprint.characters.map(normalizedKeyPart))
+  const planningText = `${blueprint.title}\n${blueprint.keyEvents}\n${(blueprint.characters ?? []).join('\n')}`
 
   return projections.flatMap(projection => (
     projection.sourceStatus === 'current' ? (projection.facts ?? []) : []
@@ -99,7 +94,7 @@ export function findBlueprintContinuityRisks(
     if (activeExemptions.has(stableFactKey)) return []
     const subject = fact.entities
       .map(normalizedKeyPart)
-      .find(entity => characters.has(entity) && isExplicitTerminalSubject(fact.statement, entity))
+      .find(entity => planningText.includes(entity) && isExplicitTerminalSubject(fact.statement, entity))
     if (!subject) return []
     return [{
       stableFactKey,
@@ -107,8 +102,8 @@ export function findBlueprintContinuityRisks(
       sourceChapter: fact.sourceChapter,
       evidence: fact.evidence,
       issue: {
-        zhCN: `定稿正文绑定的派生索引提示“${subject}”处于死亡终态，但当前蓝图仍将其列为出场角色。请对照原文确认语义。`,
-        enUS: `A derived index bound to finalized prose marks “${subject}” as dead, but the current blueprint still schedules the character to appear. Confirm the meaning against the prose.`,
+        zhCN: `定稿正文绑定的派生索引提示“${subject}”处于死亡终态，而当前章节规划包含该角色。请对照原文确认语义。`,
+        enUS: `A derived index bound to finalized prose marks “${subject}” as dead, and the current plan mentions the character. Confirm the meaning against the prose.`,
       },
       suggestion: {
         zhCN: '调整蓝图，或说明这是回忆、幻象等刻意安排。',

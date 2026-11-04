@@ -29,7 +29,7 @@ describe('generated content deletion affordances', () => {
     const ipcChannels = source('src/shared/ipc-channels.ts')
 
     expect(chapterCards).toContain('删除此章')
-    expect(chapterCards).toContain('清空全部蓝图')
+    expect(chapterCards).toContain('清空全部故事规划')
     expect(chapterCards).toContain('db:blueprint-delete')
     expect(dbController).toContain("'db:blueprint-delete'")
     expect(ipcChannels).toContain("'db:blueprint-delete'")

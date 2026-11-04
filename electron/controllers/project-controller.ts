@@ -659,9 +659,9 @@ export function registerProjectController(options: ProjectControllerOptions = {}
             plotStructure: updatedCoreData.plotStructure as 'three_act' | 'heros_journey' | 'save_the_cat' | 'kishotenketsu' | 'multi_thread' | 'freeform',
             narrativePOV: updatedCoreData.narrativePov as 'third_limited' | 'first_person' | 'third_omniscient' | 'multi_pov',
             coreOutline: updatedCoreData.coreOutline,
-            worldSetting: updatedCoreData.worldSetting,
-            goldenFinger: updatedCoreData.goldenFinger,
-            protagonistProfile: updatedCoreData.protagonistProfile,
+
+
+
             globalGuidance: updatedCoreData.globalGuidance,
             writingStyle: updatedCoreData.writingStyle,
             referenceWorks: updatedCoreData.referenceWorks,
@@ -779,11 +779,11 @@ export function registerProjectController(options: ProjectControllerOptions = {}
           ...narrativeThreadSettingsCoreUpdate(data.novelConfig),
           plotStructure: data.novelConfig.plotStructure,
           narrativePov: data.novelConfig.narrativePOV,
-          goldenFinger: data.novelConfig.goldenFinger,
+
           globalGuidance: data.novelConfig.globalGuidance,
           coreOutline: data.novelConfig.coreOutline,
-          worldSetting: data.novelConfig.worldSetting,
-          protagonistProfile: data.novelConfig.protagonistProfile,
+
+
           writingStyle: data.novelConfig.writingStyle ?? '',
           referenceWorks: data.novelConfig.referenceWorks ?? '',
         })
@@ -848,11 +848,11 @@ export function registerProjectController(options: ProjectControllerOptions = {}
           ...narrativeThreadSettingsCoreUpdate(data.novelConfig),
           plotStructure: data.novelConfig.plotStructure,
           narrativePov: data.novelConfig.narrativePOV,
-          goldenFinger: data.novelConfig.goldenFinger,
+
           globalGuidance: data.novelConfig.globalGuidance,
           coreOutline: data.novelConfig.coreOutline,
-          worldSetting: data.novelConfig.worldSetting,
-          protagonistProfile: data.novelConfig.protagonistProfile,
+
+
           writingStyle: data.novelConfig.writingStyle ?? '',
           referenceWorks: data.novelConfig.referenceWorks ?? '',
         })

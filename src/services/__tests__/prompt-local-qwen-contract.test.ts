@@ -10,25 +10,9 @@ const expectedPromptVariables: Record<string, string[]> = {
   edit_selected_text: ['edit_instruction', 'selected_text'],
   generate_novel_config_field: ['existing_config', 'field_label', 'field_requirements'],
   generate_global_config: ['user_idea', 'number_of_chapters', 'word_number'],
-  premise: [
-    'genre',
-    'sub_genre',
-    'topic',
-    'target_audience',
-    'number_of_chapters',
-    'word_number',
-    'core_setting',
-    'golden_finger',
-    'protagonist_profile',
-    'global_guidance',
-    'step_guidance',
-    'reference_works',
-  ],
   character_dynamics: [
-    'premise',
+    'core_outline',
     'genre',
-    'protagonist_profile',
-    'golden_finger',
     'world_building',
     'number_of_chapters',
     'global_guidance',
@@ -36,27 +20,12 @@ const expectedPromptVariables: Record<string, string[]> = {
     'reference_works',
   ],
   world_building: [
-    'premise',
+    'core_outline',
     'genre',
     'core_setting',
-    'golden_finger',
-    'protagonist_profile',
     'global_guidance',
     'step_guidance',
   ],
-  synopsis: [
-    'premise',
-    'character_dynamics',
-    'world_building',
-    'genre',
-    'number_of_chapters',
-    'word_number',
-    'plot_structure_guide',
-    'narrative_pov',
-    'global_guidance',
-    'step_guidance',
-  ],
-  chapter_blueprint: ['novel_architecture', 'number_of_chapters', 'global_guidance', 'genre', 'pacing_guidance'],
   chapter_blueprint_chunk: [
     'novel_architecture',
     'chapter_list',
@@ -122,7 +91,6 @@ const expectedPromptVariables: Record<string, string[]> = {
 }
 
 const expectedJsonFields: Record<string, string[]> = {
-  character_dynamics: ['schemaVersion', 'entries'],
   generate_global_config: [
     'genre',
     'targetAudience',
@@ -130,14 +98,10 @@ const expectedJsonFields: Record<string, string[]> = {
     'plotStructure',
     'narrativePOV',
     'coreOutline',
-    'worldSetting',
-    'goldenFinger',
-    'protagonistProfile',
     'globalGuidance',
     'writingStyle',
   ],
-  chapter_blueprint: ['blueprints', 'chapterNumber', 'title', 'purpose', 'characters', 'keyEvents', 'suspenseHook'],
-  chapter_blueprint_chunk: ['blueprints', 'chapterNumber', 'title', 'purpose', 'characters', 'keyEvents', 'suspenseHook'],
+  chapter_blueprint_chunk: ['blueprints', 'chapterNumber', 'title', 'keyEvents', 'characters'],
   consistency_check: ['items', 'category', 'severity', 'quote', 'description', 'summary'],
   update_character_cards: [
     'updates',
@@ -159,14 +123,9 @@ const expectedJsonFields: Record<string, string[]> = {
     'targetAudience',
     'subGenre',
     'coreOutline',
-    'worldSetting',
-    'goldenFinger',
-    'protagonistProfile',
     'globalGuidance',
-    'premise',
     'characters',
     'worldbuilding',
-    'synopsis',
     'target',
     'relation',
     'currentState',
@@ -189,7 +148,7 @@ const expectedJsonFields: Record<string, string[]> = {
     'notes',
     'currentState',
   ],
-  infer_single_chapter_blueprint: ['chapterNumber', 'title', 'role', 'purpose', 'characters', 'keyEvents', 'suspenseHook'],
+  infer_single_chapter_blueprint: ['blueprints', 'chapterNumber', 'title', 'keyEvents', 'characters'],
   infer_novel_config_with_vectors: [
     'novelConfig',
     'architectureFiles',
@@ -200,14 +159,9 @@ const expectedJsonFields: Record<string, string[]> = {
     'targetAudience',
     'subGenre',
     'coreOutline',
-    'worldSetting',
-    'goldenFinger',
-    'protagonistProfile',
     'globalGuidance',
-    'premise',
     'characters',
     'worldbuilding',
-    'synopsis',
     'target',
     'relation',
     'currentState',
@@ -299,7 +253,7 @@ describe('built-in model-neutral prompt contract', () => {
 
       const rendered = new ChapterPromptBuilder(template!, 'zh-CN')
         .withArchitecture('不可丢失的架构事实')
-        .withNovelConfig({ protagonistProfile: '不可丢失的作者设定' })
+        .withNovelConfig({ coreOutline: '不可丢失的作者设定' })
         .withGlobalSummary('前文进展')
         .withCharacterStates('角色状态')
         .withShortSummary('近期摘要')
@@ -373,27 +327,23 @@ describe('built-in model-neutral prompt contract', () => {
     const builtin = getBuiltinPromptTemplate('world_building', 'zh-CN')!
     const custom = {
       ...builtin,
-      content: '自定义正文引用：{{premise}}',
+      content: '自定义正文引用：{{core_outline}}',
       taskGuidance: '自定义任务指导引用：{{core_setting}}',
-      systemSuffix: '伪造后缀引用：{{golden_finger}}',
+      systemSuffix: '伪造后缀引用：{{global_guidance}}',
     }
     const variables = {
-      premise: '正文中的唯一故事前提',
+      core_outline: '正文中的唯一大纲',
       genre: '兜底中的唯一题材',
       core_setting: '任务指导中的唯一世界基盘',
-      golden_finger: '兜底中的唯一金手指',
-      protagonist_profile: '兜底中的唯一主角档案',
       global_guidance: '兜底中的唯一全局要求',
       step_guidance: '',
     }
     const renderedPrompts = [
       renderPrompt(custom, variables, 'zh-CN'),
       new ArchitecturePromptBuilder(custom, 'zh-CN')
-        .withCoreSeed(variables.premise)
+        .withCoreOutline(variables.core_outline)
         .withGenre(variables.genre)
         .withCoreSetting(variables.core_setting)
-        .withGoldenFinger(variables.golden_finger)
-        .withProtagonistProfile(variables.protagonist_profile)
         .withGlobalGuidance(variables.global_guidance)
         .withStepGuidance(variables.step_guidance)
         .build(),
@@ -432,8 +382,8 @@ describe('built-in model-neutral prompt contract', () => {
   })
 
   it('carries explicit author facts through architecture and blueprint prompts', () => {
-    for (const key of ['character_dynamics', 'world_building', 'synopsis', 'chapter_blueprint', 'chapter_blueprint_chunk']) {
-      expect(promptText(key), `${key} should preserve author facts`).toContain('作者明确设定')
+    for (const key of ['character_dynamics', 'world_building', 'chapter_blueprint_chunk']) {
+      expect(promptText(key), `${key} should preserve author facts`).toMatch(/作者.*(?:事实|设定)/)
     }
   })
 
@@ -447,7 +397,7 @@ describe('built-in model-neutral prompt contract', () => {
 
     for (const key of ['infer_novel_config', 'infer_novel_config_with_vectors', 'infer_single_chapter_blueprint']) {
       const text = promptText(key)
-      expect(text, `${key} should use the import workflow`).toMatch(/已有小说|已有章节|关键片段/)
+      expect(text, `${key} should use the import workflow`).toMatch(/已有小说|已有章节|关键片段|章节正文/)
       if (key !== 'infer_single_chapter_blueprint') {
         expect(text, `${key} should mark unknown fields`).toContain('待确认')
       }
@@ -508,7 +458,7 @@ describe('built-in model-neutral prompt contract', () => {
 
   it('keeps draft length guidance aimed at the target instead of pushing past it', () => {
     for (const key of ['first_chapter_draft', 'next_chapter_draft'] as const) {
-      for (const language of ['zh-CN', 'en-US'] as const) {
+      for (const language of ['zh-CN'] as const) {
         const template = getBuiltinPromptTemplate(key, language)!
         const text = [template.content, template.systemSuffix].join('\n')
         expect(text, `${key} ${language}`).not.toMatch(/停在自然段落末尾|踏踏实实|natural paragraph boundary|Use approximately \{\{word_number\}\} words to complete/u)
@@ -521,17 +471,12 @@ describe('built-in model-neutral prompt contract', () => {
     const nextChapter = getBuiltinPromptTemplate('next_chapter_draft', 'zh-CN')!
     expect(nextChapter.content).toContain('3. 落实本章核心冲突：集中推演完本章目标，避免平淡流水账。')
     expect(nextChapter.systemSuffix).toContain('切忌注水！不要为了凑字数而撰写冗余的旁白科普或无意义的日常对话。')
-    expect(getBuiltinPromptTemplate('next_chapter_draft', 'en-US')!.systemSuffix)
-      .toContain('- Write approximately {{word_number}} words. Cover only the chapter brief and stop once its conflict is complete; do not pad with filler narration or idle dialogue, and do not advance later blueprints.')
   })
 
   it.each([
     { language: 'zh-CN' as const,
       pruned: ['【剧情记忆库与前置断点上下文】', '[全局剧情进展]', '上一章已完成的结尾状态', '【后续章节大纲预告】', '【知识库资料'],
       kept: ['你正在连载写作最新章节。\n\n【本章写作方向与核心任务】\n本章蓝图', '【网文连载更新核心法则】'] },
-    { language: 'en-US' as const,
-      pruned: ['[Story memory and previous stopping point]', 'Overall progress:', 'Completed ending state', '[Upcoming chapter blueprints', '[Knowledge-base context]'],
-      kept: ['You are serializing the latest chapter.\n\n[Chapter brief]\n本章蓝图', '[Serialization requirements]'] },
   ])('prunes runtime-empty next-chapter context sections with their headings in $language', ({ language, pruned, kept }) => {
     const build = (filled: boolean) => new ChapterPromptBuilder(getBuiltinPromptTemplate('next_chapter_draft', language)!, language)
       .withArchitecture('架构')
@@ -562,7 +507,7 @@ describe('built-in model-neutral prompt contract', () => {
   })
 
   it('prunes an empty upcoming-blueprint section from the opening-chapter prompt', () => {
-    for (const language of ['zh-CN', 'en-US'] as const) {
+    for (const language of ['zh-CN'] as const) {
       const rendered = new ChapterPromptBuilder(getBuiltinPromptTemplate('first_chapter_draft', language)!, language)
         .withArchitecture('架构')
         .withNovelConfig({ genre: '类型' })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildRecoveryEntries, canResumeDraft, EMPTY_RECOVERY_SOURCES, isInFlight, outlineSourceChangedNote, type DraftEntry, type RecoverySources, type ReviewEntry } from '../run-recovery'
+import { buildRecoveryEntries, canResumeDraft, EMPTY_RECOVERY_SOURCES, isInFlight, type DraftEntry, type RecoverySources, type ReviewEntry } from '../run-recovery'
 
 const handle = { projectId: '灯塔', epoch: '会话', rootActionId: '预算', runId: '正文' }
 const artifact = (artifactId: string, compositionEligible: boolean) => ({
@@ -250,7 +250,7 @@ describe('审稿候选的片段', () => {
 describe('列表', () => {
   it('按恢复稿、选区建议、审修、批量、单章、旧恢复候选排列，英文界面用英文', () => {
     const sources: RecoverySources = {
-      planning: [{ handle: { ...handle, runId: '大纲' }, plotOutlineRecovery: {} } as never],
+      planning: [{ handle: { ...handle, runId: '故事规划' }, blueprintRecovery: {} } as never],
       editors: [{ view: view('选区', { ledger: { physicalRequests: 1 } }), modelId: '模型', sourceStatus: 'conflict',
         context: { selectedText: '选中', documentText: '全文' } } as never],
       reviews: [],
@@ -261,83 +261,11 @@ describe('列表', () => {
     const entries = buildRecoveryEntries(sources, 'en-US')
     expect(entries.map(entry => entry.kind)).toEqual(['planning', 'editor', 'batch', 'candidate'])
     expect(entries.map(entry => entry.title)).toEqual([
-      'Outline recovery draft', 'Editor selection suggestion', 'Batch drafts: 2 saved; next chapter 3', 'Original candidate · Chapter 2 北堤',
+      'Blueprint recovery draft', 'Editor selection suggestion', 'Batch drafts: 2 saved; next chapter 3', 'Original candidate · Chapter 2 北堤',
     ])
     expect(entries[1]).toMatchObject({ canContinue: false, conflictNote: 'Sources changed; the original suggestion can still be copied.' })
     expect(entries[2]).toMatchObject({ canContinue: false })
     expect(entries[3]).toMatchObject({ canContinue: false, staleNote: expect.stringContaining('source chapter changed') })
-  })
-})
-
-describe('规划恢复稿', () => {
-  it('分批生成的两份大纲恢复稿按各自的章节范围区分标题', () => {
-    const outline = (runId: string, from: number, to: number) => ({ handle: { ...handle, runId }, plotOutlineRecovery: {}, plotOutline: { range: { from, to } } }) as never
-    const entries = buildRecoveryEntries({ ...EMPTY_RECOVERY_SOURCES, planning: [outline('第一批', 1, 10), outline('第二批', 11, 16)] }, 'zh-CN')
-    expect(entries.map(entry => entry.title)).toEqual(['大纲恢复稿 · 第 1–10 章', '大纲恢复稿 · 第 11–16 章'])
-    expect(buildRecoveryEntries({ ...EMPTY_RECOVERY_SOURCES, planning: [outline('第一批', 1, 10)] }, 'en-US')[0].title).toBe('Outline recovery draft · ch. 1–10')
-  })
-
-  it.each([
-    ['1、5、2、3、4', [1, 5, 2, 3, 4], '这次生成开跑时，大纲的章节没有按章号顺序排列，不能接着生成，恢复稿也不能保存。可以复制已生成的章节，把大纲排好后重新生成。',
-      'When this run started, the outline chapters were not in chapter order, so it cannot continue and the recovery draft cannot be saved. Copy the generated chapters, put the outline in order, then generate again.'],
-    ['1、2、3、2', [1, 2, 3, 2], '这次生成开跑时，大纲里第 2 章出现了不止一次，不能接着生成，恢复稿也不能保存。可以复制已生成的章节，改好大纲后重新生成。',
-      'When this run started, chapter 2 appeared more than once in the outline, so it cannot continue and the recovery draft cannot be saved. Copy the generated chapters, fix the outline, then generate again.'],
-  ])('升级前以 %s 的大纲开跑的恢复稿：入口说明不能继续的原因，中英文各一句', (_case, order, zh, en) => {
-    const synopsis = `# 情节大纲\n\n${order.map(n => `## 第${n}章：第${n}夜\n这一夜的事。`).join('\n\n')}`
-    const recovery = { handle, plotOutline: { range: { from: 3, to: 5 }, sourceExpected: { synopsis } },
-      plotOutlineRecovery: { writeState: { kind: 'blocked', reason: 'source-invalid' } } } as never
-    expect(buildRecoveryEntries({ ...EMPTY_RECOVERY_SOURCES, planning: [recovery] }, 'zh-CN')[0]).toMatchObject({ kind: 'planning', note: zh })
-    expect(buildRecoveryEntries({ ...EMPTY_RECOVERY_SOURCES, planning: [recovery] }, 'en-US')[0]).toMatchObject({ kind: 'planning', note: en })
-  })
-
-  it.each([
-    ['大纲按序但缺第 2 章', { range: { from: 3, to: 5 }, sourceExpected: { synopsis: '# 情节大纲\n\n## 第1章：第1夜\n这一夜的事。\n\n## 第3章：第3夜\n这一夜的事。' } }],
-    ['没有冻结的大纲', undefined],
-  ])('来源无效但不是乱序或重复（%s）：入口说明不能继续、不能保存，不提本地保存或继续缺少的章节', (_case, plotOutline) => {
-    const recovery = { handle, plotOutline, plotOutlineRecovery: { writeState: { kind: 'blocked', reason: 'source-invalid' } } } as never
-    expect(buildRecoveryEntries({ ...EMPTY_RECOVERY_SOURCES, planning: [recovery] }, 'zh-CN')[0])
-      .toMatchObject({ kind: 'planning', note: '这次生成开跑时，大纲的章节编号与所选范围对不上或缺少章节，不能接着生成，恢复稿也不能保存。可以复制已生成的章节，改好大纲后重新生成。' })
-    expect(buildRecoveryEntries({ ...EMPTY_RECOVERY_SOURCES, planning: [recovery] }, 'en-US')[0])
-      .toMatchObject({ kind: 'planning', note: 'When this run started, the outline chapter numbers did not line up with the selected range or a chapter was missing, so it cannot continue and the recovery draft cannot be saved. Copy the generated chapters, fix the outline, then generate again.' })
-  })
-
-  it('来源已变的大纲恢复稿：说明只能查看或复制、从本批起始章重新生成，不再说可编辑并本地保存', () => {
-    const recovery = { handle, plotOutline: { range: { from: 6, to: 10 }, cursor: { kind: 'request', chapterNumber: 7, attempt: 'normal' } },
-      plotOutlineRecovery: { writeState: { kind: 'blocked', reason: 'source-changed' } } } as never
-    const zh = buildRecoveryEntries({ ...EMPTY_RECOVERY_SOURCES, planning: [recovery] }, 'zh-CN')[0]
-    const en = buildRecoveryEntries({ ...EMPTY_RECOVERY_SOURCES, planning: [recovery] }, 'en-US')[0]
-    expect(zh).toMatchObject({ kind: 'planning', actionLabel: '查看恢复稿' })
-    expect(zh.kind === 'planning' && zh.note).toContain('只能查看或复制')
-    expect(zh.kind === 'planning' && zh.note).toContain('从第 6 章重新生成')
-    expect(zh.kind === 'planning' && zh.note).not.toContain('可编辑并本地保存')
-    expect(en).toMatchObject({ kind: 'planning', actionLabel: 'View recovery draft' })
-    expect(en.kind === 'planning' && en.note).toContain('from chapter 6')
-    expect(en.kind === 'planning' && en.note).not.toMatch(/save it locally/i)
-  })
-
-  it('已写进正式大纲的一批在来源变了之后：只说明只能查看或复制，不叫作者从这批起始章重新生成', () => {
-    const recovery = { handle, plotOutline: { range: { from: 1, to: 5 }, cursor: { kind: 'complete' } },
-      plotOutlineRecovery: { writeState: { kind: 'blocked', reason: 'source-changed' }, inFormalOutline: true } } as never
-    const entry = buildRecoveryEntries({ ...EMPTY_RECOVERY_SOURCES, planning: [recovery] }, 'zh-CN')[0]
-    expect(entry.kind === 'planning' && entry.note).toContain('只能查看或复制')
-    expect(entry.kind === 'planning' && entry.note).not.toContain('重新生成')
-  })
-
-  it('最后一章生成完、正式保存被来源检查拒绝的一批：不说已经生成完毕，叫作者从本批起始章重新生成', () => {
-    const recovery = { handle, plotOutline: { range: { from: 6, to: 6 }, cursor: { kind: 'complete' } },
-      plotOutlineRecovery: { writeState: { kind: 'blocked', reason: 'source-changed' }, inFormalOutline: false } } as never
-    const zh = buildRecoveryEntries({ ...EMPTY_RECOVERY_SOURCES, planning: [recovery] }, 'zh-CN')[0]
-    const en = buildRecoveryEntries({ ...EMPTY_RECOVERY_SOURCES, planning: [recovery] }, 'en-US')[0]
-    expect(zh.kind === 'planning' && zh.note).not.toContain('已经生成完毕')
-    expect(zh.kind === 'planning' && zh.note).toContain('从第 6 章重新生成')
-    expect(en.kind === 'planning' && en.note).toContain('from chapter 6')
-    expect(outlineSourceChangedNote(recovery, 'zh-CN')).toContain('从第 6 章重新生成')
-  })
-
-  it('只有一章的大纲恢复稿标题写「第 6 章」，不写成「第 6–6 章」', () => {
-    const recovery = { handle, plotOutlineRecovery: {}, plotOutline: { range: { from: 6, to: 6 } } } as never
-    expect(buildRecoveryEntries({ ...EMPTY_RECOVERY_SOURCES, planning: [recovery] }, 'zh-CN')[0].title).toBe('大纲恢复稿 · 第 6 章')
-    expect(buildRecoveryEntries({ ...EMPTY_RECOVERY_SOURCES, planning: [recovery] }, 'en-US')[0].title).toBe('Outline recovery draft · ch. 6')
   })
 })
 

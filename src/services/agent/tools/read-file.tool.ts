@@ -6,7 +6,6 @@ import { buildAgentTool } from '../tool-registry'
 import { ipc } from '../../ipc-client'
 import { validatePath } from './safe-path'
 import { agentToolText, assertAgentProjectCurrent, requireAgentProject, agentToolErrorDetail } from './project-context'
-import { containsHan } from '../../../i18n/app-errors'
 
 export const readFileTool = buildAgentTool({
   name: 'read_file',
@@ -46,9 +45,7 @@ export const readFileTool = buildAgentTool({
       return {
         success: false,
         content: '',
-        error: context?.writingLanguage === 'en-US' && containsHan(detail ?? '')
-          ? text('文件读取失败', 'Could not read the file')
-          : detail ?? text('文件读取失败', 'Could not read the file'),
+        error: detail ?? text('文件读取失败', 'Could not read the file'),
       }
     }
 

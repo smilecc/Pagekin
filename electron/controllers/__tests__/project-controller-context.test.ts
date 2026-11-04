@@ -143,11 +143,11 @@ vi.mock('../../repositories/project-core-repository', () => ({
         plotStructure: 'three_act',
         narrativePov: 'third_limited',
         coreOutline: '独立核心大纲',
-        worldSetting: '独立世界设定',
-        protagonistProfile: '独立主角设定',
+
+
         synopsis: '',
         worldbuilding: '',
-        goldenFinger: '',
+
         charactersArch: '',
         globalGuidance: '',
         writingStyle: '',
@@ -471,8 +471,8 @@ describe('project controller project identity', () => {
           novelConfig: {
             writingLanguage: 'en-US',
             coreOutline: '独立核心大纲',
-            worldSetting: '独立世界设定',
-            protagonistProfile: '独立主角设定',
+
+
           },
         },
       })
@@ -815,25 +815,6 @@ describe('project controller project identity', () => {
     })
   })
 
-  it('initializes a new project with the writing language selected at creation time', async () => {
-    mocks.currentProjectPath = ''
-    mocks.activeSession = null
-
-    await expect(handler('project:create')(
-      { sender: { id: 17 } },
-      {
-        name: 'English novel',
-        parentGrantId: `selected:${path.resolve('C:/projects')}`,
-        genre: 'fantasy',
-        targetAudience: 'all',
-        writingLanguage: 'en-US',
-      },
-      'request-create-English-novel',
-    )).resolves.toMatchObject({ success: true })
-
-    expect(mocks.projectCoreInit).toHaveBeenCalledWith('English novel', 'en-US')
-  })
-
   it('restores a failed first-ever create to neutral without touching an ordinary renderer path or reviving a lease', async () => {
     mocks.currentProjectPath = ''
     mocks.activeSession = null
@@ -1113,24 +1094,6 @@ describe('project controller project identity', () => {
       .resolves.toMatchObject({ success: true })
     expect(mocks.projectCoreUpdate).toHaveBeenCalledWith(expect.objectContaining({
       creativeStrategy: 'consistency-first',
-    }))
-  })
-
-  it('persists the project writing language independently from the application locale', async () => {
-    const data = {
-      path: projectA,
-      sessionLease: 'lease-project-A',
-      name: 'Project A',
-      novelConfig: {
-        genre: 'fantasy',
-        writingLanguage: 'en-US',
-      },
-    }
-
-    await expect(handler('project:save')({}, 'project-A', data, projectA, projectSession()))
-      .resolves.toMatchObject({ success: true })
-    expect(mocks.projectCoreUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      writingLanguage: 'en-US',
     }))
   })
 

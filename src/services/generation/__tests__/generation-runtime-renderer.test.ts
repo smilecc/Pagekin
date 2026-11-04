@@ -45,9 +45,9 @@ function project(id: string, creativeStrategy: CreativeStrategy): ProjectData {
       plotStructure: 'three_act',
       narrativePOV: 'third_limited',
       coreOutline: '',
-      worldSetting: '',
-      goldenFinger: '',
-      protagonistProfile: '',
+
+
+
       globalGuidance: '',
     },
     characterStates: '',

@@ -15,7 +15,7 @@ const session = { projectId: 'project-a', leaseId: 'lease-a', projectPath: 'C:/s
 const project = { id: session.projectId, sessionLease: session.leaseId, path: session.projectPath, name: '合成项目',
   characterStates: '', createdAt: '', updatedAt: '', novelConfig: { writingLanguage: 'zh-CN' as const, genre: '奇幻', subGenre: '',
     targetAudience: '', totalChapters: 10, wordsPerChapter: 3000, plotStructure: 'three_act' as const, narrativePOV: 'third_limited' as const,
-    coreOutline: '', worldSetting: '', goldenFinger: '', protagonistProfile: '', globalGuidance: '' } }
+    coreOutline: '',    globalGuidance: '' } }
 let fixture: AgentHostFixture
 const lastMessage = () => useAgentStore.getState().getActiveConversation()?.messages.at(-1)
 const calls = (channel: string) => fixture.invoke.mock.calls.filter(call => call[0] === channel)
@@ -101,13 +101,13 @@ describe('Agent GenerationRuntime boundary', () => {
   })
 
   it('builds Skill and mention prefetch instructions in the frozen project writing language', async () => {
-    useProjectStore.setState({ currentProject: { ...project, novelConfig: { ...project.novelConfig, writingLanguage: 'en-US' } } })
-    fixture.writingLanguage = 'en-US'
+    useProjectStore.setState({ currentProject: { ...project, novelConfig: { ...project.novelConfig, writingLanguage: 'zh-CN' } } })
+    fixture.writingLanguage = 'zh-CN'
     vi.spyOn(ipcPromptPersistence, 'loadProject').mockResolvedValue({ templates: [], diagnostics: [] })
     await skillRegistry.loadAll()
     const prefetchExecute = vi.fn(async (_args, executionContext) => {
       useLocaleStore.setState({ locale: 'en-US' })
-      expect(executionContext).toMatchObject({ uiLocale: 'zh-CN', writingLanguage: 'en-US' })
+      expect(executionContext).toMatchObject({ uiLocale: 'zh-CN', writingLanguage: 'zh-CN' })
       return { success: true, content: 'Architecture facts' }
     })
     vi.spyOn(toolRegistry, 'get').mockImplementation(name => name === 'read_architecture'
@@ -115,17 +115,16 @@ describe('Agent GenerationRuntime boundary', () => {
           source: 'builtin', execute: prefetchExecute, isReadOnly: true, requiresConfirmation: false } : undefined)
     await useAgentStore.getState().sendMessage('/review-chapter Review chapter 1 with @architecture')
     const payload = fixture.recovery.context.input.userMessage
-    expect(payload).toContain('[The user invoked Skill: Chapter Review]')
-    expect(payload).toContain('User input: Review chapter 1 with @architecture')
-    expect(payload).toContain('# Chapter Review')
-    expect(payload).toContain('[Prefetched context @read_architecture]')
-    expect(payload).toContain('The following context was requested with @ and fetched automatically:')
-    expect(fixture.recovery.context.initialMessages.map(message => message.content).join('\n')).not.toMatch(/[\u3400-\u9fff]/u)
+    expect(payload).toContain('[用户使用了 Skill: 章节审阅]')
+    expect(payload).toContain('用户输入: Review chapter 1 with @architecture')
+    expect(payload).toContain('# 章节审阅')
+    expect(payload).toContain('[预加载上下文 @read_architecture]')
+    expect(payload).toContain('以下是用户 @ 引用的上下文数据（已自动获取）：')
     expect(prefetchExecute).toHaveBeenCalledOnce()
   })
 
   it('keeps project A runtime identity and policy when mention prefetch switches to project B', async () => {
-    useProjectStore.setState({ currentProject: { ...project, novelConfig: { ...project.novelConfig, writingLanguage: 'en-US', creativeStrategy: 'consistency-first' } } })
+    useProjectStore.setState({ currentProject: { ...project, novelConfig: { ...project.novelConfig, writingLanguage: 'zh-CN', creativeStrategy: 'consistency-first' } } })
     const execute = vi.fn(async () => {
       useProjectStore.setState({ currentProject: { ...project, id: 'project-b', path: 'C:/synthetic/agent-b', sessionLease: 'lease-b' } })
       return { success: true, content: 'Project A architecture' }
@@ -134,7 +133,7 @@ describe('Agent GenerationRuntime boundary', () => {
       ? { name, description: '', source: 'builtin', inputSchema: { type: 'object', properties: {} }, execute, isReadOnly: true, requiresConfirmation: false } : undefined)
     await useAgentStore.getState().sendMessage('Check @architecture')
     expect(useProjectStore.getState().currentProject?.id).toBe('project-b')
-    expect(execute).toHaveBeenCalledWith({}, expect.objectContaining({ projectSession: session, selectedModelId: 'model-a', writingLanguage: 'en-US' }))
+    expect(execute).toHaveBeenCalledWith({}, expect.objectContaining({ projectSession: session, selectedModelId: 'model-a', writingLanguage: 'zh-CN' }))
     expect(calls('agent-generation:begin')).toHaveLength(0)
     expect(legacyRuntime.createGenerationRuntime).not.toHaveBeenCalled()
   })

@@ -301,7 +301,9 @@ test('direct persisted reader binds the owned physical project manifest', () => 
       const outside = path.join(value.root, 'outside-manifest.json')
       fs.writeFileSync(outside, JSON.stringify({ kind: 'manifest', projectId: 'project', rootPath: value.projectPath }))
       fs.rmSync(value.manifestPath)
-      fs.symlinkSync(outside, value.manifestPath, 'file')
+      // Windows junctions exercise the same non-regular/reparse-path rejection without elevated privileges.
+      fs.symlinkSync(process.platform === 'win32' ? value.root : outside, value.manifestPath,
+        process.platform === 'win32' ? 'junction' : 'file')
     },
   ]
   for (const mutate of mutations) {

@@ -31,13 +31,6 @@ const SYNOPSIS_INCOMPLETE_MARKER_ZH = [
   '',
 ].join('\n')
 
-const SYNOPSIS_INCOMPLETE_MARKER_EN = [
-  '',
-  '> ⚠ **This outline is incomplete**: generation stopped at the output length limit; the completed part above was saved automatically.',
-  '> Click “Continue plot outline” in the AI output notice to resume this batch.',
-  '',
-].join('\n')
-
 /** 轻量确定性指纹：绑定大纲赖以生成的源事实，防止旧检查点被续到新上下文。 */
 export function synopsisFactsFingerprint(facts: readonly string[]): string {
   const joined = facts.join('\u0001')
@@ -54,10 +47,9 @@ export function renderSynopsisDbText(
   totalChapters: number,
   checkpoint: Pick<SynopsisCheckpoint, 'synopsis_incomplete' | 'synopsis_covered_to'>,
 ): string {
-  const english = writingLanguage === 'en-US'
-  const heading = english ? 'Plot Outline' : '情节大纲'
+  const heading = '情节大纲'
   if (checkpoint.synopsis_incomplete === true) {
-    return `# ${heading}\n\n${body}\n${english ? SYNOPSIS_INCOMPLETE_MARKER_EN : SYNOPSIS_INCOMPLETE_MARKER_ZH}`.trim()
+    return `# ${heading}\n\n${body}\n${SYNOPSIS_INCOMPLETE_MARKER_ZH}`.trim()
   }
   const coveredTo = checkpoint.synopsis_covered_to ?? totalChapters
   const visibleBody = coveredTo < totalChapters

@@ -498,7 +498,7 @@ export function useDraftActions({ tabId, filePath, content, projectKey }: DraftT
     })
   }
 
-  /** 合并完成 —— 就地覆写原草稿（不新建版本，仅蓝图写稿时才产生新版本）。返回是否已提交。 */
+  /** 合并完成 —— 就地覆写原草稿（不新建版本，仅故事规划写稿时才产生新版本）。返回是否已提交。 */
   const completeMerge = async (mergedText: string): Promise<boolean> => {
     const projectSession = captureProjectSession(currentProject)
     if (!meta || !mergeData || !projectSession || !isProjectSessionPath(projectSession, projectKey)) return false

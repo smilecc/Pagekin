@@ -27,9 +27,9 @@ import {
  */
 export type GeneratableField =
   | 'coreOutline'
-  | 'worldSetting'
-  | 'goldenFinger'
-  | 'protagonistProfile'
+
+
+
   | 'globalGuidance'
   | 'writingStyle'
 
@@ -37,18 +37,18 @@ type FieldGenerationInput = Pick<ProjectData, 'name' | 'novelConfig'>
 
 const FIELD_OPERATIONS = {
   coreOutline: 'generate-field:core-outline',
-  worldSetting: 'generate-field:world-setting',
-  goldenFinger: 'generate-field:golden-finger',
-  protagonistProfile: 'generate-field:protagonist-profile',
+
+
+
   globalGuidance: 'generate-field:global-guidance',
   writingStyle: 'generate-field:writing-style',
 } as const satisfies Record<GeneratableField, GenerationOperation>
 
 const FIELD_LABELS: Record<GeneratableField, readonly [string, string]> = {
   coreOutline: ['核心大纲', 'Core outline'],
-  worldSetting: ['世界观设定', 'World setting'],
-  goldenFinger: ['金手指/核心卖点', 'Special advantage / core story engine'],
-  protagonistProfile: ['主角人设', 'Protagonist profile'],
+
+
+
   globalGuidance: ['全局写作要求', 'Global writing guidance'],
   writingStyle: ['文风配置', 'Writing-style guide'],
 }
@@ -114,7 +114,7 @@ export class GenerateFieldCommand extends BaseWorkflowCommand<string> {
     if (!template) throw new Error(workflowUiText(context, '未找到字段生成提示词', 'Field-generation prompt is unavailable'))
     const prompt = renderPrompt(template, {
       existing_config: contextSummary,
-      field_label: promptLanguageText(writingLanguage, labelPair[0], labelPair[1]),
+      field_label: promptLanguageText(writingLanguage, labelPair[0]),
       field_requirements: this.fieldRequirements(config, writingLanguage),
     }, writingLanguage)
     const systemPrompt = composePromptSystemRole(template, writingLanguage)
@@ -168,7 +168,6 @@ export class GenerateFieldCommand extends BaseWorkflowCommand<string> {
         `${prompt}\n\n${promptLanguageText(
           writingLanguage,
           `【纠正规则】上一轮候选无效且已丢弃。只重新生成“全局写作要求”字段：${GENERATED_GLOBAL_GUIDANCE_MIN_RULES}–${GENERATED_GLOBAL_GUIDANCE_MAX_RULES} 条，每条独占一行，总计不超过 ${GENERATED_GLOBAL_GUIDANCE_MAX_CHARS} 字符。只输出规则正文，不要标题、解释、Markdown 或逐章大纲。`,
-          `[Correction contract] The previous candidate was invalid and discarded. Regenerate only the Global writing guidance field: ${GENERATED_GLOBAL_GUIDANCE_MIN_RULES}–${GENERATED_GLOBAL_GUIDANCE_MAX_RULES} rules, one rule per line, within ${GENERATED_GLOBAL_GUIDANCE_MAX_CHARS} characters total. Output only the rules, with no title, explanation, Markdown, or chapter-by-chapter outline.`,
         )}`,
         'generate-field-global-guidance-replacement',
       )
@@ -246,8 +245,8 @@ export class GenerateFieldCommand extends BaseWorkflowCommand<string> {
   /** 构建已有配置的上下文摘要 */
   private buildContext({ name, novelConfig: config }: FieldGenerationInput, writingLanguage: WritingLanguage): string {
     const parts: string[] = []
-    const line = (zhLabel: string, enLabel: string, value: string | number) => (
-      `- ${promptLanguageText(writingLanguage, zhLabel, enLabel)}: ${value}`
+    const line = (zhLabel: string, _enLabel: string, value: string | number) => (
+      `- ${promptLanguageText(writingLanguage, zhLabel)}: ${value}`
     )
     if (name.trim()) parts.push(line(
       '作者指定书名（沿用，不另拟书名）',
@@ -261,12 +260,6 @@ export class GenerateFieldCommand extends BaseWorkflowCommand<string> {
     if (config.wordsPerChapter) parts.push(line('每章目标字数', 'Target words per chapter', config.wordsPerChapter))
     if (config.coreOutline?.trim())
       parts.push(line('核心大纲', 'Core outline', config.coreOutline))
-    if (config.worldSetting?.trim())
-      parts.push(line('世界观设定', 'World setting', config.worldSetting))
-    if (config.goldenFinger?.trim())
-      parts.push(line('金手指体系', 'Special advantage', config.goldenFinger))
-    if (config.protagonistProfile?.trim())
-      parts.push(line('主角人设', 'Protagonist profile', config.protagonistProfile))
     if (config.globalGuidance?.trim())
       parts.push(line('全局写作要求', 'Global writing guidance', config.globalGuidance))
     if (config.referenceWorks?.trim())
@@ -275,15 +268,15 @@ export class GenerateFieldCommand extends BaseWorkflowCommand<string> {
       parts.push(line('文风描述', 'Writing style', config.writingStyle))
     return parts.length > 0
       ? parts.join('\n')
-      : promptLanguageText(writingLanguage, '（尚未填写任何配置）', '(No configuration has been provided yet.)')
+      : promptLanguageText(writingLanguage, '（尚未填写任何配置）')
   }
 
   private fieldRequirements(config: NovelConfig, writingLanguage: WritingLanguage): string {
     const fieldPrompts: Record<GeneratableField, readonly [string, string]> = {
       coreOutline: ['不少于150字，包含主角开局困境、核心目标、主要冲突升级与最终危机，明确故事的差异化吸引力。', 'Write at least 150 words covering the protagonist’s opening predicament, core objective, escalating conflict, final crisis, and distinctive story appeal.'],
-      worldSetting: ['描述时代、地点、力量或制度规则、权力结构和稀缺资源；每项设定都应能制造具体冲突。', 'Describe the era, setting, governing rules or power system, power structure, and scarce resources. Every element should create concrete conflict.'],
-      goldenFinger: ['说明差异化优势的来源、机制、成长路径、限制与代价，使其与世界规则发生冲突而非成为万能能力。', 'Define the origin, mechanism, growth path, limits, and cost of the protagonist’s special advantage. It must interact with world rules rather than solve everything.'],
-      protagonistProfile: ['包含外在形象、真实个性、反差弱点、显性目标、深层渴望，以及清晰的成长弧起点和方向。', 'Include public persona, true personality, a contrasting weakness, visible goal, deeper desire, and a clear starting point and direction for the character arc.'],
+
+
+
       globalGuidance: ['写 4–8 条跨章节长期有效的简短执行规则，总计不超过 600 字；禁止逐章列大纲、分配章节区间或复述核心大纲。', 'Write 4–8 short, stable, cross-chapter execution rules within 600 characters. Do not enumerate chapters, allocate chapter ranges, or restate the core outline.'],
       writingStyle: [`提供不少于100字的可执行文风指南，涵盖节奏、场景切换、描写密度、对话、用词、情感基调和标志性手法，并适配${config.genre || '当前题材'}与${config.targetAudience || '目标受众'}。`, `Provide an actionable style guide of at least 100 words covering pacing, scene transitions, descriptive density, dialogue, diction, emotional tone, and signature techniques, suited to ${config.genre || 'the genre'} and ${config.targetAudience || 'the target audience'}.`],
     }

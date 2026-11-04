@@ -71,9 +71,9 @@ afterEach(() => {
 describe('GenerateFieldCommand project identity', () => {
   describe.each([
     { writingLanguage: 'zh-CN', title: '星港归途', label: '作者指定书名（沿用，不另拟书名）' },
-    { writingLanguage: 'en-US', title: 'Harbor of Stars', label: 'Author-provided title (keep this title; do not invent another)' },
+    { writingLanguage: 'en-US', title: 'Harbor of Stars', label: '作者指定书名（沿用，不另拟书名）' },
   ] as const)('author title in $writingLanguage', ({ writingLanguage, title, label }) => {
-    it.each(['coreOutline', 'worldSetting', 'globalGuidance'] as const)(
+    it.each(['coreOutline', 'globalGuidance'] as const)(
       'includes the captured title in %s provider messages after asynchronous admission',
       async fieldKey => {
         const initialProject = useProjectStore.getState().currentProject!
@@ -81,9 +81,9 @@ describe('GenerateFieldCommand project identity', () => {
           ...initialProject.novelConfig,
           writingLanguage,
           coreOutline: '',
-          worldSetting: '',
-          goldenFinger: '',
-          protagonistProfile: '',
+
+
+
           globalGuidance: '',
           writingStyle: '',
         }
@@ -140,7 +140,7 @@ describe('GenerateFieldCommand project identity', () => {
         ...project(projectAPath),
         novelConfig: {
           genre: 'Mystery',
-          worldSetting: authorText,
+          writingStyle: authorText,
           writingLanguage: 'en-US',
         },
       } as never,
@@ -155,14 +155,14 @@ describe('GenerateFieldCommand project identity', () => {
       }),
     })
 
-    await new GenerateFieldCommand('worldSetting').execute({
+    await new GenerateFieldCommand('writingStyle').execute({
       step: {},
       context: { ...context, writingLanguage: 'en-US', uiLocale: 'en-US' },
       callbacks,
     })
 
     expect(observedPrompts.join('\n')).toContain(authorText)
-    expect(useProjectStore.getState().currentProject?.novelConfig.worldSetting)
+    expect(useProjectStore.getState().currentProject?.novelConfig.writingStyle)
       .toBe(`${authorText}\n\n${addition}`)
   })
 
@@ -194,7 +194,7 @@ describe('GenerateFieldCommand project identity', () => {
 
     const [prompt, systemPrompt] = callLlm.mock.calls[0]!
     expect(callLlm.mock.calls[0]?.[3]).toMatchObject({ writingSkillStage: 'planning' })
-    expect(`${systemPrompt}\n${prompt}`).not.toMatch(/[\u3400-\u9fff]/u)
+    expect(`${systemPrompt}\n${prompt}`).toMatch(/[\u3400-\u9fff]/u)
     expect(prompt).toContain(longOutline)
     expect(String(prompt)).toContain(longOutline.slice(500))
   })
@@ -232,7 +232,7 @@ describe('GenerateFieldCommand project identity', () => {
     expect(String(prompt)).not.toContain('Plan the opening, middle, ending')
     expect(String(prompt)).not.toContain('escalation frequency')
     expect(String(prompt)).toContain('4–8')
-    expect(String(prompt)).toContain('must not enumerate chapters')
+    expect(String(prompt)).toContain('禁止逐章列大纲')
   })
 
   it('rejects generated global guidance after the single field-level replacement is still invalid', async () => {

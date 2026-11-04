@@ -678,7 +678,7 @@ describe('作者原稿反推的建议', () => {
 
     const list = () => host!.querySelector('[aria-label="反推建议"]')
     await vi.waitFor(() => expect(list()?.textContent).toContain('类型'))
-    expect(list()!.textContent).toContain('核心大纲')
+    expect(list()!.textContent).toContain('大纲')
     expect(list()!.textContent).toContain('文风')
     expect(list()!.textContent).not.toContain('叙事视角')
 
@@ -759,43 +759,34 @@ describe('作者原稿反推的建议', () => {
   })
 
   it('采用架构建议后通知架构页与流程脊重读', async () => {
-    arrange({ premise: '作者的前提' }, {
-      global: { mode: 'fill-empty', suggestions: [{ field: 'premise', current: '作者的前提', inferred: '反推的前提' }] },
+    arrange({ worldbuilding: '作者的前提' }, {
+      global: { mode: 'fill-empty', suggestions: [{ field: 'worldbuilding', current: '作者的前提', inferred: '反推的前提' }] },
     })
     const updated = vi.fn()
     const off = globalEventBus.on('ARCH_FILE_UPDATED', updated)
     useWorkflowStore.setState({ history: [importRun()] })
     await render({ kind: 'run', tab: 'history', runId: '导入运行' })
 
-    await vi.waitFor(() => expect(button('采用「故事前提」的反推结果')).toBeTruthy())
-    await click('采用「故事前提」的反推结果')
+    await vi.waitFor(() => expect(button('采用「世界观」的反推结果')).toBeTruthy())
+    await click('采用「世界观」的反推结果')
     await vi.waitFor(() => expect(updated).toHaveBeenCalledWith(expect.objectContaining({ projectSession: session, runId: '导入运行' })))
     off()
   })
 
-  it('采用架构建议后，已打开且没改过的文档标签显示新内容；有未保存改动的标签保留作者草稿', async () => {
-    arrange({ premise: '作者的前提', worldbuilding: '作者的世界观' }, {
-      global: { mode: 'fill-empty', suggestions: [
-        { field: 'premise', current: '作者的前提', inferred: '反推的前提' },
-        { field: 'worldbuilding', current: '作者的世界观', inferred: '反推的世界观' },
-      ] },
+  it.each([false, true])('采用世界观建议后，文档同步遵守未保存状态 dirty=%s', async dirty => {
+    arrange({ worldbuilding: '作者的世界观' }, {
+      global: { mode: 'fill-empty', suggestions: [{ field: 'worldbuilding', current: '作者的世界观', inferred: '反推的世界观' }] },
     })
-    const tabId = (field: string) => createProjectArchTabId(session.projectPath, `ai-novel://core/${field}`)
-    const open = (field: string, content: string) => useEditorStore.getState().openFile({
-      id: tabId(field), name: field, type: 'arch-file', filePath: `ai-novel://core/${field}`, content, savedContent: content, projectKey: session.projectPath,
-    })
-    open('worldbuilding', '作者的世界观')
-    open('premise', '作者的前提')
-    useEditorStore.getState().updateTabContent(tabId('premise'), '作者没保存的前提')
+    const id = createProjectArchTabId(session.projectPath, 'ai-novel://core/worldbuilding')
+    useEditorStore.getState().openFile({ id, name: '世界观', type: 'arch-file', filePath: 'ai-novel://core/worldbuilding', content: '作者的世界观', savedContent: '作者的世界观', projectKey: session.projectPath })
+    if (dirty) useEditorStore.getState().updateTabContent(id, '作者没保存的世界观')
     useWorkflowStore.setState({ history: [importRun()] })
     await render({ kind: 'run', tab: 'history', runId: '导入运行' })
-
-    await vi.waitFor(() => expect(button('全部采用')).toBeTruthy())
-    await click('全部采用')
-    const tab = (field: string) => useEditorStore.getState().tabs.find(item => item.id === tabId(field))!
-    await vi.waitFor(() => expect(tab('worldbuilding').content).toBe('反推的世界观'))
-    expect(tab('worldbuilding').dirty).toBeFalsy()
-    expect(tab('premise')).toMatchObject({ content: '作者没保存的前提', dirty: true })
+    await vi.waitFor(() => expect(button('采用「世界观」的反推结果')).toBeTruthy())
+    await click('采用「世界观」的反推结果')
+    await vi.waitFor(() => expect(useEditorStore.getState().tabs.find(item => item.id === id)).toMatchObject({
+      content: dirty ? '作者没保存的世界观' : '反推的世界观', dirty,
+    }))
   })
 
   it('换开别的作品再回来（新的会话）后，同一作品的历史运行仍然列出未采用的建议', async () => {
@@ -875,11 +866,11 @@ describe('作者原稿反推的建议', () => {
 
     const card = (name: string) => [...host!.querySelectorAll('.run-suggestion')]
       .find(item => item.querySelector('.run-suggestion-name')?.textContent === name) as HTMLElement | undefined
-    await vi.waitFor(() => expect(card('核心大纲')?.querySelector('[aria-expanded]')).toBeTruthy())
+    await vi.waitFor(() => expect(card('大纲')?.querySelector('[aria-expanded]')).toBeTruthy())
     expect(card('类型')!.querySelector('[aria-expanded]')).toBeNull()
 
-    const inferred = () => [...card('核心大纲')!.querySelectorAll('dd')].at(-1)!
-    const toggle = () => card('核心大纲')!.querySelector<HTMLButtonElement>('[aria-expanded]')!
+    const inferred = () => [...card('大纲')!.querySelectorAll('dd')].at(-1)!
+    const toggle = () => card('大纲')!.querySelector<HTMLButtonElement>('[aria-expanded]')!
     expect(inferred().scrollHeight).toBeGreaterThan(inferred().clientHeight)
     expect(toggle().getAttribute('aria-expanded')).toBe('false')
 

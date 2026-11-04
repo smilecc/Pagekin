@@ -24,9 +24,9 @@ function coreSnapshot(): ImportGlobalFactsCore {
     totalChapters: core.totalChapters, wordsPerChapter: core.wordsPerChapter,
     plotStructure: core.plotStructure as ImportGlobalFactsCore['plotStructure'],
     narrativePov: core.narrativePov as ImportGlobalFactsCore['narrativePov'],
-    goldenFinger: core.goldenFinger, globalGuidance: core.globalGuidance, coreOutline: core.coreOutline,
-    worldSetting: core.worldSetting, protagonistProfile: core.protagonistProfile,
-    premise: core.premise, worldbuilding: core.worldbuilding, synopsis: core.synopsis,
+     globalGuidance: core.globalGuidance, coreOutline: core.coreOutline,
+
+     worldbuilding: core.worldbuilding,
   }
 }
 

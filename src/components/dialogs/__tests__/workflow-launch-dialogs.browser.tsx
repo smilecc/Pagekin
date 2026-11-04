@@ -8,7 +8,6 @@ import { useProjectStore } from '../../../stores/project-store'
 import { useWorkflowStore } from '../../../stores/workflow-store'
 import ArchitectureConfirmDialog from '../ArchitectureConfirmDialog'
 import GenerateBlueprintsDialog from '../../stage/blueprint/GenerateBlueprintsDialog'
-import { renderPlotOutlineSynopsis } from '../../../shared/plot-outline-contract'
 
 /** 数据库里还没有大纲。 */
 const NO_OUTLINE = { synopsis: '', totalChapters: 100, writingLanguage: 'zh-CN' as const }
@@ -28,7 +27,7 @@ const project = {
   novelConfig: {
     genre: '奇幻', subGenre: '', targetAudience: '', totalChapters: 10, wordsPerChapter: 3000,
     plotStructure: 'three_act', narrativePOV: 'third_limited', coreOutline: '完整的故事构想',
-    worldSetting: '', goldenFinger: '', protagonistProfile: '', globalGuidance: '',
+       globalGuidance: '',
   },
 }
 
@@ -144,7 +143,7 @@ describe('workflow launch dialogs', () => {
       />,
     ))
 
-    await expect.element(page.getByText(/蓝图从第 10 章开始/)).toBeVisible()
+    await expect.element(page.getByText(/故事规划从第 10 章开始/)).toBeVisible()
     await act(async () => page.getByRole('button', { name: '开始生成' }).click())
 
     await vi.waitFor(() => expect(onConfirm).toHaveBeenCalledOnce())
@@ -168,7 +167,7 @@ describe('workflow launch dialogs', () => {
       />,
     ))
 
-    await expect.element(page.getByText(/已有 4 章蓝图/)).toBeVisible()
+    await expect.element(page.getByText(/已有 4 章故事规划/)).toBeVisible()
     await act(async () => page.getByRole('spinbutton').nth(0).fill('4'))
     await act(async () => page.getByRole('button', { name: '开始生成' }).click())
 
@@ -193,7 +192,7 @@ describe('workflow launch dialogs', () => {
       />,
     ))
 
-    await expect.element(page.getByText(/已有 3 章蓝图/)).toBeVisible()
+    await expect.element(page.getByText(/已有 3 章故事规划/)).toBeVisible()
     await act(async () => page.getByRole('button', { name: '开始生成' }).click())
 
     await vi.waitFor(() => expect(onConfirm).toHaveBeenCalledOnce())
@@ -228,7 +227,7 @@ describe('workflow launch dialogs', () => {
         onClose={onClose}
         archStatus={{ premise: false, characters: false, worldbuilding: false, synopsis: false }}
         synopsisSource={NO_OUTLINE}
-        initialSelectedSteps={['premise']}
+        initialSelectedSteps={['worldbuilding']}
         onConfirm={vi.fn().mockRejectedValue(new Error('架构启动被领域门禁拒绝'))}
       />,
     ))
@@ -238,124 +237,6 @@ describe('workflow launch dialogs', () => {
     await expect.element(page.getByText('架构启动被领域门禁拒绝')).toBeVisible()
     expect(onClose).not.toHaveBeenCalled()
     await expect.element(page.getByRole('dialog')).toBeVisible()
-  })
-
-  it('defaults a large-book synopsis batch to chapters 1-5 and a 600-character target', async () => {
-    useProjectStore.setState({
-      currentProject: {
-        ...project,
-        novelConfig: { ...project.novelConfig, totalChapters: 100 },
-      } as never,
-    })
-    const onConfirm = vi.fn().mockResolvedValue(undefined)
-    await act(async () => root.render(
-      <ArchitectureConfirmDialog
-        isOpen
-        onClose={vi.fn()}
-        archStatus={{ premise: true, characters: true, worldbuilding: true, synopsis: false }}
-        synopsisSource={NO_OUTLINE}
-        initialSelectedSteps={['synopsis']}
-        onConfirm={onConfirm}
-      />,
-    ))
-
-    await expect.element(page.getByRole('spinbutton', { name: '本次生成范围的起始章' })).toHaveValue(1)
-    await expect.element(page.getByRole('spinbutton', { name: '本次生成范围的结束章' })).toHaveValue(5)
-    await expect.element(page.getByRole('spinbutton', { name: '每章大纲目标字数' })).toHaveValue(600)
-    await act(async () => page.getByRole('button', { name: /确认生成/ }).click())
-
-    await vi.waitFor(() => expect(onConfirm).toHaveBeenCalledWith(
-      ['synopsis'],
-      {},
-      { from: 1, to: 5 },
-      600,
-    ))
-  })
-
-  it('keeps the continuation start and caps the prefilled new action at ten chapters', async () => {
-    useProjectStore.setState({
-      currentProject: {
-        ...project,
-        novelConfig: { ...project.novelConfig, totalChapters: 100 },
-      } as never,
-    })
-    const onConfirm = vi.fn().mockResolvedValue(undefined)
-    await act(async () => root.render(
-      <ArchitectureConfirmDialog
-        isOpen
-        onClose={vi.fn()}
-        archStatus={{ premise: true, characters: true, worldbuilding: true, synopsis: true }}
-        synopsisSource={{ ...NO_OUTLINE, synopsis: renderPlotOutlineSynopsis(Array.from({ length: 20 }, (_, index) => `## 第${index + 1}章：站${index + 1}\n列车停靠第${index + 1}站。`).join('\n\n'), 20, NO_OUTLINE) }}
-        initialSelectedSteps={['synopsis']}
-        initialSynopsisRange={{ from: 21, to: 40 }}
-        onConfirm={onConfirm}
-      />,
-    ))
-
-    await expect.element(page.getByRole('spinbutton', { name: '本次生成范围的起始章' })).toHaveValue(21)
-    await expect.element(page.getByRole('spinbutton', { name: '本次生成范围的结束章' })).toHaveValue(30)
-    await act(async () => page.getByRole('button', { name: /确认生成/ }).click())
-
-    await vi.waitFor(() => expect(onConfirm).toHaveBeenCalledWith(
-      ['synopsis'],
-      {},
-      { from: 21, to: 30 },
-      600,
-    ))
-  })
-
-  it('marks outline ranges by the main-process rule and disables submit only for a range it would reject', async () => {
-    useProjectStore.setState({
-      currentProject: { ...project, novelConfig: { ...project.novelConfig, totalChapters: 24 } } as never,
-    })
-    const onConfirm = vi.fn().mockResolvedValue(undefined)
-    const source = { synopsis: '', totalChapters: 24, writingLanguage: 'zh-CN' as const }
-    source.synopsis = renderPlotOutlineSynopsis(Array.from({ length: 16 }, (_, index) => `## 第${index + 1}章：站${index + 1}\n列车停靠第${index + 1}站。`).join('\n\n'), 16, source)
-    await act(async () => root.render(
-      <ArchitectureConfirmDialog
-        isOpen
-        onClose={vi.fn()}
-        archStatus={{ premise: true, characters: true, worldbuilding: true, synopsis: true }}
-        confirmed={{ premise: true, characters: true, worldbuilding: true, synopsis: false }}
-        synopsisSource={source}
-        onConfirm={onConfirm}
-      />,
-    ))
-    const from = page.getByRole('spinbutton', { name: '本次生成范围的起始章' })
-    const to = page.getByRole('spinbutton', { name: '本次生成范围的结束章' })
-    const submit = page.getByRole('button', { name: /确认生成/ })
-    await expect.element(from).toHaveValue(17)
-    await expect.element(page.getByText('续写', { exact: true })).toBeVisible()
-
-    await act(async () => { await from.fill('20'); await to.fill('24') })
-    await expect.element(page.getByRole('alert')).toHaveTextContent('请从第 17 章续写')
-    await expect.element(submit).toBeDisabled()
-
-    await act(async () => { await from.fill('1'); await to.fill('5') })
-    await expect.element(page.getByText('将覆盖第 1–5 章')).toBeVisible()
-    await expect.element(page.getByText('第 1–5 章按本次结果替换，第 6–16 章原样保留。')).toBeVisible()
-    await act(async () => submit.click())
-    await vi.waitFor(() => expect(onConfirm).toHaveBeenCalledWith(['synopsis'], {}, { from: 1, to: 5 }, 600))
-  })
-
-  it.each(['', '0', '-1', '1.5'])('rejects invalid synopsis range value %s without falling back to the whole book', async invalidFrom => {
-    const onConfirm = vi.fn().mockResolvedValue(undefined)
-    await act(async () => root.render(
-      <ArchitectureConfirmDialog
-        isOpen
-        onClose={vi.fn()}
-        archStatus={{ premise: true, characters: true, worldbuilding: true, synopsis: false }}
-        synopsisSource={NO_OUTLINE}
-        initialSelectedSteps={['synopsis']}
-        onConfirm={onConfirm}
-      />,
-    ))
-
-    await act(async () => page.getByRole('spinbutton', { name: '本次生成范围的起始章' }).fill(invalidFrom))
-    await act(async () => page.getByRole('button', { name: /确认生成/ }).click())
-
-    await expect.element(page.getByText(/情节大纲范围无效/)).toBeVisible()
-    expect(onConfirm).not.toHaveBeenCalled()
   })
 
   it('restores missing architecture steps after the controlled dialog closes and reopens', async () => {
@@ -376,13 +257,13 @@ describe('workflow launch dialogs', () => {
       .find(label => label.textContent?.includes('角色名单'))
     expect(charactersRow).toBeDefined()
     await act(async () => charactersRow?.click())
-    await expect.element(page.getByRole('button', { name: '确认生成（3/4）' })).toBeVisible()
+    await expect.element(page.getByRole('button', { name: '确认生成（1/2）' })).toBeVisible()
 
     await act(async () => page.getByRole('button', { name: '取消' }).click())
     await renderDialog(false)
     await renderDialog(true)
 
-    await expect.element(page.getByRole('button', { name: '确认生成（4/4）' })).toBeVisible()
+    await expect.element(page.getByRole('button', { name: '确认生成（2/2）' })).toBeVisible()
     expect(onConfirm).not.toHaveBeenCalled()
   })
 
@@ -405,65 +286,6 @@ describe('workflow launch dialogs', () => {
     expect(onClose).not.toHaveBeenCalled()
     await expect.element(page.getByRole('dialog')).toBeVisible()
   })
-
-  it('shows and completes a durable character-sync repair without launching generation', async () => {
-    let pending = true
-    const operation = {
-      operationId: 'blueprint-sync-directory-restart',
-      blueprintCommitOperationId: 'directory-restart',
-      blueprintCommitPayloadHash: 'a'.repeat(64),
-      status: 'pending' as const,
-      startChapter: 1,
-      endChapter: 2,
-      characterSyncInput: [],
-      createdAt: '2026-01-01 00:00:00',
-      updatedAt: '2026-01-01 00:00:00',
-    }
-    invoke.mockImplementation(async (channel: string, ...args: unknown[]) => {
-      if (channel === 'generation:list-directory-progress') return { progress: [], diagnostics: [] }
-      if (channel === 'db:blueprint-get-all') return []
-      if (channel === 'db:draft-authority-sequence') return {
-        status: 'empty',
-        lastChapterNumber: 0,
-        nextChapterNumber: 1,
-        duplicateChapterNumbers: [],
-        authorityFingerprint: 'c'.repeat(64),
-      }
-      if (channel === 'db:blueprint-character-sync-list-pending') return pending ? [operation] : []
-      if (channel === 'db:blueprint-character-sync-get') return operation
-      if (channel === 'db:blueprint-character-sync-complete') {
-        pending = false
-        return {
-          success: true,
-          operation: {
-            ...operation,
-            status: 'completed',
-            completionReceipt: args[1],
-          },
-        }
-      }
-      return { success: true }
-    })
-    const onConfirm = vi.fn()
-    await act(async () => root.render(
-      <GenerateBlueprintsDialog
-        isOpen
-        onClose={vi.fn()}
-        existingCount={2}
-        onConfirm={onConfirm}
-      />,
-    ))
-
-    await expect.element(page.getByText(/1 次角色同步待修复/)).toBeVisible()
-    await expect.element(page.getByRole('button', { name: '开始生成' })).toBeEnabled()
-    await act(async () => page.getByRole('button', { name: '重试角色同步' }).click())
-
-    expect(invoke.mock.calls.some(([channel]) => (
-      channel === 'db:blueprint-character-sync-complete'
-    ))).toBe(true)
-    expect(onConfirm).not.toHaveBeenCalled()
-    await expect.element(page.getByRole('button', { name: '开始生成' })).toBeEnabled()
-  })
 })
 
 
@@ -484,7 +306,7 @@ it('shows the committed directory chain endpoint and resumes only its explicit r
   })
   const onConfirm = vi.fn(async () => true)
   await act(async () => root.render(<GenerateBlueprintsDialog isOpen onClose={() => {}} existingCount={180} onConfirm={onConfirm} />))
-  await expect.element(page.getByText('已保存第 161～180 章蓝图')).toBeVisible()
+  await expect.element(page.getByText('已保存第 161～180 章故事规划')).toBeVisible()
   await expect.element(page.getByRole('button', { name: '继续第 161～200 章' })).not.toBeInTheDocument()
   await act(async () => page.getByRole('button', { name: '继续第 181～200 章' }).click())
   expect(onConfirm).toHaveBeenCalledWith({ mode: 'append', continueDirectoryOperationId: '末端提交' })
@@ -503,9 +325,9 @@ it('shows blueprint recovery diagnostics without blocking independent generation
   })
   const onConfirm = vi.fn(async () => true)
   await act(async () => root.render(<GenerateBlueprintsDialog isOpen onClose={() => {}} existingCount={0} onConfirm={onConfirm} />))
-  await expect.element(page.getByText('蓝图已清空，旧生成记录不能续接')).toBeVisible()
-  await expect.element(page.getByText('旧蓝图生成进度校验失败，不能续接')).toBeVisible()
-  await expect.element(page.getByText('旧蓝图作者保存记录校验失败，不能续接')).toBeVisible()
+  await expect.element(page.getByText('故事规划已清空，旧生成记录不能续接')).toBeVisible()
+  await expect.element(page.getByText('旧故事规划生成进度校验失败，不能续接')).toBeVisible()
+  await expect.element(page.getByText('旧故事规划作者保存记录校验失败，不能续接')).toBeVisible()
   await expect.element(page.getByRole('button', { name: '开始生成' })).toBeEnabled()
   await act(async () => page.getByRole('button', { name: '开始生成' }).click())
   expect(onConfirm).toHaveBeenCalledOnce()
@@ -522,51 +344,43 @@ it('rejects a new 200-chapter action while retaining the entered value', async (
   await act(async () => page.getByRole('button', { name: '开始生成' }).click())
   expect(onConfirm).not.toHaveBeenCalled()
   await expect.element(page.getByText(/请选择有效的连续 1–10 章/)).toBeVisible()
-  await expect.element(page.getByRole('spinbutton', { name: '本次蓝图章数' })).toHaveValue(200)
+  await expect.element(page.getByRole('spinbutton', { name: '本次故事规划章数' })).toHaveValue(200)
 })
 
-it.each(['outline', 'blueprint'] as const)('persists the %s target independently and accepts ten chapters with target 1000', async kind => {
+it.each(['blueprint'] as const)('persists the %s target independently and accepts ten chapters with target 1000', async () => {
   planningPreferences = { outlineTargetUnits: 700, blueprintTargetUnits: 800 }
   useProjectStore.setState({ currentProject: { ...project, novelConfig: { ...project.novelConfig, totalChapters: 20 } } as never })
   const onConfirm = vi.fn().mockResolvedValue(true)
-  const renderDialog = async (isOpen: boolean) => act(async () => root.render(kind === 'outline'
-    ? <ArchitectureConfirmDialog isOpen={isOpen} onClose={() => {}} synopsisSource={NO_OUTLINE} archStatus={{ premise: true, characters: true, worldbuilding: true }} initialSelectedSteps={['synopsis']} onConfirm={onConfirm} />
-    : <GenerateBlueprintsDialog isOpen={isOpen} onClose={() => {}} existingCount={0} onConfirm={onConfirm} />))
+  const renderDialog = async (isOpen: boolean) => act(async () => root.render(<GenerateBlueprintsDialog isOpen={isOpen} onClose={() => {}} existingCount={0} onConfirm={onConfirm} />))
   await renderDialog(true)
-  const target = page.getByRole('spinbutton', { name: kind === 'outline' ? '每章大纲目标字数' : '每章蓝图目标字数' })
-  await expect.element(target).toHaveValue(kind === 'outline' ? 700 : 800)
+  const target = page.getByRole('spinbutton', { name: '每章故事规划目标字数' })
+  await expect.element(target).toHaveValue(800)
   await act(async () => {
     await target.fill('1000')
-    await page.getByRole('spinbutton', { name: kind === 'outline' ? '本次生成范围的结束章' : '本次蓝图章数' }).fill('10')
-    await page.getByRole('button', { name: kind === 'outline' ? /确认生成/ : '开始生成' }).click()
+    await page.getByRole('spinbutton', { name: '本次故事规划章数' }).fill('10')
+    await page.getByRole('button', { name: '开始生成' }).click()
   })
   await vi.waitFor(() => expect(onConfirm).toHaveBeenCalledOnce())
-  if (kind === 'outline') expect(onConfirm).toHaveBeenCalledWith(['synopsis'], {}, { from: 1, to: 10 }, 1000)
-  else expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ count: 10, targetUnits: 1000 }))
-  expect(planningPreferences).toEqual(kind === 'outline'
-    ? { outlineTargetUnits: 1000, blueprintTargetUnits: 800 }
-    : { outlineTargetUnits: 700, blueprintTargetUnits: 1000 })
+  expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ count: 10, targetUnits: 1000 }))
+  expect(planningPreferences).toEqual({ outlineTargetUnits: 700, blueprintTargetUnits: 1000 })
   await renderDialog(false)
   await renderDialog(true)
   await expect.element(target).toHaveValue(1000)
 })
 
-it.each(['outline', 'blueprint'] as const)('rejects eleven chapters and target 1001 in the %s dialog', async kind => {
+it.each(['blueprint'] as const)('rejects eleven chapters and target 1001 in the %s dialog', async () => {
   useProjectStore.setState({ currentProject: { ...project, novelConfig: { ...project.novelConfig, totalChapters: 20 } } as never })
   const onConfirm = vi.fn().mockResolvedValue(true)
-  await act(async () => root.render(kind === 'outline'
-    ? <ArchitectureConfirmDialog isOpen onClose={() => {}} synopsisSource={NO_OUTLINE} archStatus={{}} initialSelectedSteps={['synopsis']} onConfirm={onConfirm} />
-    : <GenerateBlueprintsDialog isOpen onClose={() => {}} existingCount={0} onConfirm={onConfirm} />))
-  const count = page.getByRole('spinbutton', { name: kind === 'outline' ? '本次生成范围的结束章' : '本次蓝图章数' })
-  const submit = page.getByRole('button', { name: kind === 'outline' ? /确认生成/ : '开始生成' })
+  await act(async () => root.render(<GenerateBlueprintsDialog isOpen onClose={() => {}} existingCount={0} onConfirm={onConfirm} />))
+  const count = page.getByRole('spinbutton', { name: '本次故事规划章数' })
+  const submit = page.getByRole('button', { name: '开始生成' })
   await act(async () => { await count.fill('11') })
-  // 大纲对话框按单批上限当场判无效，提交不可点；蓝图对话框在提交时拦。
-  if (kind === 'outline') await expect.element(submit).toBeDisabled()
-  else await act(async () => { await submit.click() })
+  // 大纲对话框按单批上限当场判无效，提交不可点；故事规划对话框在提交时拦。
+  await act(async () => { await submit.click() })
   expect(onConfirm).not.toHaveBeenCalled()
   await act(async () => {
     await count.fill('10')
-    await page.getByRole('spinbutton', { name: kind === 'outline' ? '每章大纲目标字数' : '每章蓝图目标字数' }).fill('1001')
+    await page.getByRole('spinbutton', { name: '每章故事规划目标字数' }).fill('1001')
     await submit.click()
   })
   await expect.element(page.getByText(/目标须为 1–1000 的整数/)).toBeVisible()
@@ -574,7 +388,7 @@ it.each(['outline', 'blueprint'] as const)('rejects eleven chapters and target 1
   expect(invoke.mock.calls.some(([channel]) => channel === 'config:set')).toBe(false)
 })
 
-it.each(['outline', 'blueprint'] as const)('retains %s input and does not start generation when saving preferences fails', async kind => {
+it.each(['blueprint'] as const)('retains %s input and does not start generation when saving preferences fails', async () => {
   const original = invoke.getMockImplementation()!
   invoke.mockImplementation(async (channel, ...args) => {
     if (channel === 'config:set') return { success: false, error: 'disk unavailable' }
@@ -582,11 +396,9 @@ it.each(['outline', 'blueprint'] as const)('retains %s input and does not start 
   })
   const onConfirm = vi.fn().mockResolvedValue(true)
   const onClose = vi.fn()
-  await act(async () => root.render(kind === 'outline'
-    ? <ArchitectureConfirmDialog isOpen onClose={onClose} synopsisSource={NO_OUTLINE} archStatus={{}} initialSelectedSteps={['synopsis']} onConfirm={onConfirm} />
-    : <GenerateBlueprintsDialog isOpen onClose={onClose} existingCount={0} onConfirm={onConfirm} />))
-  const target = page.getByRole('spinbutton', { name: kind === 'outline' ? '每章大纲目标字数' : '每章蓝图目标字数' })
-  await act(async () => { await target.fill('900'); await page.getByRole('button', { name: kind === 'outline' ? /确认生成/ : '开始生成' }).click() })
+  await act(async () => root.render(<GenerateBlueprintsDialog isOpen onClose={onClose} existingCount={0} onConfirm={onConfirm} />))
+  const target = page.getByRole('spinbutton', { name: '每章故事规划目标字数' })
+  await act(async () => { await target.fill('900'); await page.getByRole('button', { name: '开始生成' }).click() })
   await expect.element(page.getByText('目标字数偏好保存失败。请重试，输入已保留。')).toBeVisible()
   await expect.element(target).toHaveValue(900)
   expect(onConfirm).not.toHaveBeenCalled()
@@ -601,9 +413,9 @@ it('rejects full-book generation above ten chapters and does not normalize an em
   expect(onConfirm).not.toHaveBeenCalled()
   await act(async () => {
     await page.getByText('接着生成').click()
-    await page.getByRole('spinbutton', { name: '本次蓝图章数' }).fill('')
+    await page.getByRole('spinbutton', { name: '本次故事规划章数' }).fill('')
     await page.getByRole('button', { name: '开始生成' }).click()
   })
   expect(onConfirm).not.toHaveBeenCalled()
-  await expect.element(page.getByRole('spinbutton', { name: '本次蓝图章数' })).toHaveValue(null)
+  await expect.element(page.getByRole('spinbutton', { name: '本次故事规划章数' })).toHaveValue(null)
 })

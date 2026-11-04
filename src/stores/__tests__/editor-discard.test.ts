@@ -52,9 +52,9 @@ function project(key: 'A' | 'B'): ProjectData {
       plotStructure: 'three_act',
       narrativePOV: 'third_limited',
       coreOutline: `已保存 ${key}`,
-      worldSetting: '',
-      goldenFinger: '',
-      protagonistProfile: '',
+
+
+
       globalGuidance: '',
     },
     characterStates: '',

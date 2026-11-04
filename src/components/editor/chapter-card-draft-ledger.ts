@@ -97,7 +97,7 @@ export function getChapterCardProjectDraft(
 }
 
 /**
- * 以 dirtyChapterNumbers 作为本地修改集合合并最新数据库蓝图。
+ * 以 dirtyChapterNumbers 作为本地修改集合合并最新数据库故事规划。
  * 脏章节采用本地值；未修改章节及远端新增章节采用 remote；
  * 尚未进入 remote 的本地新增脏章节继续保留。
  */

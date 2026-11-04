@@ -255,7 +255,7 @@ describe('重开稿定稿', () => {
     const dialog = page.getByRole('dialog', { name: '定稿第 3 章？' })
     await expect.element(dialog.getByText('替换正文。')).toBeVisible()
     await expect.element(dialog.getByText('后面的内容不会跟着改')).toBeVisible()
-    await expect.element(dialog.getByText('第 4、6–8 章写于这次修改之前，第 9 章只有蓝图，可能和新内容不符，不会自动修改。')).toBeVisible()
+    await expect.element(dialog.getByText('第 4、6–8 章写于这次修改之前，第 9 章只有故事规划，可能和新内容不符，不会自动修改。')).toBeVisible()
     await expect.element(dialog.getByText('林舟、老周的当前状态来自后续章节，没有按新内容重算。')).toBeVisible()
     await expect.element(dialog.getByText('「匿名信」：他想起母亲说过，这座车站在三十年前就该拆了。')).toBeVisible()
     await expect.element(dialog.getByText('要再改，在本章点「重新打开修改」。')).toBeVisible()
@@ -270,7 +270,7 @@ describe('重开稿定稿', () => {
     await openDraft(reopened.id)
     await click('定稿')
     const dialog = page.getByRole('dialog', { name: '定稿第 3 章？' })
-    const oldLine = '第 4、6–8 章写于这次修改之前，第 9 章只有蓝图，可能和新内容不符，不会自动修改。'
+    const oldLine = '第 4、6–8 章写于这次修改之前，第 9 章只有故事规划，可能和新内容不符，不会自动修改。'
     await expect.element(dialog.getByText(oldLine)).toBeVisible()
     await click('再看看')
     await expect.element(dialog).not.toBeInTheDocument()
@@ -288,7 +288,7 @@ describe('重开稿定稿', () => {
     expect(dialog.element().textContent).not.toContain(oldLine)
 
     await act(async () => release())
-    await expect.element(dialog.getByText('第 9 章只有蓝图，可能和新内容不符，不会自动修改。')).toBeVisible()
+    await expect.element(dialog.getByText('第 9 章只有故事规划，可能和新内容不符，不会自动修改。')).toBeVisible()
     expect(dialog.element().textContent).not.toContain(oldLine)
   })
 
@@ -300,7 +300,7 @@ describe('重开稿定稿', () => {
     await openDraft(reopened.id)
     await click('定稿')
     const dialog = page.getByRole('dialog', { name: '定稿第 3 章？' })
-    const oldLine = '第 4、6–8 章写于这次修改之前，第 9 章只有蓝图，可能和新内容不符，不会自动修改。'
+    const oldLine = '第 4、6–8 章写于这次修改之前，第 9 章只有故事规划，可能和新内容不符，不会自动修改。'
     await expect.element(dialog.getByText(oldLine)).toBeVisible()
     await click('再看看')
     await expect.element(dialog).not.toBeInTheDocument()
@@ -315,7 +315,7 @@ describe('重开稿定稿', () => {
     expect(dialog.element().textContent).not.toContain(oldLine)
 
     await act(async () => release())
-    await expect.element(dialog.getByText('第 9 章只有蓝图，可能和新内容不符，不会自动修改。')).toBeVisible()
+    await expect.element(dialog.getByText('第 9 章只有故事规划，可能和新内容不符，不会自动修改。')).toBeVisible()
     await expect.element(confirm).toBeEnabled()
   })
 
@@ -371,7 +371,7 @@ describe('替换后的影响提示', () => {
     await openDraft(final.id)
 
     await expect.element(page.getByText('第 3 章已修改')).toBeVisible()
-    await expect.element(page.getByText('第 4、6–8 章写于这次修改之前，第 9 章只有蓝图，可能和新内容不符，不会自动修改。')).toBeVisible()
+    await expect.element(page.getByText('第 4、6–8 章写于这次修改之前，第 9 章只有故事规划，可能和新内容不符，不会自动修改。')).toBeVisible()
     await expect.element(page.getByText('林舟、老周的当前状态来自后续章节，没有按新内容重算。')).toBeVisible()
     await expect.element(page.getByText('「匿名信」：他想起母亲说过，这座车站在三十年前就该拆了。')).toBeVisible()
     await click('知道了')

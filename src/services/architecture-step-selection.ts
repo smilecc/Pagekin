@@ -33,7 +33,7 @@ export function judgeArchCore(
   }
 }
 
-const ARCH_STEP_ORDER: ArchStepKey[] = ['premise', 'characters', 'worldbuilding', 'synopsis']
+const ARCH_STEP_ORDER: ArchStepKey[] = ['characters', 'worldbuilding']
 
 /** 架构四节的名字（中、英）。架构页、生成对话框、提交提示与单节文档标签共用这一张；名单页的图形视图叫「关系图谱」，不与名单混名。 */
 export const ARCH_STEP_NAMES: Record<ArchStepKey, readonly [string, string]> = {
@@ -55,7 +55,7 @@ export function createDefaultArchitectureSelection(
 
   if (initialSelectedSteps) {
     for (const step of initialSelectedSteps) {
-      selected.add(step)
+      if (step !== 'synopsis' && step !== 'premise') selected.add(step)
     }
   }
 

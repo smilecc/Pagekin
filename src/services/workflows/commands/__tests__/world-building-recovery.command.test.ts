@@ -30,9 +30,9 @@ const novelConfig: ArchitectureProjectSnapshot['novelConfig'] = {
   plotStructure: 'three_act',
   narrativePOV: 'third_limited',
   coreOutline: premise,
-  worldSetting: '记忆可以被固化、征税和走私。',
-  goldenFinger: '主角能看见记忆实体的原始归属，但会付出代价。',
-  protagonistProfile: '主角谨慎、善于测绘，坚持不牺牲无辜者。',
+
+
+
   globalGuidance: '保持规则、资源和权力结构之间的因果闭环。',
 }
 const snapshot: ArchitectureProjectSnapshot = {
@@ -278,20 +278,20 @@ describe('GenerateWorldBuildingCommand 截断恢复', () => {
     expect(recoverableWorldBuildingCandidate(partialFile)).toBe('模型生成的完整世界观候选。')
   })
 
-  it('模型响应前故事前提与小说配置变化时只保留候选，不写正式世界观', async () => {
+  it('模型响应前大纲与小说配置变化时只保留候选，不写正式世界观', async () => {
     const original = formalWorldbuilding
     installResponses([{
       content: '基于旧前提与旧配置生成的世界观。',
       finishReason: 'stop',
       beforeResponse: () => {
-        currentPremise = '作者在生成期间改写后的故事前提。'.repeat(4)
+        currentPremise = '作者在生成期间改写后的大纲。'.repeat(4)
         const currentProject = useProjectStore.getState().currentProject!
         useProjectStore.setState({
           currentProject: {
             ...currentProject,
             novelConfig: {
               ...currentProject.novelConfig,
-              worldSetting: '作者在生成期间修改后的世界底层规则。',
+              coreOutline: currentPremise,
             },
           },
         })
@@ -300,7 +300,7 @@ describe('GenerateWorldBuildingCommand 截断恢复', () => {
 
     await expect(new GenerateWorldBuildingCommand(snapshot, createWorkflowRuntimeDependencies())
       .execute({ step: {}, context: context(), callbacks: callbacks() }))
-      .rejects.toThrow('故事前提、小说配置或模板已变化')
+      .rejects.toThrow('大纲、小说配置或模板已变化')
 
     expect(formalWorldbuilding).toBe(original)
     expect(formalWrites).toHaveLength(0)
@@ -320,7 +320,7 @@ describe('GenerateWorldBuildingCommand 截断恢复', () => {
     const resumeCalls = installResponses([{ content: '不应发出的续写。', finishReason: 'stop' }])
     const changedSnapshot: ArchitectureProjectSnapshot = {
       ...snapshot,
-      novelConfig: { ...novelConfig, worldSetting: '作者已经改变世界底层规则。' },
+      novelConfig: { ...novelConfig, coreOutline: '作者改写后的大纲。' },
     }
     await expect(new GenerateWorldBuildingCommand(
       changedSnapshot,

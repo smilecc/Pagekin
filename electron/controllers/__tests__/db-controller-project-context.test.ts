@@ -263,24 +263,6 @@ function blueprint() {
   }
 }
 
-function synopsisCommitRequest() {
-  return {
-    synopsis: 'Replacement outline',
-    expected: {
-      synopsis: 'Original outline',
-      premise: 'Premise v1',
-      charactersArch: 'Characters v1',
-      worldbuilding: 'World v1',
-      genre: 'mystery',
-      totalChapters: 80,
-      wordsPerChapter: 2500,
-      writingLanguage: 'zh-CN' as const,
-      plotStructure: 'three_act',
-      narrativePov: 'third_limited',
-      globalGuidance: 'Keep the reveal private.',
-    },
-  }
-}
 
 beforeAll(() => {
   registerDatabaseController()
@@ -360,47 +342,12 @@ describe('database controller project context guard', () => {
     expect(result).toMatchObject({ success: false })
     expect(mocks.characterRosterCommit).not.toHaveBeenCalled()
   })
-  it('commits a synopsis only through the active project session', async () => {
-    const request = synopsisCommitRequest()
-    mocks.projectCoreCommitSynopsis.mockReturnValueOnce(true)
-
-    await expect(handler('db:project-core-synopsis-commit')(
-      {},
-      request,
-      'C:/projects/A',
-    )).resolves.toEqual({ success: true })
-    expect(mocks.projectCoreCommitSynopsis).toHaveBeenCalledWith(request)
-  })
-
-  it('returns the existing structured failure shape when synopsis sources changed', async () => {
-    mocks.projectCoreCommitSynopsis.mockReturnValueOnce(false)
-
-    await expect(handler('db:project-core-synopsis-commit')(
-      {},
-      synopsisCommitRequest(),
-      'C:/projects/A',
-    )).resolves.toEqual({
-      success: false,
-      error: 'PROJECT_CORE_SYNOPSIS_CHANGED',
-    })
-  })
 
   it('refuses the retired renderer plot-tree save with the admission code and no sources-changed shortcut', async () => {
     await expect(handler('db:plot-tree-save')({}, { version: 1 }, 'a'.repeat(64), 'C:/projects/A')).resolves.toEqual({
       success: false,
       error: 'Error: GENERATION_GRAPH_ADMISSION_REQUIRED',
     })
-  })
-
-  it('rejects a synopsis commit after the project session switches', async () => {
-    mocks.currentProjectPath = 'C:/projects/B'
-
-    await expect(handler('db:project-core-synopsis-commit')(
-      {},
-      synopsisCommitRequest(),
-      'C:/projects/A',
-    )).resolves.toMatchObject({ success: false })
-    expect(mocks.projectCoreCommitSynopsis).not.toHaveBeenCalled()
   })
 
   it.each(['zh-CN', 'en-US'] as const)(

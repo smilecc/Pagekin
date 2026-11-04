@@ -38,9 +38,9 @@ function globalFacts(): ImportGlobalFactsRequest {
     expectedRosterRevision: 0,
     core: {
       genre: '悬疑', subGenre: '本格', targetAudience: '成人', totalChapters: 3, wordsPerChapter: 2400,
-      plotStructure: 'three_act', narrativePov: 'first_person', goldenFinger: '过目不忘', globalGuidance: '克制',
-      coreOutline: '侦探追查旧案', worldSetting: '民国上海', protagonistProfile: '沈默，前巡捕',
-      premise: '旧案重启', worldbuilding: '租界与华界', synopsis: '三章查清真相',
+      plotStructure: 'three_act', narrativePov: 'first_person',  globalGuidance: '克制',
+      coreOutline: '侦探追查旧案',
+       worldbuilding: '租界与华界',
     },
     characterEntries: [{
       name: '沈默', role: 'protagonist', gender: '男', age: '35', appearance: '瘦', personality: '冷静',
@@ -121,7 +121,7 @@ describe('作者原稿运行的反推阶段', () => {
     const committed = commitGlobal(execution)
 
     expect(ProjectCoreRepository.get()).toMatchObject({
-      genre: '武侠', coreOutline: '作者自己的大纲', subGenre: '本格', premise: '旧案重启', synopsis: '三章查清真相',
+      genre: '武侠', coreOutline: '作者自己的大纲', subGenre: '本格',
     })
     expect(committed.receipt.effectReceipt).toMatchObject({
       mode: 'fill-empty',
@@ -193,7 +193,7 @@ describe('作者原稿运行的反推阶段', () => {
   })
 
   it('已有蓝图的章不需要本次运行的检查点，蓝图阶段在每章都有蓝图后才能推进', () => {
-    BlueprintRepository.upsert({ ...blueprint(2), title: '作者写的第2章蓝图', userGuidance: '作者的微操' })
+    BlueprintRepository.upsert({ ...blueprint(2), title: '作者写的第2章蓝图', keyEvents: '作者的章节规划' })
     const execution = authorRunAt('blueprints')
     const advance = () => ImportRunRepository.advanceStage(RUN_ID, 'blueprints', 'refresh', execution)
     const commitRange = (numbers: number[]) => {
@@ -214,7 +214,7 @@ describe('作者原稿运行的反推阶段', () => {
     commitRange([3])
 
     expect(advance()).toMatchObject({ stage: 'refresh' })
-    expect(BlueprintRepository.getByChapter(2)).toMatchObject({ title: '作者写的第2章蓝图', userGuidance: '作者的微操' })
+    expect(BlueprintRepository.getByChapter(2)).toMatchObject({ title: '作者写的第2章蓝图', keyEvents: '作者的章节规划' })
   })
 })
 

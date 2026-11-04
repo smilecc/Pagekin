@@ -69,15 +69,15 @@ describe('bounded completion', () => {
       mode: 'replace-structured-output' as const,
       initial: '{"chapters":[',
       continuation: '{"chapters":[]}',
-      expectedInstruction: 'The previous structured output stopped at the length limit',
+      expectedInstruction: '上一轮结构化输出因长度限制而中断',
     },
     {
       mode: 'append-visible-text' as const,
       initial: 'The aircraft door opened beside the 夜航 Café sign.',
       continuation: 'The aircraft door opened beside the 夜航 Café sign.\n\nMara stepped onto the wet tarmac.',
-      expectedInstruction: 'The previous text stopped at the length limit',
+      expectedInstruction: '上一轮文本因长度限制而中断',
     },
-  ])('builds an English $mode continuation while preserving the original UTF-8 task', async ({
+  ])('builds a $mode continuation while preserving the original UTF-8 task', async ({
     mode,
     initial,
     continuation,
@@ -94,14 +94,13 @@ describe('bounded completion', () => {
       mode,
       maxContinuations: 1,
       originalPrompt,
-      writingLanguage: 'en-US',
+      writingLanguage: 'zh-CN',
       requestContinuation,
     })
 
     const continuationPrompt = requestContinuation.mock.calls[0]?.[0] as string
     expect(continuationPrompt).toContain(expectedInstruction)
     expect(continuationPrompt).toContain(originalPrompt)
-    expect(continuationPrompt).not.toContain('上一轮')
   })
 
   it('replaces a partial structured response only after a complete replacement arrives', async () => {

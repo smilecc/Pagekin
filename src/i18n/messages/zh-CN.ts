@@ -32,6 +32,7 @@ export const zhCN = {
   'error.projectArchiveTargetExists': '目标文件已存在，请选择其他文件名。项目存档不会覆盖已有文件。',
   'error.externalFileGrantExpired': '所选文件或文件夹的访问授权已失效，请重新选择。',
   'error.unknown': '发生错误：{message}',
+  'error.generationOperationRemoved': '此生成功能已移除，请从当前创作流程重新操作。',
   'error.generationRequestFailed': '生成请求在保存结果前出错，本次结果没有保存。请重试；如果反复出现，请把这条提示和出错时间反馈给我们。',
   'error.generationProjectSessionStale': '作品已切换或重新打开，这次操作属于之前打开的作品，结果不可用。请在当前作品里查看，需要时重新操作。',
   'error.generationProjectSessionRequired': '这次操作没有带上当前作品的会话，结果不可用。请重新打开作品后再操作。',

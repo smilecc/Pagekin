@@ -31,10 +31,8 @@ const PURPOSES: Record<string, [string, string]> = {
   'refine-from-review': ['按审稿修稿', 'Revision from review'],
   'character-state': ['角色状态', 'Character state'],
   'finalized-character-state': ['角色状态', 'Character state'],
-  'chapter-blueprint-directory': ['生成蓝图', 'Blueprints'],
-  'generate-core-seed': ['填充设定', 'Setup fill'],
+  'chapter-blueprint-directory': ['生成故事规划', 'Blueprints'],
   'generate-world-building': ['世界观', 'World-building'],
-  'generate-plot-outline': ['情节大纲', 'Plot outline'],
   'planning-material-character-extraction': ['提取角色卡', 'Character extraction'],
   'plot-tree-snapshot': ['剧情树', 'Plot tree'],
 }

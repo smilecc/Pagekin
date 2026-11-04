@@ -211,12 +211,6 @@ function buildTextContinuationPrompt(
       + `【硬性要求】\n`
       + `- 只输出新增的可见文本，不要复述、总结、解释、Markdown 或思考过程。\n`
       + `- 从已完成文本的末尾自然续写，完成原始任务。`,
-    `The previous text stopped at the length limit. Continue and complete the original task.\n\n`
-      + `[Original task]\n${originalPrompt}\n\n`
-      + `[End of the completed visible text]\n${visibleTail || '(no visible output)'}\n\n`
-      + `[Requirements]\n`
-      + `- Output only new visible prose. Do not repeat, summarize, explain, use Markdown, or reveal reasoning.\n`
-      + `- Continue naturally from the end of the completed text and finish the original task.`,
   )
 }
 

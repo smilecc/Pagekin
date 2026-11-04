@@ -3,18 +3,16 @@ import { useProjectStore } from '../../../stores/project-store'
 import { ipc } from '../../ipc-client'
 import { buildAgentTool, type AgentExecutionContext } from '../tool-registry'
 import { agentToolText, assertAgentToolActive, requireAgentProject, agentToolErrorDetail } from './project-context'
-import { containsHan } from '../../../i18n/app-errors'
 import { pluralEn } from '../../../shared/plural-en'
 
 const STRING_FIELDS = new Set<keyof NovelConfig>([
-  'genre', 'subGenre', 'targetAudience', 'coreOutline', 'worldSetting', 'goldenFinger',
-  'protagonistProfile', 'globalGuidance', 'writingStyle', 'referenceWorks',
+  'genre', 'subGenre', 'targetAudience', 'coreOutline', 'globalGuidance', 'writingStyle', 'referenceWorks',
 ])
 const NUMBER_FIELDS = new Set<keyof NovelConfig>(['totalChapters', 'wordsPerChapter'])
 const ENUM_FIELDS: Partial<Record<keyof NovelConfig, readonly string[]>> = {
   plotStructure: ['three_act', 'heros_journey', 'save_the_cat', 'kishotenketsu', 'multi_thread', 'freeform'],
   narrativePOV: ['third_limited', 'first_person', 'third_omniscient', 'multi_pov'],
-  writingLanguage: ['zh-CN', 'en-US'],
+  writingLanguage: ['zh-CN'],
 }
 
 export interface ProposalFieldDiff {
@@ -82,8 +80,8 @@ export const proposeNovelConfigTool = buildAgentTool({
     properties: {
       changes: {
         type: 'object',
-        description: '允许字段：genre、subGenre、targetAudience、totalChapters、wordsPerChapter、plotStructure、narrativePOV、writingLanguage、coreOutline、worldSetting、goldenFinger、protagonistProfile、globalGuidance、writingStyle、referenceWorks。枚举值：writingLanguage=zh-CN|en-US；plotStructure=three_act|heros_journey|save_the_cat|kishotenketsu|multi_thread|freeform；narrativePOV=third_limited|first_person|third_omniscient|multi_pov。',
-        descriptionEn: 'Allowed fields: genre, subGenre, targetAudience, totalChapters, wordsPerChapter, plotStructure, narrativePOV, writingLanguage, coreOutline, worldSetting, goldenFinger, protagonistProfile, globalGuidance, writingStyle, referenceWorks. Canonical enum values: writingLanguage=zh-CN|en-US; plotStructure=three_act|heros_journey|save_the_cat|kishotenketsu|multi_thread|freeform; narrativePOV=third_limited|first_person|third_omniscient|multi_pov.',
+        description: '允许字段：genre、subGenre、targetAudience、totalChapters、wordsPerChapter、plotStructure、narrativePOV、writingLanguage、coreOutline、globalGuidance、writingStyle、referenceWorks。枚举值：writingLanguage=zh-CN；plotStructure=three_act|heros_journey|save_the_cat|kishotenketsu|multi_thread|freeform；narrativePOV=third_limited|first_person|third_omniscient|multi_pov。',
+        descriptionEn: 'Allowed fields: genre, subGenre, targetAudience, totalChapters, wordsPerChapter, plotStructure, narrativePOV, writingLanguage, coreOutline, globalGuidance, writingStyle, referenceWorks. Canonical enum values: writingLanguage=zh-CN; plotStructure=three_act|heros_journey|save_the_cat|kishotenketsu|multi_thread|freeform; narrativePOV=third_limited|first_person|third_omniscient|multi_pov.',
       },
       blueprint_changes: {
         type: 'array',
@@ -117,9 +115,7 @@ export const proposeNovelConfigTool = buildAgentTool({
       return {
         success: false,
         content: '',
-        error: context?.writingLanguage === 'en-US' && containsHan(detail ?? '')
-          ? text('小说配置写入失败', 'Could not update the novel configuration')
-          : detail ?? text('小说配置写入失败', 'Could not update the novel configuration'),
+        error: detail ?? text('小说配置写入失败', 'Could not update the novel configuration'),
       }
     }
     useProjectStore.getState().updateNovelConfig(proposal.changes, projectSession)

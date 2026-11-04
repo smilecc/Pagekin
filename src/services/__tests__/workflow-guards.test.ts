@@ -61,7 +61,7 @@ describe('architecture workflow guard locale', () => {
 
     expect(result).toMatchObject({
       ok: false,
-      message: expect.stringContaining('Fill in the core outline or protagonist profile'),
+      message: expect.stringContaining('Fill in the outline'),
     })
     expect(result.message).not.toMatch(/[\u4e00-\u9fff]/u)
   })
@@ -69,6 +69,7 @@ describe('architecture workflow guard locale', () => {
 
 describe('directory workflow guard', () => {
   beforeEach(() => {
+    project.novelConfig = { coreOutline: '追查消失的信件。' }
     vi.mocked(ipc.invokeWithProjectSession).mockReset()
     vi.mocked(ipc.invokeWithProjectSession).mockImplementation((async (
       _session: ProjectSessionContext,
@@ -98,9 +99,9 @@ describe('directory workflow guard', () => {
 
   it.each([
     {
-      label: 'story premise',
+      label: 'outline',
       core: null,
-      expected: 'The story premise has not been generated',
+      expected: 'Write the outline before generating story plans.',
     },
     {
       label: 'character roster',
@@ -114,6 +115,7 @@ describe('directory workflow guard', () => {
     },
   ])('returns a missing-$label guard in English', async ({ core, expected }) => {
     useLocaleStore.setState({ locale: 'en-US' })
+    if (!core) project.novelConfig = {}
     vi.mocked(ipc.invokeWithProjectSession).mockImplementation((async (
       _session: ProjectSessionContext,
       channel: string,

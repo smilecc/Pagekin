@@ -270,19 +270,13 @@ describe('planning material character extraction', () => {
   )
 
   it.each([
-    [
+[
       'zh-CN',
       '周岚45岁，守馆20年，隐瞒历史事故，动机是保护幸存者。',
       '资料中明确陈述的每条角色事实都必须写入对应支持字段',
       '资料未明确给出的可选字段必须省略',
-    ],
-    [
-      'en-US',
-      'Zhou Lan is 45, has guarded the archive for 20 years, concealed a historic accident, and wants to protect the survivors.',
-      'Every explicit character fact in the material must be included in the corresponding supported field',
-      'Omit optional fields that are not explicitly stated',
-    ],
-  ] as const)(
+    ]
+] as const)(
     'lists the complete optional character-card contract for %s without requesting invented values',
     async (writingLanguage, material, factCoverageInstruction, omissionInstruction) => {
       let observedPrompt = ''

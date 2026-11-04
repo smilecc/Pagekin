@@ -707,7 +707,7 @@ describe('portable project restore service', { timeout: 20_000 }, () => {
     const outside = path.join(linked.base, 'outside-journal.json')
     fs.writeFileSync(outside, '{}')
     const linkedJournal = restoreJournalPath(linked.targetRoot)
-    fs.symlinkSync(outside, linkedJournal, 'file')
+    fs.symlinkSync(process.platform === 'win32' ? linked.base : outside, linkedJournal, process.platform === 'win32' ? 'junction' : 'file')
     await expect(restorePortableProject({ archivePath: linked.archive, targetProjectRoot: linked.targetRoot }))
       .rejects.toThrow('PORTABLE_RESTORE_UNSAFE_TARGET')
     expect(fs.readFileSync(outside, 'utf8')).toBe('{}')

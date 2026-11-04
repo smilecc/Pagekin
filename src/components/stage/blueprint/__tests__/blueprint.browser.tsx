@@ -41,7 +41,7 @@ function project(): ProjectData {
     id: 'stage-blueprint', sessionLease: 'stage-blueprint-lease', name: '灯塔', path: PROJECT_PATH,
     novelConfig: {
       genre: '悬疑', subGenre: '', targetAudience: '成人', totalChapters: 12, wordsPerChapter: 3000, plotStructure: 'three_act',
-      narrativePOV: 'third_limited', coreOutline: '灯塔', worldSetting: '', goldenFinger: '', protagonistProfile: '', globalGuidance: '',
+      narrativePOV: 'third_limited', coreOutline: '灯塔',    globalGuidance: '',
     },
     characterStates: '', createdAt: '', updatedAt: '',
   }
@@ -71,6 +71,7 @@ function installIpc() {
     if (channel === 'db:blueprint-character-sync-list-pending') return []
     if (channel === 'db:project-core-get') return projectCore
     if (channel === 'db:character-get-all') return [{ id: 1 }]
+    if (channel === 'db:character-roster-read') return { status: 'ready', entries: [{ name: '林岚' }, { name: '顾舟' }, { name: '守塔人' }] }
     throw new Error(`unexpected IPC ${channel}`)
   })
   Object.defineProperty(window, 'aiNovelAPI', {
@@ -86,7 +87,7 @@ async function renderPage(initialChapterNumber?: number) {
   await expect.element(page.getByRole('complementary', { name: '章节规划' })).toBeVisible()
 }
 
-/** 后台生成提交一段蓝图、定稿、删除或清空之后，蓝图页都会收到这条刷新。 */
+/** 后台生成提交一段故事规划、定稿、删除或清空之后，故事规划页都会收到这条刷新。 */
 async function refreshBlueprints() {
   const before = calls('db:blueprint-get-all').length
   await act(async () => globalEventBus.emit('REFRESH_RESOURCE', { resources: ['blueprints'], projectPath: PROJECT_PATH,
@@ -126,47 +127,49 @@ afterEach(async () => {
   useStageStore.setState(originalStage)
 })
 
-describe('蓝图阶段', () => {
-  it('打开蓝图页只向主进程要一次章节蓝图恢复稿，不逐个读取生成运行（#536）', async () => {
+describe('故事规划阶段', () => {
+  it('打开故事规划页只向主进程要一次故事规划恢复稿，不逐个读取生成运行（#536）', async () => {
     await renderPage()
     await vi.waitFor(() => expect(calls('generation:find-blueprint-recovery')).toHaveLength(1))
     expect([...calls('generation:list'), ...calls('generation:read-context')]).toEqual([])
   })
-  it('主按钮是写下一章的拆分按钮，点箭头只出现小弹层', async () => {
+  it('规划页以 AI 生成和新建章节为主，不混入正文写作状态与按钮', async () => {
     await renderPage()
-    await expect.element(page.getByRole('button', { name: '写第 2 章' })).toBeVisible()
-    expect(page.getByRole('button', { name: '写第 2 章' }).element().className).toContain('pi-btn--primary')
-    expect(page.getByRole('button', { name: 'AI 生成蓝图' }).element().className).toContain('pi-btn--secondary')
-    await act(async () => page.getByRole('button', { name: '本次写作选项' }).click())
-    await expect.element(page.getByRole('dialog', { name: '本次写作选项' })).toBeVisible()
-    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1)
+    expect(page.getByRole('button', { name: 'AI 生成故事规划' }).element().className).toContain('pi-btn--primary')
+    await expect.element(page.getByRole('button', { name: '新建章节' })).toBeVisible()
+    expect(page.getByRole('button', { name: '写第 2 章' }).query()).toBeNull()
+    expect(container!.querySelector('.stage-bp-card')!.textContent).not.toContain('正文 · 待写')
+    expect(container!.querySelector('.cm-lp-dropcap-char')).toBeNull()
+    const content = container!.querySelector('.cm-content')!
+    expect(getComputedStyle(content).paddingLeft).toBe('0px')
+    expect(getComputedStyle(content).paddingRight).toBe('0px')
   })
 
-  it('英文界面里只有一章蓝图时写 1 chapter，不写 1 chapters', async () => {
+  it('英文界面里只有一章故事规划时写 1 chapter，不写 1 chapters', async () => {
     stored = [blueprint(1, '旧港')]
     await renderPage()
     await act(async () => useLocaleStore.setState({ locale: 'en-US' }))
     expect(document.querySelector('.stage-bp-plan-top')?.textContent).toBe('1 chapter')
   })
 
-  it('清空全部蓝图在危险分组里，确认前不清空，确认后列表为空并出现空状态', async () => {
+  it('清空全部故事规划在危险分组里，确认前不清空，确认后列表为空并出现空状态', async () => {
     await renderPage()
-    await act(async () => page.getByRole('button', { name: '更多蓝图操作' }).click())
+    await act(async () => page.getByRole('button', { name: '更多故事规划操作' }).click())
     const dangerGroup = page.getByRole('group', { name: '危险' })
-    await act(async () => dangerGroup.getByRole('menuitem', { name: '清空全部蓝图…' }).click())
-    const confirm = page.getByRole('dialog', { name: '清空全部蓝图？' })
-    await expect.element(confirm).toHaveTextContent('将删除全部 3 章蓝图')
+    await act(async () => dangerGroup.getByRole('menuitem', { name: '清空全部故事规划…' }).click())
+    const confirm = page.getByRole('dialog', { name: '清空全部故事规划？' })
+    await expect.element(confirm).toHaveTextContent('将删除全部 3 章故事规划')
     expect(calls('db:blueprint-clear-all')).toHaveLength(0)
 
     await act(async () => confirm.getByRole('button', { name: '取消' }).click())
     expect(calls('db:blueprint-clear-all')).toHaveLength(0)
     await expect.element(page.getByRole('button', { name: /^1\D/ })).toBeVisible()
 
-    await act(async () => page.getByRole('button', { name: '更多蓝图操作' }).click())
-    await act(async () => page.getByRole('menuitem', { name: '清空全部蓝图…' }).click())
-    await act(async () => page.getByRole('dialog', { name: '清空全部蓝图？' }).getByRole('button', { name: '清空全部' }).click())
+    await act(async () => page.getByRole('button', { name: '更多故事规划操作' }).click())
+    await act(async () => page.getByRole('menuitem', { name: '清空全部故事规划…' }).click())
+    await act(async () => page.getByRole('dialog', { name: '清空全部故事规划？' }).getByRole('button', { name: '清空全部' }).click())
     await vi.waitFor(() => expect(calls('db:blueprint-clear-all')).toHaveLength(1))
-    await expect.element(page.getByRole('heading', { name: '还没有章节蓝图' })).toBeVisible()
+    await expect.element(page.getByRole('heading', { name: '还没有故事规划' })).toBeVisible()
     expect(page.getByRole('complementary', { name: '章节规划' }).query()).toBeNull()
   })
 
@@ -175,7 +178,7 @@ describe('蓝图阶段', () => {
     await act(async () => page.getByRole('button', { name: /^3\D/ }).click())
     await act(async () => page.getByRole('button', { name: '第 3 章更多操作' }).click())
     await act(async () => page.getByRole('group', { name: '危险' }).getByRole('menuitem', { name: '删除此章…' }).click())
-    const confirm = page.getByRole('dialog', { name: '删除第 3 章蓝图？' })
+    const confirm = page.getByRole('dialog', { name: '删除第 3 章故事规划？' })
     await expect.element(confirm).toBeVisible()
     expect(calls('db:blueprint-delete')).toHaveLength(0)
     await act(async () => confirm.getByRole('button', { name: '删除此章' }).click())
@@ -188,14 +191,14 @@ describe('蓝图阶段', () => {
     await renderPage()
     await act(async () => page.getByRole('button', { name: /^2\D/ }).click())
     await act(async () => page.getByRole('textbox', { name: '章节标题' }).fill('北堤夜雨'))
-    await act(async () => page.getByLabelText(/作者微操指导/).fill('节奏放慢，只写声音。'))
+    await act(async () => page.getByRole('textbox').last().fill('节奏放慢，只写声音。'))
     expect(container?.textContent).not.toContain('未保存')
 
     const save = editorSaveHandler({ id: 'chapter-card-editor', type: 'chapter-card', projectKey: PROJECT_PATH })
     expect(save).not.toBeNull()
     await act(async () => { await save!() })
     const [[, saved]] = calls('db:blueprint-upsert-many')
-    expect((saved as ChapterBlueprint[]).find(item => item.chapterNumber === 2)).toMatchObject({ title: '北堤夜雨', userGuidance: '节奏放慢，只写声音。' })
+    expect((saved as ChapterBlueprint[]).find(item => item.chapterNumber === 2)).toMatchObject({ title: '北堤夜雨', keyEvents: '节奏放慢，只写声音。' })
   })
 
   it('保存此章只写当前一章', async () => {
@@ -205,7 +208,7 @@ describe('蓝图阶段', () => {
     await vi.waitFor(() => expect(calls('db:blueprint-upsert').map(call => call[1])).toMatchObject([{ chapterNumber: 1, title: '旧港潮汐' }]))
   })
 
-  it('保存此章、删除此章、清空蓝图之后项目树不重读目录：蓝图只在数据库里', async () => {
+  it('保存此章、删除此章、清空故事规划之后项目树不重读目录：故事规划只在数据库里', async () => {
     initProjectService()
     try {
       await renderPage()
@@ -215,11 +218,11 @@ describe('蓝图阶段', () => {
       await act(async () => page.getByRole('button', { name: /^3\D/ }).click())
       await act(async () => page.getByRole('button', { name: '第 3 章更多操作' }).click())
       await act(async () => page.getByRole('group', { name: '危险' }).getByRole('menuitem', { name: '删除此章…' }).click())
-      await act(async () => page.getByRole('dialog', { name: '删除第 3 章蓝图？' }).getByRole('button', { name: '删除此章' }).click())
+      await act(async () => page.getByRole('dialog', { name: '删除第 3 章故事规划？' }).getByRole('button', { name: '删除此章' }).click())
       await vi.waitFor(() => expect(calls('db:blueprint-delete')).toHaveLength(1))
-      await act(async () => page.getByRole('button', { name: '更多蓝图操作' }).click())
-      await act(async () => page.getByRole('menuitem', { name: '清空全部蓝图…' }).click())
-      await act(async () => page.getByRole('dialog', { name: '清空全部蓝图？' }).getByRole('button', { name: '清空全部' }).click())
+      await act(async () => page.getByRole('button', { name: '更多故事规划操作' }).click())
+      await act(async () => page.getByRole('menuitem', { name: '清空全部故事规划…' }).click())
+      await act(async () => page.getByRole('dialog', { name: '清空全部故事规划？' }).getByRole('button', { name: '清空全部' }).click())
       await vi.waitFor(() => expect(calls('db:blueprint-clear-all')).toHaveLength(1))
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)) })
       expect(calls('fs:list-dir')).toEqual([])
@@ -228,7 +231,7 @@ describe('蓝图阶段', () => {
     }
   })
 
-  it('保存此章与保存全部成功后通知流程脊、Ctrl P 重读蓝图；保存失败不通知', async () => {
+  it('保存此章与保存全部成功后通知流程脊、Ctrl P 重读故事规划；保存失败不通知', async () => {
     const refreshes: string[][] = []
     const off = globalEventBus.on('REFRESH_RESOURCE', ({ resources }) => { refreshes.push([...resources]) })
     try {
@@ -253,6 +256,7 @@ describe('蓝图阶段', () => {
   })
 
   it('保存此章与开始生成进行中时按钮带 aria-busy，结束后撤掉', async () => {
+    useProjectStore.setState({ currentProject: { ...project(), novelConfig: { ...project().novelConfig, coreOutline: '' } } })
     await renderPage()
     const base = invoke.getMockImplementation() as (channel: string, ...args: unknown[]) => Promise<unknown>
     const gates = new Map<string, () => void>()
@@ -266,10 +270,10 @@ describe('蓝图阶段', () => {
     await act(async () => gates.get('db:blueprint-upsert')!())
     await expect.element(page.getByRole('button', { name: '保存此章' })).not.toHaveAttribute('aria-busy')
 
-    await act(async () => page.getByRole('button', { name: 'AI 生成蓝图' }).click())
-    const dialog = page.getByRole('dialog', { name: 'AI 生成蓝图' })
-    await act(async () => dialog.getByLabelText('蓝图起始章').fill('5'))
-    await act(async () => dialog.getByLabelText('蓝图结束章').fill('7'))
+    await act(async () => page.getByRole('button', { name: 'AI 生成故事规划' }).click())
+    const dialog = page.getByRole('dialog', { name: 'AI 生成故事规划' })
+    await act(async () => dialog.getByLabelText('故事规划起始章').fill('5'))
+    await act(async () => dialog.getByLabelText('故事规划结束章').fill('7'))
     await act(async () => dialog.getByRole('button', { name: '开始生成' }).click())
     await vi.waitFor(() => expect(gates.has('config:set')).toBe(true))
     await expect.element(dialog.getByRole('button', { name: '启动中…' })).toHaveAttribute('aria-busy', 'true')
@@ -287,48 +291,32 @@ describe('蓝图阶段', () => {
     expect(full.textContent).toBe('All 1 chapter')
   })
 
-  it('出场人物可以逐个添加与移除', async () => {
+  it('章节规划保留标题、角色与正文编辑器，换章后保留各自的未保存内容', async () => {
     await renderPage()
-    await act(async () => page.getByRole('button', { name: '移除 守塔人' }).click())
-    await act(async () => page.getByLabelText('出场人物').fill('沈砺'))
-    await act(async () => page.getByLabelText('出场人物').element().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })))
+    expect(container!.querySelectorAll('.stage-bp-card input')).toHaveLength(2)
+    expect(container!.querySelectorAll('.stage-bp-card textarea, .stage-bp-card select')).toHaveLength(0)
+    expect(container!.querySelector('.stage-bp-card .cm-editor')).not.toBeNull()
+    await act(async () => page.getByRole('textbox').last().fill('第一章的自由规划'))
+    await act(async () => page.getByRole('button', { name: /^2\D/ }).click())
+    await act(async () => page.getByRole('textbox').last().fill('第二章的自由规划'))
+    await act(async () => page.getByRole('button', { name: /^1\D/ }).click())
+    expect(container!.querySelector('.cm-content')?.textContent).toBe('第一章的自由规划')
     const save = editorSaveHandler({ id: 'chapter-card-editor', type: 'chapter-card', projectKey: PROJECT_PATH })
     await act(async () => { await save!() })
     const [[, saved]] = calls('db:blueprint-upsert-many')
-    expect((saved as ChapterBlueprint[])[0].characters).toEqual(['林岚', '沈砺'])
+    expect((saved as ChapterBlueprint[]).filter(item => item.chapterNumber <= 2).map(item => item.keyEvents)).toEqual(['第一章的自由规划', '第二章的自由规划'])
   })
 
-  it('出场人物重名：一次输入两遍只加一个；已有重名时移除一个只少一个', async () => {
-    stored = [{ ...blueprint(1, '旧港'), characters: ['林岚', '守塔人', '守塔人'] }, blueprint(2, '北堤')]
+  it('生成故事规划选覆盖时先危险确认，取消后不启动，生成对话框回来且不当作错误', async () => {
     await renderPage()
-    await act(async () => page.getByRole('button', { name: '移除 守塔人' }).first().click())
-    await act(async () => page.getByLabelText('出场人物').fill('沈砺、沈砺'))
-    await act(async () => page.getByLabelText('出场人物').element().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })))
-    const save = editorSaveHandler({ id: 'chapter-card-editor', type: 'chapter-card', projectKey: PROJECT_PATH })
-    await act(async () => { await save!() })
-    const [[, saved]] = calls('db:blueprint-upsert-many')
-    expect((saved as ChapterBlueprint[])[0].characters).toEqual(['林岚', '守塔人', '沈砺'])
-  })
-
-  it('输入法组字时按回车是选词，不把拼音当人物加进来', async () => {
-    await renderPage()
-    const input = page.getByLabelText('出场人物')
-    await act(async () => input.fill('shen'))
-    await act(async () => input.element().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true })))
-    expect((input.element() as HTMLInputElement).value).toBe('shen')
-    expect([...container!.querySelectorAll('button[aria-label^="移除 "]')].map(button => button.getAttribute('aria-label'))).toEqual(['移除 林岚', '移除 守塔人'])
-  })
-
-  it('生成蓝图选覆盖时先危险确认，取消后不启动，生成对话框回来且不当作错误', async () => {
-    await renderPage()
-    await act(async () => page.getByRole('button', { name: 'AI 生成蓝图' }).click())
-    const dialog = page.getByRole('dialog', { name: 'AI 生成蓝图' })
+    await act(async () => page.getByRole('button', { name: 'AI 生成故事规划' }).click())
+    const dialog = page.getByRole('dialog', { name: 'AI 生成故事规划' })
     await expect.element(dialog).toBeVisible()
     await act(async () => dialog.getByRole('button', { name: '覆盖' }).click())
-    await expect.element(dialog.getByText('已有蓝图会被覆盖，开始前再确认一次')).toBeVisible()
+    await expect.element(dialog.getByText('已有故事规划会被覆盖，开始前再确认一次')).toBeVisible()
     await act(async () => dialog.getByRole('button', { name: '开始生成' }).click())
-    const confirm = page.getByRole('dialog', { name: '覆盖已有蓝图？' })
-    await expect.element(confirm).toHaveTextContent('已有的 3 章蓝图会被新蓝图替换')
+    const confirm = page.getByRole('dialog', { name: '覆盖已有故事规划？' })
+    await expect.element(confirm).toHaveTextContent('已有的 3 章故事规划会被新故事规划替换')
     expect(calls('db:project-core-get')).toHaveLength(0)
     await act(async () => confirm.getByRole('button', { name: '取消' }).click())
     await expect.element(dialog.getByRole('button', { name: '开始生成' })).toBeVisible()
@@ -336,48 +324,50 @@ describe('蓝图阶段', () => {
     expect(calls('db:project-core-get')).toHaveLength(0)
   })
 
-  it('指定范围只补没有蓝图的章，不出现覆盖选项与覆盖提示', async () => {
+  it('指定范围只补没有故事规划的章，不出现覆盖选项与覆盖提示', async () => {
     await renderPage()
-    await act(async () => page.getByRole('button', { name: 'AI 生成蓝图' }).click())
-    const dialog = page.getByRole('dialog', { name: 'AI 生成蓝图' })
+    await act(async () => page.getByRole('button', { name: 'AI 生成故事规划' }).click())
+    const dialog = page.getByRole('dialog', { name: 'AI 生成故事规划' })
     await act(async () => dialog.getByRole('button', { name: '覆盖' }).click())
-    await expect.element(dialog.getByText('已有蓝图会被覆盖，开始前再确认一次')).toBeVisible()
-    await act(async () => dialog.getByLabelText('蓝图起始章').fill('5'))
-    await expect.element(dialog.getByText('已有蓝图会被覆盖，开始前再确认一次')).not.toBeInTheDocument()
+    await expect.element(dialog.getByText('已有故事规划会被覆盖，开始前再确认一次')).toBeVisible()
+    await act(async () => dialog.getByLabelText('故事规划起始章').fill('5'))
+    await expect.element(dialog.getByText('已有故事规划会被覆盖，开始前再确认一次')).not.toBeInTheDocument()
     expect(dialog.getByRole('button', { name: '覆盖' }).query()).toBeNull()
   })
 
   it('指定范围后取消架构警告：对话框回来，作者填的起止章还在，不当作错误', async () => {
     projectCore = { premise: '灯塔'.repeat(40) }
     await renderPage()
-    await act(async () => page.getByRole('button', { name: 'AI 生成蓝图' }).click())
-    const dialog = page.getByRole('dialog', { name: 'AI 生成蓝图' })
-    await act(async () => dialog.getByLabelText('蓝图起始章').fill('5'))
-    await act(async () => dialog.getByLabelText('蓝图结束章').fill('7'))
+    await act(async () => page.getByRole('button', { name: 'AI 生成故事规划' }).click())
+    const dialog = page.getByRole('dialog', { name: 'AI 生成故事规划' })
+    await act(async () => dialog.getByLabelText('故事规划起始章').fill('5'))
+    await act(async () => dialog.getByLabelText('故事规划结束章').fill('7'))
     await act(async () => dialog.getByRole('button', { name: '开始生成' }).click())
     const warning = page.getByRole('dialog', { name: '架构还不完整' })
     await expect.element(warning).toBeVisible()
     await act(async () => warning.getByRole('button', { name: '取消' }).click())
-    await expect.element(dialog.getByLabelText('蓝图起始章')).toHaveValue(5)
-    await expect.element(dialog.getByLabelText('蓝图结束章')).toHaveValue(7)
+    await expect.element(dialog.getByLabelText('故事规划起始章')).toHaveValue(5)
+    await expect.element(dialog.getByLabelText('故事规划结束章')).toHaveValue(7)
     expect(dialog.getByRole('alert').query()).toBeNull()
   })
 
   it('指定范围后启动失败：对话框回来写明原因，作者填的起止章还在', async () => {
+    useProjectStore.setState({ currentProject: { ...project(), novelConfig: { ...project().novelConfig, coreOutline: '' } } })
     await renderPage()
-    await act(async () => page.getByRole('button', { name: 'AI 生成蓝图' }).click())
-    const dialog = page.getByRole('dialog', { name: 'AI 生成蓝图' })
-    await act(async () => dialog.getByLabelText('蓝图起始章').fill('5'))
-    await act(async () => dialog.getByLabelText('蓝图结束章').fill('7'))
+    await act(async () => page.getByRole('button', { name: 'AI 生成故事规划' }).click())
+    const dialog = page.getByRole('dialog', { name: 'AI 生成故事规划' })
+    await act(async () => dialog.getByLabelText('故事规划起始章').fill('5'))
+    await act(async () => dialog.getByLabelText('故事规划结束章').fill('7'))
     await act(async () => dialog.getByRole('button', { name: '开始生成' }).click())
-    await expect.element(dialog.getByRole('alert')).toHaveTextContent('「故事前提」尚未生成')
-    await expect.element(dialog.getByLabelText('蓝图起始章')).toHaveValue(5)
-    await expect.element(dialog.getByLabelText('蓝图结束章')).toHaveValue(7)
+    await expect.element(dialog.getByRole('alert')).toHaveTextContent('请先填写「大纲」')
+    await expect.element(dialog.getByLabelText('故事规划起始章')).toHaveValue(5)
+    await expect.element(dialog.getByLabelText('故事规划结束章')).toHaveValue(7)
   })
 
   it('批量创作对话框从权威下一章开始，按章数显示主按钮', async () => {
     await renderPage()
-    await act(async () => page.getByRole('button', { name: '批量创作' }).click())
+    await act(async () => page.getByRole('button', { name: '更多故事规划操作' }).click())
+    await act(async () => page.getByRole('menuitem', { name: '批量创作…' }).click())
     const dialog = page.getByRole('dialog', { name: '批量创作' })
     await expect.element(dialog.getByText('第 2 章', { exact: true })).toBeVisible()
     await act(async () => dialog.getByLabelText(/写几章/).fill('4'))
@@ -388,7 +378,8 @@ describe('蓝图阶段', () => {
 
   it('「写几章」清空后重新输入：删掉 1 再输 3 得 3，不是 13；空着离开回到 1', async () => {
     await renderPage()
-    await act(async () => page.getByRole('button', { name: '批量创作' }).click())
+    await act(async () => page.getByRole('button', { name: '更多故事规划操作' }).click())
+    await act(async () => page.getByRole('menuitem', { name: '批量创作…' }).click())
     const count = page.getByRole('dialog', { name: '批量创作' }).getByLabelText(/写几章/)
     const input = count.element() as HTMLInputElement
     await act(async () => input.focus())
@@ -400,47 +391,61 @@ describe('蓝图阶段', () => {
     expect(input.value).toBe('1')
   })
 
-  it('更多蓝图操作里新建章节：新章接在权威下一章已有蓝图之后并被选中', async () => {
+  it('直接新建章节：新章接在权威下一章已有故事规划之后并被选中', async () => {
     await renderPage()
-    await act(async () => page.getByRole('button', { name: '更多蓝图操作' }).click())
-    await act(async () => page.getByRole('menuitem', { name: '新建章节' }).click())
+    await act(async () => page.getByRole('button', { name: '新建章节' }).click())
     await expect.element(page.getByRole('button', { name: /^4\D/ })).toHaveAttribute('aria-current', 'true')
-    await expect.element(page.getByRole('region', { name: '第 4 章蓝图' })).toBeVisible()
+    await expect.element(page.getByRole('region', { name: '第 4 章故事规划' })).toBeVisible()
   })
 
-  it('写作请求落到这一页：可写的那一章自动弹出写作弹层，写不了的章丢掉请求', async () => {
+  it('规划页不消耗交给单章视图的正文写作请求', async () => {
     useStageStore.setState({ writeRequest: { session: SESSION, chapterNumber: 2 } })
     await renderPage()
-    await expect.element(page.getByRole('dialog', { name: '本次写作选项' })).toBeVisible()
-    expect(useStageStore.getState().writeRequest).toBeNull()
-
-    await act(async () => root?.render(null))
-    useStageStore.setState({ writeRequest: { session: SESSION, chapterNumber: 3 } })
-    await renderPage()
-    await vi.waitFor(() => expect(useStageStore.getState().writeRequest).toBeNull())
+    expect(useStageStore.getState().writeRequest).toEqual({ session: SESSION, chapterNumber: 2 })
     expect(page.getByRole('dialog', { name: '本次写作选项' }).query()).toBeNull()
   })
 
-  it('蓝图重新加载时页面与打开的弹层都留着，作者刚写的指导不丢', async () => {
+  it('保存出场角色并在换章和重新加载时保留未保存修改', async () => {
     await renderPage()
-    await act(async () => page.getByRole('button', { name: '本次写作选项' }).click())
-    const popover = page.getByRole('dialog', { name: '本次写作选项' })
-    await act(async () => popover.getByLabelText(/作者微操指导/).fill('作者刚写的指导'))
+    await act(async () => page.getByRole('combobox', { name: '出场角色' }).fill('顾舟、林岚'))
+    await act(async () => userEvent.keyboard('{Enter}'))
+    await act(async () => page.getByRole('button', { name: '移除出场角色 守塔人' }).click())
+    await act(async () => page.getByRole('button', { name: /^2\D/ }).click())
+    await act(async () => page.getByRole('button', { name: /^1\D/ }).click())
     await refreshBlueprints()
-    await expect.element(popover.getByLabelText(/作者微操指导/)).toHaveValue('作者刚写的指导')
+    expect(container!.querySelector('.stage-bp-people')?.textContent).toContain('顾舟')
+    await act(async () => page.getByRole('button', { name: '保存此章' }).click())
+    expect(calls('db:blueprint-upsert').at(-1)?.[1]).toMatchObject({ characters: ['林岚', '顾舟'] })
   })
 
-  it('删除确认期间蓝图重新加载：确认框仍是作者选的那一章，删的也是它，选中不跳回', async () => {
+  it('角色输入框中的姓名在保存快捷键到达外壳前进入保存数据', async () => {
+    await renderPage()
+    const save = editorSaveHandler({ id: 'chapter-card-editor', type: 'chapter-card', projectKey: PROJECT_PATH })!
+    const onSaveKey = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.key === 's') { event.preventDefault(); void save() }
+    }
+    window.addEventListener('keydown', onSaveKey)
+    try {
+      await act(async () => page.getByRole('combobox', { name: '出场角色' }).fill('顾舟'))
+      await act(async () => userEvent.keyboard('{Control>}s{/Control}'))
+      await vi.waitFor(() => expect(calls('db:blueprint-upsert-many')).toHaveLength(1))
+      expect((calls('db:blueprint-upsert-many')[0][1] as ChapterBlueprint[])[0].characters).toEqual(['林岚', '守塔人', '顾舟'])
+    } finally {
+      window.removeEventListener('keydown', onSaveKey)
+    }
+  })
+
+  it('删除确认期间故事规划重新加载：确认框仍是作者选的那一章，删的也是它，选中不跳回', async () => {
     await renderPage(2)
     await act(async () => page.getByRole('button', { name: /^3\D/ }).click())
     await act(async () => page.getByRole('button', { name: '第 3 章更多操作' }).click())
     await act(async () => page.getByRole('group', { name: '危险' }).getByRole('menuitem', { name: '删除此章…' }).click())
-    await expect.element(page.getByRole('dialog', { name: '删除第 3 章蓝图？' })).toBeVisible()
+    await expect.element(page.getByRole('dialog', { name: '删除第 3 章故事规划？' })).toBeVisible()
     await refreshBlueprints()
     // 确认框是模态的，页面其余部分对辅助技术隐藏，直接读选中的那一行。
     expect(container?.querySelector('.stage-bp-plan-item[aria-current] .stage-bp-plan-no')?.textContent).toBe('3')
-    const confirm = page.getByRole('dialog', { name: /^删除第 \d+ 章蓝图？$/ })
-    await expect.element(confirm).toHaveAccessibleName('删除第 3 章蓝图？')
+    const confirm = page.getByRole('dialog', { name: /^删除第 \d+ 章故事规划？$/ })
+    await expect.element(confirm).toHaveAccessibleName('删除第 3 章故事规划？')
     await act(async () => confirm.getByRole('button', { name: '删除此章' }).click())
     await vi.waitFor(() => expect(calls('db:blueprint-delete').map(call => call[1])).toEqual([3]))
   })
@@ -452,20 +457,20 @@ describe('蓝图阶段', () => {
     await act(async () => page.getByRole('group', { name: '危险' }).getByRole('menuitem', { name: '删除此章…' }).click())
     stored = stored.filter(item => item.chapterNumber !== 3)
     await refreshBlueprints()
-    const confirm = page.getByRole('dialog', { name: '删除第 3 章蓝图？' })
+    const confirm = page.getByRole('dialog', { name: '删除第 3 章故事规划？' })
     await act(async () => confirm.getByRole('button', { name: '删除此章' }).click())
     await expect.element(confirm).not.toBeInTheDocument()
     expect(calls('db:blueprint-delete')).toEqual([])
   })
 
-  it('下一章变了，写作弹层按新的一章重建，上一章没用掉的指导不带过去', async () => {
+  it('窄窗口下规划正文保持正常字号与紧凑边距', async () => {
+    await page.viewport(680, 900)
     await renderPage()
-    await act(async () => page.getByRole('button', { name: '本次写作选项' }).click())
-    await act(async () => page.getByRole('dialog', { name: '本次写作选项' }).getByLabelText(/作者微操指导/).fill('只给第 2 章的指导'))
-    nextChapter = 3
-    await refreshBlueprints()
-    await expect.element(page.getByRole('button', { name: '写第 3 章' })).toBeVisible()
-    await act(async () => page.getByRole('button', { name: '本次写作选项' }).click())
-    await expect.element(page.getByRole('dialog', { name: '本次写作选项' }).getByLabelText(/作者微操指导/)).toHaveValue('')
+    const card = container!.querySelector('.stage-bp-card')!
+    const content = container!.querySelector('.cm-content')!
+    expect(card.getBoundingClientRect().width).toBeGreaterThan(300)
+    expect(parseFloat(getComputedStyle(content).paddingLeft)).toBe(0)
+    expect(container!.querySelector('.cm-lp-dropcap-char')).toBeNull()
+    expect(card.scrollWidth).toBeLessThanOrEqual(card.clientWidth)
   })
 })

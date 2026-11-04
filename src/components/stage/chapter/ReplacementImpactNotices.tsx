@@ -31,7 +31,7 @@ export function ReplacementImpactSummary({ impact }: { impact: ReplacementImpact
   const { laterChapters: later, blueprintOnlyChapters: planned, characters, unmovedConfirmations: unmoved } = impact
   const chapterParts = [
     later.length > 0 && text(`${chaptersText(later, text)}写于这次修改之前`, `${chaptersText(later, text)} ${later.length === 1 ? 'was' : 'were'} written before this change`),
-    planned.length > 0 && text(`${chaptersText(planned, text)}只有蓝图`, `${chaptersText(planned, text)} ${planned.length === 1 ? 'only has a blueprint' : 'only have blueprints'}`),
+    planned.length > 0 && text(`${chaptersText(planned, text)}只有故事规划`, `${chaptersText(planned, text)} ${planned.length === 1 ? 'only has a blueprint' : 'only have blueprints'}`),
   ].filter(Boolean)
   return (
     <>
@@ -98,7 +98,7 @@ export default function ReplacementImpactNotices({ projectKey, chapterNumber, sh
             key={impact.finalizationId}
             tone="info"
             title={planned
-              ? text(`蓝图写于第 ${impact.chapterNumber} 章修改之前`, `Blueprint written before chapter ${impact.chapterNumber} was changed`)
+              ? text(`故事规划写于第 ${impact.chapterNumber} 章修改之前`, `Blueprint written before chapter ${impact.chapterNumber} was changed`)
               : text(`写于第 ${impact.chapterNumber} 章修改之前`, `Written before chapter ${impact.chapterNumber} was changed`)}
             actions={(
               <Button variant="text" size="sm" onClick={() => navigate({ kind: 'chapter', chapterNumber: impact.chapterNumber })}>
@@ -107,7 +107,7 @@ export default function ReplacementImpactNotices({ projectKey, chapterNumber, sh
             )}
           >
             {planned
-              ? text(`第 ${impact.chapterNumber} 章后来改过，这一章的蓝图可能和它不符，不会自动修改。`, `Chapter ${impact.chapterNumber} changed afterwards, so this chapter's blueprint may not match it. It is not changed automatically.`)
+              ? text(`第 ${impact.chapterNumber} 章后来改过，这一章的故事规划可能和它不符，不会自动修改。`, `Chapter ${impact.chapterNumber} changed afterwards, so this chapter's blueprint may not match it. It is not changed automatically.`)
               : text(`第 ${impact.chapterNumber} 章后来改过，这一章可能和它不符，不会自动修改。`, `Chapter ${impact.chapterNumber} changed afterwards, so this chapter may not match it. Nothing here is changed automatically.`)}
           </Notice>
         )

@@ -33,7 +33,7 @@ const READY: ProjectOverview = {
   state: 'ready', projectId: 'island', revision: 'r1', name: '雾岛', totalWords: 6214, characters: 3, finalizedChapters: 2,
   setupReady: false, plannedChapters: 24,
   stages: [
-    { id: 'configuration', status: 'in-progress', count: 5 }, { id: 'architecture', status: 'completed', count: 4 },
+    { id: 'configuration', status: 'in-progress', count: 5 }, { id: 'architecture', status: 'completed', count: 3 },
     { id: 'blueprint', status: 'in-progress', count: 12 }, { id: 'drafting', status: 'in-progress', count: 3 },
     { id: 'review', status: 'not-started', count: 0 }, { id: 'finalization', status: 'in-progress', count: 2 },
   ],
@@ -153,7 +153,7 @@ describe('书房', () => {
 
     const bars = [...host!.querySelectorAll<HTMLElement>('[data-stage]')].map(row => [row.dataset.stage, row.dataset.state, row.textContent])
     expect(bars).toEqual([
-      ['setup', 'active', '设定 未齐'], ['architecture', 'done', '架构'], ['blueprint', 'done', '蓝图 12 章'], ['manuscript', 'active', '正文 2 / 24'],
+      ['architecture', 'active', '写作选项'], ['blueprint', 'active', '故事规划 12 章'], ['manuscript', 'active', '正文 2 / 24'],
     ])
     const cover = (name: string) => button(`预览《${name}》`)!
     expect([...cover('雾岛').children].map(part => part.className)).toEqual(['stage-book-title'])
@@ -196,8 +196,8 @@ describe('书房', () => {
     useProjectStore.setState({ recentProjects: [ISLAND] })
     await mount()
     await click(button('预览《雾岛》'))
-    expect(host!.querySelector<HTMLElement>('[data-stage="setup"]')?.dataset.state).toBe('done')
-    expect(host!.querySelector('[data-stage="setup"]')?.textContent).toBe('设定')
+    expect(host!.querySelector<HTMLElement>('[data-stage="architecture"]')?.dataset.state).toBe('done')
+    expect(host!.querySelector('[data-stage="architecture"]')?.textContent).toBe('写作选项')
   })
 
   it('定稿章数达到或超过规划章数时，预览里正文是完成，进度条不超出', async () => {
@@ -307,12 +307,12 @@ describe('书房', () => {
       useStageStore.setState({ work: { session, architecture: { premise: true, characters: true }, blueprints: [] }, spineFacts: session })
       useDraftStore.setState({ draftsByChapter: {}, dataProjectSession: session, loading: false })
     })
-    expect(primary()).toEqual(['继续写作 · 架构'])
-    expect([...host!.querySelectorAll<HTMLElement>('[data-stage]')].map(row => row.textContent)).toEqual(['设定', '架构 2 / 4', '蓝图', '正文 0 / 12'])
+    expect(primary()).toEqual(['继续写作 · 世界观'])
+    expect([...host!.querySelectorAll<HTMLElement>('[data-stage]')].map(row => row.textContent)).toEqual(['大纲', '世界观', '角色名单', '文风', '全局写作要求', '写作选项', '故事规划', '正文 0 / 12'])
     expect(host!.textContent).toContain('悬疑 · 12 章 · 每章约 3,000 字')
     expect(host!.textContent).toContain('守塔人把灯又擦了一遍。')
 
-    await click(button('继续写作 · 架构'))
+    await click(button('继续写作 · 世界观'))
     expect(useLayoutStore.getState().sidebarView).not.toBe('home')
   })
 
@@ -336,6 +336,6 @@ describe('书房', () => {
       useStageStore.setState({ work: { session, architecture, blueprints: [] } })
       useDraftStore.setState({ draftsByChapter: { 1: draft(1, 0) } as never })
     })
-    expect(primary()).toEqual(['继续写作 · 架构'])
+    expect(primary()).toEqual(['继续写作 · 文风'])
   })
 })

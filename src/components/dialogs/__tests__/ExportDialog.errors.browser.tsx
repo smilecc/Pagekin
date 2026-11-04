@@ -19,8 +19,8 @@ const project: ProjectData = {
   sessionLease: 'export-dialog-lease',
   novelConfig: {
     genre: '奇幻', subGenre: '', targetAudience: '通用', totalChapters: 1, wordsPerChapter: 1000,
-    plotStructure: 'three_act', narrativePOV: 'third_limited', coreOutline: '', worldSetting: '',
-    goldenFinger: '', protagonistProfile: '', globalGuidance: '', writingLanguage: 'zh-CN',
+    plotStructure: 'three_act', narrativePOV: 'third_limited', coreOutline: '',
+      globalGuidance: '', writingLanguage: 'zh-CN',
   },
   characterStates: '',
   createdAt: '2026-01-01T00:00:00.000Z',

@@ -41,7 +41,9 @@ describe('narrative thread AI candidate boundary', () => {
       expect(invoke.mock.calls.some(([channel]) => channel === 'graph-generation:confirm')).toBe(false)
     } finally { useProjectStore.setState({ currentProject: previous }); vi.unstubAllGlobals() }
   })
-  it.each(['zh-CN', 'en-US'] as const)('pure %s event task preserves finalized bytes and omits transport identity', writingLanguage => {
+  it.each([
+'zh-CN'
+] as const)('pure %s event task preserves finalized bytes and omits transport identity', writingLanguage => {
     const finalizedContent = '  林岚把日志藏进抽屉。\r\n尾行  '
     const task = buildNarrativeThreadEventTask({ writingLanguage, draftId: 41, chapterNumber: 3,
       finalizedContent, plan: {
@@ -59,15 +61,11 @@ describe('narrative thread AI candidate boundary', () => {
     expect(task).not.toHaveProperty('signal')
   })
   it.each([
-    ['generatePlanCandidates', 'zh-CN', { status: 'failed', content: '', finishReason: 'error' }, '叙事线索计划候选生成未完整完成'],
-    ['generatePlanCandidates', 'en-US', { status: 'failed', content: '', finishReason: 'error' }, 'Narrative-thread plan candidate generation did not complete.'],
-    ['generatePlanCandidates', 'zh-CN', { status: 'completed', content: '{"candidates":[]}', finishReason: 'stop' }, '模型未返回有效的叙事线索计划候选'],
-    ['generatePlanCandidates', 'en-US', { status: 'completed', content: '{"candidates":[]}', finishReason: 'stop' }, 'The model did not return any valid narrative-thread plan candidates.'],
-    ['generateEventCandidates', 'zh-CN', { status: 'failed', content: '', finishReason: 'error' }, '叙事线索事件候选生成未完整完成'],
-    ['generateEventCandidates', 'en-US', { status: 'failed', content: '', finishReason: 'error' }, 'Narrative-thread event candidate generation did not complete.'],
-    ['generateEventCandidates', 'zh-CN', { status: 'completed', content: '{"candidates":[]}', finishReason: 'stop' }, '模型未返回带有效定稿证据的事件候选'],
-    ['generateEventCandidates', 'en-US', { status: 'completed', content: '{"candidates":[]}', finishReason: 'stop' }, 'The model did not return any event candidates with valid finalized-manuscript evidence.'],
-  ] as const)('localizes %s failures for %s', async (method, writingLanguage, outcome, expected) => {
+['generatePlanCandidates', 'zh-CN', { status: 'failed', content: '', finishReason: 'error' }, '叙事线索计划候选生成未完整完成'],
+['generatePlanCandidates', 'zh-CN', { status: 'completed', content: '{"candidates":[]}', finishReason: 'stop' }, '模型未返回有效的叙事线索计划候选'],
+['generateEventCandidates', 'zh-CN', { status: 'failed', content: '', finishReason: 'error' }, '叙事线索事件候选生成未完整完成'],
+['generateEventCandidates', 'zh-CN', { status: 'completed', content: '{"candidates":[]}', finishReason: 'stop' }, '模型未返回带有效定稿证据的事件候选']
+] as const)('localizes %s failures for %s', async (method, writingLanguage, outcome, expected) => {
     const runtime = {
       execute: vi.fn(async (operation) => operation({
         session: {

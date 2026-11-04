@@ -105,13 +105,12 @@ function importedChapter(chapter: ImportRunChapterSnapshot) {
 function currentNovelConfigSummary(writingLanguage: WritingLanguage): string {
   const config = useProjectStore.getState().currentProject?.novelConfig
   if (!config) return promptLanguageText(
-    writingLanguage, '（配置概要不可用）', '(configuration summary unavailable)',
+    writingLanguage, '（配置概要不可用）',
   )
-  const none = promptLanguageText(writingLanguage, '（无）', '(none)')
+  const none = promptLanguageText(writingLanguage, '（无）')
   return promptLanguageText(
     writingLanguage,
-    `类型: ${config.genre || none}\n大纲: ${config.coreOutline || none}\n世界观: ${config.worldSetting || none}\n主角: ${config.protagonistProfile || none}`,
-    `Genre: ${config.genre || none}\nOutline: ${config.coreOutline || none}\nWorld: ${config.worldSetting || none}\nProtagonist: ${config.protagonistProfile || none}`,
+    `类型: ${config.genre || none}\n大纲: ${config.coreOutline || none}`,
   )
 }
 
