@@ -800,6 +800,11 @@
   color: var(--accent);
 }
 
+.cm-selbar-text,
+.cm-selbar-note-quote {
+  user-select: text;
+}
+
 .cm-selbar-text {
   margin: 0;
   font: var(--fs-14)/1.8 var(--font-prose);

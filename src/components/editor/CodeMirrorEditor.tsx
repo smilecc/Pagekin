@@ -611,7 +611,10 @@ export default function CodeMirrorEditor({
           data-theme={inkThemeName}
           data-preview={aiResult !== null || undefined}
           style={{ top: bubbleTop, left: bubbleLeft }}
-          onMouseDown={(e) => { if (!(e.target instanceof HTMLTextAreaElement)) e.preventDefault() }}
+          onMouseDown={(e) => {
+            if (e.target instanceof Element && e.target.closest('textarea, .cm-selbar-note-quote, .cm-selbar-text')) return
+            e.preventDefault()
+          }}
         >
           {aiResult !== null ? (
             <div className="cm-selbar-preview">
