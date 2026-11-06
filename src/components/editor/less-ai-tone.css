@@ -1,0 +1,8 @@
+.tone-dialog.pi-dialog { width: min(1120px, 94vw); max-width: 94vw; max-height: 92vh; display: flex; flex-direction: column; }
+.tone-body { overflow: auto; min-height: 0; padding: 0 24px 20px; }
+.tone-body details { margin: 16px 0; }
+.tone-body summary { cursor: pointer; font-weight: 600; margin-bottom: 12px; }
+.tone-body .pi-field { margin: 16px 0; }
+.tone-dialog .pi-dialog-foot { flex-wrap: wrap; flex-shrink: 0; }
+.tone-attribution { margin-top: 20px; font-size: 12px; opacity: .7; }
+.tone-failure-output { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }

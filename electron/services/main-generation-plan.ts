@@ -10,6 +10,7 @@ import { CREATIVE_STRATEGIES } from '../../src/shared/reasoning-types'
 import { isDeepStrictEqual } from 'node:util'
 import type { ArchitecturePlanningIntent, BeginGenerationRequest, PlanningGenerationScope } from '../../src/shared/generation-owner-contract'
 import { planBlueprintGenerationCost } from '../../src/services/workflows/blueprint-batch-policy'
+import { toneRequestBound } from '../../src/shared/less-ai-tone'
 import { PLOT_OUTLINE_CONTENT, PLOT_OUTLINE_PROTOCOL, assertPlanningActionRange, parsePlanningTargetUnits } from '../../src/shared/plot-outline-contract'
 
 /** Finite root ceilings and semantic sizing are frozen into each source binding. */
@@ -116,7 +117,10 @@ export function newMainGenerationPolicy(selection: BeginGenerationRequest, model
   const limits = resolveGenerationCapabilityConstraints(model)
   if (limits.userMaxOutputTokens === null) throw new Error('GENERATION_PLANNING_BUDGET_INVALID')
   const cap = Math.min(limits.userMaxOutputTokens, limits.modelMaxOutputTokens ?? limits.userMaxOutputTokens)
+  const toneDetection = selection.operation === 'less-ai-tone' ? selection.authorInputs?.find(input => input.id === 'detection') : undefined
+  const toneRequests = toneDetection ? toneRequestBound(selection.authorInputs?.find(input => input.id === 'source')?.text ?? '', JSON.parse(toneDetection.text)) : undefined
   const requests = importChapterCount !== undefined ? importRunRequestBound(importChapterCount)
+    : toneRequests !== undefined ? toneRequests
     : selection.batchIntent ? selection.batchIntent.range.endChapter - selection.batchIntent.range.startChapter + 1
     : planning?.kind === 'directory'
     ? planBlueprintGenerationCost(planning.requestedRange.endChapter - planning.requestedRange.startChapter + 1).recoveryCallBound

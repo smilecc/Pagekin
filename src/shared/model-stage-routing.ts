@@ -23,6 +23,7 @@ export const MODEL_STAGE_BY_OPERATION = {
   'agent-round': 'drafting',
   'review-chapter': 'review',
   'refine-draft': 'refinement',
+  'less-ai-tone': 'refinement',
   'refine-from-review': 'refinement',
   'finalized-chapter-notes': 'finalization',
   'finalized-character-state': 'finalization',

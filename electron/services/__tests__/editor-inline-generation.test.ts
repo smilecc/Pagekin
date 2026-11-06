@@ -48,6 +48,26 @@ function fixture(dispatch?: GenerationRunServiceDependencies['dispatch']) {
 import { createHash } from 'node:crypto'
 const input={action:'refine' as const,documentText:'甲😀林岚\r\n乙',from:1,to:5,selectedText:'😀林岚'}
 const request={input,modelId:'synthetic',uiActionNonce:'作者润色'}
+it('去 AI 味工作流在同一主进程预算内执行结构化判读和可见报告', async () => {
+  const f = fixture(async (_request, options) => {
+    options.onVisible({ kind: 'delta', text: '[]' })
+    return { finishReason: 'stop', usage: null }
+  })
+  const run = f.owner.begin({ operation: 'less-ai-tone', uiActionNonce: 'tone-workflow', modelId: 'synthetic',
+    promptKeys: ['less_ai_tone'], skillStages: [], selectedDraftIds: [], selectedFinalizedDraftIds: [],
+    authorInputs: [{ id: 'source', text: prose }], output: 'visible-text',
+    outputOverrides: [{ purpose: 'tone-labels', output: 'structured-data' }] })
+  const first = await f.owner.execute({ handle: run.handle, invocationNonce: 'labels', task: {
+    purpose: 'tone-labels', output: 'structured-data', reasoningStage: 'review', messages: [{ role: 'user', content: '分类候选' }],
+  } })
+  expect(first.outcome.status).toBe('completed')
+  const second = await f.owner.execute({ handle: first.run.handle, invocationNonce: 'report', task: {
+    purpose: 'tone-report', output: 'visible-text', reasoningStage: 'review', messages: [{ role: 'user', content: '输出报告' }],
+  } })
+  expect(second.outcome.status).toBe('completed')
+  expect(second.run.handle.rootActionId).toBe(run.handle.rootActionId)
+  expect(f.spy).toHaveBeenCalledTimes(2)
+})
 it('main实际模板与UTF16原文hash冻结，不把草稿声称为canonical',()=>{
  const f=fixture(),recovery=f.owner.beginEditorInline(request)
  expect(recovery.context).toMatchObject({...input,kind:'author-draft',documentHash:createHash('sha256').update(input.documentText).digest('hex'),template:{key:'edit_selected_text',content:'固定作者模板 {{edit_instruction}}：{{selected_text}}'}})

@@ -24,6 +24,7 @@ async function renderChineseCard(notesUpdatedAt: string) {
   const { default: BlueprintCard } = await import('../BlueprintCard')
   return renderToStaticMarkup(
     <BlueprintCard
+      projectKey="test-blueprint"
       blueprint={{ chapterNumber: 3, title: '雾钟', role: '发展', purpose: '', keyEvents: '', characters: [], suspenseHook: '', userGuidance: '',
         notes: '林岚发现钟声提前一刻。', notesUpdatedAt }}
       saving={false}

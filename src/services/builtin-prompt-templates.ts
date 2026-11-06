@@ -172,6 +172,13 @@ export function pruneEmptyOptionalPromptSections(content: string): string {
 /** 全部内置 Prompt 模板 */
 export const BUILTIN_PROMPTS: PromptTemplate[] = [
   {
+    key: 'less_ai_tone',
+    name: '去 AI 味工作流',
+    description: '执行固定版本的 Lieflat Less AI Tone 检测、判读、改写与复测工作流。',
+    variables: {},
+    content: '按本次运行绑定的上游 SKILL.md、DETECT.md 和语义判据执行。检测报告完成后等待作者确认，随后改写与复测；最终由作者对比合并。',
+  },
+  {
     key: 'planning_material_character_extraction',
     name: '创作资料角色提取',
     description: '从作者明确提供的原始资料提取待确认角色',

@@ -6,6 +6,7 @@ import type { EditableChapterBlueprintField } from '../../editor/chapter-card-dr
 import { Button } from '../../ui/Button'
 import { Menu } from '../../ui/Menu'
 import BlueprintCharacters from './BlueprintCharacters'
+import LessAiToneButton from '../../editor/LessAiToneButton'
 
 interface BlueprintCardProps {
   blueprint: ChapterBlueprint
@@ -13,10 +14,11 @@ interface BlueprintCardProps {
   onField: <K extends EditableChapterBlueprintField>(key: K, value: ChapterBlueprint[K]) => void
   onSave: () => void
   onDelete: () => void
+  projectKey: string
 }
 
 /** 单章故事规划：章节标题、出场角色与规划正文。章号是稳定标识，只读。 */
-export default function BlueprintCard({ blueprint, saving, onField, onSave, onDelete }: BlueprintCardProps) {
+export default function BlueprintCard({ blueprint, saving, onField, onSave, onDelete, projectKey }: BlueprintCardProps) {
   const text = useLocaleStore(s => s.text)
   const number = blueprint.chapterNumber
 
@@ -26,6 +28,7 @@ export default function BlueprintCard({ blueprint, saving, onField, onSave, onDe
         <div className="stage-bp-card-bar">
           <span className="stage-bp-card-status">{text(`第 ${number} 章`, `Chapter ${number}`)}</span>
           <span className="stage-bp-card-gap" />
+          <LessAiToneButton key={`${projectKey}:${number}`} projectKey={projectKey} targetKey={`blueprint:${number}`} content={blueprint.keyEvents} disabled={saving} onApply={content => onField('keyEvents', content)} />
           <Button variant="secondary" size="sm" disabled={saving} aria-busy={saving || undefined} onClick={onSave}>
             {saving ? text('保存中…', 'Saving…') : text('保存此章', 'Save chapter')}
           </Button>

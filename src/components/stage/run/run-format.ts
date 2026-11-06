@@ -28,6 +28,7 @@ const PURPOSES: Record<string, [string, string]> = {
   'review-chapter': ['审稿', 'Review'],
   'chapter-review': ['审稿', 'Review'],
   'refine-draft': ['修稿', 'Revision'],
+  'less-ai-tone': ['去 AI 味', 'Remove AI tone'],
   'refine-from-review': ['按审稿修稿', 'Revision from review'],
   'character-state': ['角色状态', 'Character state'],
   'finalized-character-state': ['角色状态', 'Character state'],

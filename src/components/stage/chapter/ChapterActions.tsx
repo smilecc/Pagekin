@@ -40,6 +40,7 @@ import { useStageView } from '../use-stage-work'
 import { openDraftInChapterView, swapChapterTab } from './chapter-tab-routing'
 import type { ChapterStage } from './chapter-lifecycle'
 import MergeView from './MergeView'
+import LessAiToneButton from '../../editor/LessAiToneButton'
 import PostProcessSteps from './PostProcessSteps'
 import { ReplacementImpactPreview } from './ReplacementImpactNotices'
 import ReviewSheet from './ReviewSheet'
@@ -399,7 +400,10 @@ export default function ChapterActions({ sheetSlot, tab, stage, chapterNumber, t
 
   return (
     <>
-      {!draft.mergeData && <div className="stage-ch-actions">{bar}</div>}
+      {!draft.mergeData && <div className="stage-ch-actions">{bar}
+        <LessAiToneButton key={`${projectKey}:${filePath}`} projectKey={projectKey} targetKey={filePath} chapterNumber={chapterNumber} content={tab.content ?? ''} disabled={busy || !editable}
+          onApply={content => useEditorStore.getState().updateTabContent(tab.id, content)} />
+      </div>}
       <div className="stage-ch-notices">
         {!draft.mergeData && reopening && (
           <Notice title={text(`正在修改已定稿的${chapterLabel(chapterNumber, text)}`, `Editing finalized ${chapterLabel(chapterNumber, text).toLowerCase()}`)}>

@@ -1,3 +1,4 @@
+import { openToneReview, useToneQueue } from '../../../stores/less-ai-tone-store'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ChevronRight, CircleCheck, CircleDashed, CircleX, Pause, Play } from 'lucide-react'
 import { pluralEn } from '../../../shared/plural-en'
@@ -92,7 +93,7 @@ export function RunCard({ run, caption, focused, primary = false }: { run: Workf
           </div>
         )}
       </header>
-      {confirmation && <RunConfirmation confirmation={confirmation} primary={primary} text={text} />}
+      {confirmation && !run.toneReviewKey && <RunConfirmation confirmation={confirmation} primary={primary} text={text} />}
       <RunDetails run={run} primary={primary} />
     </article>
   )
@@ -100,9 +101,12 @@ export function RunCard({ run, caption, focused, primary = false }: { run: Workf
 
 /** 一次运行的步骤与失败提示；历史里一次只展开一条，展开的这条就是主操作所在。 */
 export function RunDetails({ run, primary = true }: { run: WorkflowRun; primary?: boolean }) {
+  const toneEntry = useToneQueue(state => run.toneReviewKey ? state.entries[run.toneReviewKey] : undefined)
+  const currentSession = useProjectStore(() => isCurrentSessionRun(run))
   const text = useLocaleStore(s => s.text)
   return (
     <>
+      {run.toneReviewKey && toneEntry?.workflowId === run.id && <Button disabled={!currentSession} variant="secondary" onClick={() => openToneReview(run.toneReviewKey!)}>{text('查看去 AI 味报告与对比', 'Review AI tone findings and comparison')}</Button>}
       <RunSteps run={run} live={ACTIVE_RUN_STATUSES.has(run.status)} text={text} />
       {run.type === 'novel_import' && run.status === 'completed' && <ImportSuggestions run={run} />}
       {run.status === 'failed' && <RunFailureNotice run={run} primary={primary} />}

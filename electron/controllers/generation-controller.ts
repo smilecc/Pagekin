@@ -1,4 +1,7 @@
-import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
+import { app, ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
+import path from 'node:path'
+import type { LessAiToneChannels } from '../../src/shared/less-ai-tone'
+import { detectLessAiTone, reportLessAiTone } from '../services/less-ai-tone'
 import type Database from 'better-sqlite3'
 import type { GenerationOwnerChannels } from '../../src/shared/generation-owner-contract'
 import type { CharacterProposalChannels } from '../../src/shared/character-proposal'
@@ -34,7 +37,7 @@ import { KnowledgeBaseUnavailableError, knowledgeBaseLoader } from '../services/
 import { getEmbeddingConfig } from './kb-controller'
 
 type Owner = ReturnType<typeof createMainGenerationOwner>
-type OwnerChannels = LegacyRosterGenerationChannels & GraphGenerationChannels & GenerationOwnerChannels & CharacterProposalChannels & FinalizedCharacterGenerationChannels & ReviewRevisionGenerationInvokeChannels & AgentGenerationChannels & ImportGenerationChannels & EditorInlineGenerationChannels & FinalizationGenerationChannels
+type OwnerChannels = LessAiToneChannels & LegacyRosterGenerationChannels & GraphGenerationChannels & GenerationOwnerChannels & CharacterProposalChannels & FinalizedCharacterGenerationChannels & ReviewRevisionGenerationInvokeChannels & AgentGenerationChannels & ImportGenerationChannels & EditorInlineGenerationChannels & FinalizationGenerationChannels
 const owners = new Map<Database.Database, { owner: Owner; session: ProjectSessionContext; subscribers: Set<WebContents> }>()
 const ownerSessions = new WeakMap<Owner, ProjectSessionContext>()
 /** Called synchronously inside the same SQLite transaction as the formal effect. */
@@ -75,7 +78,7 @@ export function assertImportGenerationSourcesCurrent(handle: MainGenerationRunHa
   entry.owner.assertImportGenerationSources(handle, slot, allowLegacyStyle)
 }
 
-const GENERATION_ERROR_CODE = /^(?:GENERATION|ROOT_BUDGET|ARTIFACT|MAIN|CHARACTER|FINALIZED_CHARACTER|LEGACY_ROSTER)_[A-Z_]+$/u
+const GENERATION_ERROR_CODE = /^(?:GENERATION|ROOT_BUDGET|ARTIFACT|MAIN|CHARACTER|FINALIZED_CHARACTER|LEGACY_ROSTER|TONE)_[A-Z_]+$/u
 const DIAGNOSTIC_MESSAGE_LIMIT = 200
 
 /**
@@ -186,6 +189,9 @@ export function registerGenerationController(options: {
       }
     })
   }
+  const toneRoot = () => path.join(app.isPackaged ? app.getAppPath().replace(/app\.asar$/u, 'app.asar.unpacked') : app.getAppPath(), app.isPackaged ? 'dist' : 'public', 'less-ai-tone')
+  register('generation:tone-detect', 1, (_owner, text) => detectLessAiTone(toneRoot(), text))
+  register('generation:tone-report', 1, (_owner, input) => reportLessAiTone(toneRoot(), input))
   register('generation:prepare-draft-context', 1, async (owner, request) => {
     const baseline = owner.draftPreparationBinding(request)
     const session = ownerSessions.get(owner)!

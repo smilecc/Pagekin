@@ -182,6 +182,7 @@ export default function StageBlueprint({ projectKey, initialChapterNumber, selec
           />
           {selected && (
             <BlueprintCard
+              projectKey={projectKey}
               blueprint={selected}
               saving={plan.saving}
               onField={plan.updateField}

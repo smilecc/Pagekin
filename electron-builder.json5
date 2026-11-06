@@ -6,6 +6,7 @@
   // better-sqlite3 13 从 prebuilds/ 加载 Node-API 二进制；默认的 @electron/rebuild 仍会按 binding.gyp 再编一遍，编出的 build/Release 不会被加载。
   "npmRebuild": false,
   "asarUnpack": [
+    "dist/less-ai-tone/**/*",
     "node_modules/apache-arrow/**/*",
     "node_modules/better-sqlite3/**/*",
     "node_modules/@lancedb/lancedb/**/*",

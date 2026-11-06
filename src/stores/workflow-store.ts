@@ -103,6 +103,7 @@ export interface WorkflowRun {
     source: 'builtin' | 'user' | 'project'
     utf8Bytes: number
   }>
+  toneReviewKey?: string
   type: WorkflowType
   title: string
   status: WorkflowStatus
@@ -123,6 +124,7 @@ export interface WorkflowRun {
 
 /** 工作流类型 */
 export type WorkflowType =
+  | 'less_ai_tone'
   | 'new_project_setup'       // 新项目初始化（配置→架构→目录）
   | 'architecture_generation' // 架构生成（故事前提→角色图谱→世界观→情节大纲）
   | 'directory'               // 目录/蓝图生成
@@ -207,6 +209,7 @@ export interface WorkflowDefinition {
   runId?: string
   /** Main-validated Agent tool registration, separate from model-editable intent. */
   agentWorkflowRegistration?: import('../shared/agent-generation').AgentWorkflowRegistration
+  toneReviewKey?: string
   type: WorkflowType
   title: string
   /** 工作流启动时冻结的项目身份。 */
@@ -476,6 +479,7 @@ export const useWorkflowStore = create<WorkflowState>()((set, get) => ({
         writingLanguage,
         uiLocale,
         type: definition.type,
+        toneReviewKey: definition.toneReviewKey,
         title: definition.title,
         status: 'failed',
         currentStepIndex: 0,
@@ -518,6 +522,7 @@ export const useWorkflowStore = create<WorkflowState>()((set, get) => ({
         ...(resourceKeys ? { resourceKeys } : {}),
         ...(readResourceKeys ? { readResourceKeys } : {}),
         type: definition.type,
+        toneReviewKey: definition.toneReviewKey,
         title: definition.title,
         status: 'failed',
         currentStepIndex: 0,
@@ -547,6 +552,7 @@ export const useWorkflowStore = create<WorkflowState>()((set, get) => ({
       ...(resourceKeys ? { resourceKeys } : {}),
       ...(readResourceKeys ? { readResourceKeys } : {}),
       type: definition.type,
+        toneReviewKey: definition.toneReviewKey,
       title: definition.title,
       status: 'running',
       currentStepIndex: 0,

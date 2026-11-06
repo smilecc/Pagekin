@@ -195,7 +195,7 @@ function alignParagraphs(origParas: string[], modParas: string[]): AlignPair[] {
 
 // ===== 从对齐结果生成 DiffSegment =====
 
-function buildSegments(origParas: string[], modParas: string[], pairs: AlignPair[]): DiffSegment[] {
+function buildSegments(origParas: string[], modParas: string[], pairs: AlignPair[], exact = false): DiffSegment[] {
   const segments: DiffSegment[] = []
   let hunkIdx = 0
 
@@ -204,6 +204,7 @@ function buildSegments(origParas: string[], modParas: string[], pairs: AlignPair
 
   /** 多个段落 → 行数组（段落间插入空行） */
   const parasToLines = (paras: string[], indices: number[]) => {
+    if (exact) return indices.map(index => paras[index]).join('').split('\n')
     const lines: string[] = []
     indices.forEach((idx, i) => {
       if (i > 0) lines.push('') // 段落间空行
@@ -232,7 +233,7 @@ function buildSegments(origParas: string[], modParas: string[], pairs: AlignPair
     }
 
     // 段落之间插入空行同步锚点（最后一组不加）
-    if (p < pairs.length - 1) {
+    if (!exact && p < pairs.length - 1) {
       segments.push({ type: 'same', lines: [''] })
     }
   }
@@ -240,7 +241,12 @@ function buildSegments(origParas: string[], modParas: string[], pairs: AlignPair
 }
 
 /** 入口：计算 diff segments */
-export function computeSegments(original: string, modified: string): DiffSegment[] {
+export function computeSegments(original: string, modified: string, exact = false): DiffSegment[] {
+  if (exact) {
+    const split = (value: string) => value.match(/[\s\S]+?(?:\r?\n(?:[ \t]*\r?\n)+|$)/gu) ?? []
+    const before = split(original), after = split(modified)
+    return buildSegments(before, after, alignParagraphs(before, after), true)
+  }
   const cleanOrig = stripFrontmatter(original)
   const cleanMod = stripFrontmatter(modified)
   const origParas = extractParagraphs(cleanOrig)
@@ -256,8 +262,8 @@ export type HunkPick = 'original' | 'revised' | 'edit'
  * 修稿合并的数据：段落对齐后的片段、每处改动的选择与每段的合并文字。
  * 单章视图的合并视图用它；合并结果就是各段文字按顺序以换行连接。
  */
-export function useMergeSegments(originalContent: string, modifiedContent: string) {
-  const segments = useMemo(() => computeSegments(originalContent, modifiedContent), [originalContent, modifiedContent])
+export function useMergeSegments(originalContent: string, modifiedContent: string, exact = false) {
+  const segments = useMemo(() => computeSegments(originalContent, modifiedContent, exact), [originalContent, modifiedContent, exact])
   const hunks = useMemo(() => segments.filter(s => s.type === 'hunk').map(s => s.hunk!), [segments])
   const [picks, setPicks] = useState<Record<number, HunkPick>>({})
   const [segTexts, setSegTexts] = useState<Record<number, string>>(() => {
@@ -299,7 +305,7 @@ export function useMergeSegments(originalContent: string, modifiedContent: strin
     setSegTexts(p => ({ ...p, ...texts }))
   }, [hunks, hunkSegIdx])
 
-  const mergedText = useCallback(() => segments.map((_, i) => segTexts[i] ?? '').join('\n'), [segments, segTexts])
+  const mergedText = useCallback(() => segments.map((_, i) => segTexts[i] ?? '').join(exact ? '' : '\n'), [segments, segTexts, exact])
 
   return { segments, hunks, picks, segTexts, choose, editSegment, chooseAll, mergedText }
 }
