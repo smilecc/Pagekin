@@ -9,6 +9,7 @@ const MARKERS: Record<string, string> = {
 export const TAVERN_CONTEXT_DEFAULTS: Record<string, string> = {
   user: '作者', char: '写作助手', description: '', personality: '', scenario: '', persona: '',
   worldinfobefore: '', worldinfoafter: '', mesexamples: '', summary: '',
+  charprompt: '', charinstruction: '', chardepthprompt: '', charcreatornotes: '', charversion: '',
 }
 
 /** Original task messages are never expanded, dropped or deduplicated by content. */
@@ -18,9 +19,14 @@ export function composeTavernMessages(entry: TavernPresetEntry, messages: readon
   const prefixLength = firstChat < 0 ? messages.length : firstChat
   const history = messages.slice(prefixLength)
   const last = (role?: string) => [...history].reverse().find(m => !role || m.role === role)?.content ?? ''
+  const configured = Object.fromEntries(Object.entries({ ...options.macros, ...entry.macros }).map(([key, value]) => [key.toLowerCase(), value]))
+  const character = configured.char ?? TAVERN_CONTEXT_DEFAULTS.char
   const macros = { ...TAVERN_CONTEXT_DEFAULTS, input: last('user'), lastmessage: last(), lastusermessage: last('user'),
-    lastcharmessage: last('assistant'), lastmessageid: String(history.length - 1), ...options.macros, ...entry.macros }
-  const renderer = createTavernMacroRenderer({ ...options, macros, variables: entry.variables, globalVariables: entry.globalVariables })
+    lastcharmessage: last('assistant'), lastmessageid: String(history.length - 1),
+    firstincludedmessageid: history.length ? '0' : '', allchatrange: history.length ? `0-${history.length - 1}` : '',
+    group: character, groupnotmuted: character, charifnotgroup: character, notchar: configured.user ?? TAVERN_CONTEXT_DEFAULTS.user,
+    mesexamplesraw: configured.mesexamples ?? '', ismobile: 'false', lastgenerationtype: 'normal', ...configured }
+  const renderer = createTavernMacroRenderer({ pickSeed: entry.id, ...options, macros, variables: entry.variables, globalVariables: entry.globalVariables })
   const prompts = new Map(entry.preset.prompts.map(p => [p.identifier, p]))
   const order = entry.preset.prompt_order.find(o => o.character_id === entry.orderId)
   if (!order) throw new Error('SILLYTAVERN_PRESET_INVALID')

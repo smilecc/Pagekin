@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Check, Circle, FileUp, Layers3, Save, Undo2 } from 'lucide-react'
 import { ipc } from '../../services/ipc-client'
 import { useLocaleStore } from '../../stores/locale-store'
@@ -8,6 +8,7 @@ import { DangerConfirm } from '../ui/DangerConfirm'
 import { useUnsavedSettings } from './unsaved-settings'
 import { activeTavernPreset, EMPTY_TAVERN_SETTINGS, importTavernPreset, MAX_TAVERN_FILE_BYTES, parseTavernSettings, type TavernPresetEntry, type TavernSettings } from '../../shared/sillytavern-preset'
 import { composeTavernMessages } from '../../shared/sillytavern-compose'
+import { createTavernPreviewRandom } from '../../shared/sillytavern-macros'
 import { PresetEntries, PresetVariables, PresetPreview, PresetOptions } from './sillytavern-panels'
 import './sillytavern-settings.css'
 
@@ -26,6 +27,7 @@ export default function SillyTavernSettings() {
   const [selectedId, setSelectedId] = useState('')
   const [tab, setTab] = useState<Tab>('entries')
   const [previewInput, setPreviewInput] = useState('')
+  const [previewSeed, setPreviewSeed] = useState(1)
   const [discardOpen, setDiscardOpen] = useState(false)
   const [removed, setRemoved] = useState<{ entry: TavernPresetEntry; index: number; active: boolean } | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -46,11 +48,11 @@ export default function SillyTavernSettings() {
   const savedActive = activeTavernPreset(stored)
   const pendingActive = activeTavernPreset(draft)
   const order = selected?.preset.prompt_order.find(o => o.character_id === selected.orderId)
-  const preview = (() => {
+  const preview = useMemo(() => {
     if (!selected) return null
-    try { return { ...composeTavernMessages(selected, [{ role: 'user', content: previewInput || text('（本轮写作任务）', '(Current writing task)') }], { random: () => 0, uuid: () => '00000000-0000-4000-8000-000000000000' }), error: '' } }
+    try { return { ...composeTavernMessages(selected, [{ role: 'user', content: previewInput || text('（本轮写作任务）', '(Current writing task)') }], { random: createTavernPreviewRandom(previewSeed), uuid: () => '00000000-0000-4000-8000-000000000000' }), error: '' } }
     catch (reason) { return { messages: [], warnings: [], variables: {}, globalVariables: {}, error: displayedErrorMessage(useLocaleStore.getState().locale, reason) } }
-  })()
+  }, [selected, previewInput, previewSeed, text])
   const unresolved = preview?.warnings.filter(w => w.startsWith('Unresolved macro')).length ?? 0
   const update = (patch: Partial<TavernSettings>) => { setDraft(previous => ({ ...previous, ...patch })); setNotice('') }
   const editEntry = (transform: (entry: TavernPresetEntry) => TavernPresetEntry) => {
@@ -142,7 +144,7 @@ export default function SillyTavernSettings() {
           {tabs.map(item => <div key={item} role="tabpanel" id={`${id}-panel-${item}`} aria-labelledby={`${id}-${item}`} hidden={tab !== item} tabIndex={0} className="tavern-tabpanel">
             {item === 'entries' && <PresetEntries key={`${selected.id}:${selected.orderId}`} entry={selected} edit={editEntry} />}
             {item === 'variables' && preview && <PresetVariables key={`${selected.id}:${selected.orderId}`} entry={selected} edit={editEntry} preview={preview} />}
-            {item === 'preview' && preview && <PresetPreview preview={preview} input={previewInput} setInput={setPreviewInput} onVariables={() => setTab('variables')} />}
+            {item === 'preview' && preview && <PresetPreview preview={preview} input={previewInput} setInput={setPreviewInput} onReroll={() => setPreviewSeed(seed => seed + 1)} onVariables={() => setTab('variables')} />}
             {item === 'options' && <PresetOptions entry={selected} edit={editEntry} scope={draft.scope} setScope={scope => update({ scope })} onExport={exportPreset} onRemove={remove} />}
           </div>)}
         </div>

@@ -9,6 +9,7 @@ import '../../../index.css'
 import { useLocaleStore } from '../../../stores/locale-store'
 import { EMPTY_TAVERN_SETTINGS, importTavernPreset, type TavernSettings } from '../../../shared/sillytavern-preset'
 import samplePreset from '../../../../docs/1.99__.json?raw'
+import wavePreset from '../../../../docs/我即浪潮-1105-Éclat·Turing.json?raw'
 
 let root: Root | undefined
 let container: HTMLDivElement | undefined
@@ -35,6 +36,28 @@ const preset = JSON.stringify({ prompts: [
 ], prompt_order: [{ character_id: 100001, order: [
   { identifier: 'vars', enabled: true }, { identifier: 'main', enabled: true }, { identifier: 'chatHistory', enabled: true },
 ] }] })
+
+it('previews the random-heavy Éclat preset, keeps results across tabs and rerolls without changing settings', async () => {
+  const entry = importTavernPreset(wavePreset, 'Éclat·Turing.json', 'wave')
+  const invoke = vi.fn(async () => ({ sillyTavern: { presets: [entry], activePresetId: 'wave', scope: 'text' } }))
+  Object.assign(window, { aiNovelAPI: { invoke } })
+  useLocaleStore.setState({ locale: 'zh-CN' })
+  await mount()
+  await act(async () => page.getByRole('tab', { name: '发送预览', exact: true }).click())
+  expect(container!.querySelector('[role="alert"]')).toBeNull()
+  const content = () => [...container!.querySelectorAll('.tavern-message pre')].map(node => node.textContent).join('\n')
+  const first = content()
+  expect(first).not.toContain('{{random')
+  expect(new Set(first.match(/[א-ת]/gu)).size).toBeGreaterThan(15)
+  await act(async () => page.getByRole('tab', { name: /变量与宏/ }).click())
+  expect(page.getByRole('button', { name: '编辑变量 random', exact: true }).query()).toBeNull()
+  await act(async () => page.getByRole('tab', { name: '发送预览', exact: true }).click())
+  expect(content()).toBe(first)
+  await act(async () => page.getByRole('button', { name: '重新随机', exact: true }).click())
+  expect(content()).not.toBe(first)
+  await expect.element(page.getByRole('button', { name: '保存预设设置' })).toBeDisabled()
+  expect(invoke).toHaveBeenCalledTimes(1)
+})
 
 it('imports, edits variables and switches, previews, saves and reloads the selected preset', async () => {
   let saved: TavernSettings = structuredClone(EMPTY_TAVERN_SETTINGS)

@@ -120,14 +120,15 @@ export function PresetVariables({ entry, edit, preview }: EditorProps & { previe
   </div>
 }
 
-export function PresetPreview({ preview, input, setInput, onVariables }: { preview: Preview; input: string; setInput: (value: string) => void; onVariables: () => void }) {
+export function PresetPreview({ preview, input, setInput, onVariables, onReroll }: { preview: Preview; input: string; setInput: (value: string) => void; onVariables: () => void; onReroll: () => void }) {
   const text = useLocaleStore(s => s.text)
   const [role, setRole] = useState('all')
   const [expanded, setExpanded] = useState(false)
   const unresolved = preview.warnings.filter(w => w.startsWith('Unresolved macro'))
   const otherWarnings = preview.warnings.filter(w => !w.startsWith('Unresolved macro'))
   return <div className="tavern-preview">
-    <div className="tavern-preview-head"><div><h3>{text('检查模型将收到什么', 'See what the model receives')}</h3><p className="tavern-help">{text('预览使用示例任务和固定随机值。实际生成会代入真实任务。', 'Preview uses a sample task and fixed random values. Generation substitutes the actual task.')}</p></div><span className="tavern-badge">{text(`${preview.messages.length} 条消息`, `${preview.messages.length} messages`)}</span></div>
+    <div className="tavern-preview-head"><div><h3>{text('检查模型将收到什么', 'See what the model receives')}</h3><p className="tavern-help">{text('每处 random 独立取值；切换标签时保留结果。可重新随机查看其他组合，实际生成会再次随机。pick 保持稳定。', 'Each random macro chooses independently; switching tabs keeps the result. Reroll to explore other combinations. Generation rolls again; pick stays stable.')}</p></div><span className="tavern-badge">{text(`${preview.messages.length} 条消息`, `${preview.messages.length} messages`)}</span></div>
+    <div className="tavern-actions"><Button variant="secondary" size="sm" onClick={onReroll}>{text('重新随机', 'Reroll preview')}</Button></div>
     <label className="tavern-field">{text('预览任务', 'Preview task')}<textarea aria-label={text('预览任务', 'Preview task')} rows={2} value={input} placeholder={text('例如：续写主角进入古城后的场景…', 'For example: Continue the scene as the protagonist enters the city…')} onChange={e => setInput(e.target.value)} /></label>
     {preview.error && <p role="alert" className="tavern-feedback tavern-feedback--error">{preview.error}</p>}
     {!!unresolved.length && <div className="tavern-feedback tavern-feedback--warning"><span>{text(`${unresolved.length} 个宏尚未解析，将原样发送。`, `${unresolved.length} macros are unresolved and will be sent as written.`)}</span><Button variant="text" size="sm" onClick={onVariables}>{text('去填写变量', 'Set variable values')}</Button></div>}
