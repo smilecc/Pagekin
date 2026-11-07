@@ -450,6 +450,7 @@ interface ProjectState {
   loadRecentProjects: () => Promise<void>
   /** 只移除最近项目记录，不删除项目目录或数据 */
   removeRecentProject: (projectPath: string) => Promise<boolean>
+  archiveProject: (projectPath: string) => Promise<boolean>
   /** 删除项目目录和项目数据 */
   deleteProject: (projectPath: string) => Promise<boolean>
   /** 关闭项目 */
@@ -1118,6 +1119,22 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         projectError(error),
         { title: projectText('移除最近项目异常', 'Unexpected recent-project removal error') },
       )
+      return false
+    }
+  },
+
+  archiveProject: async (projectPath) => {
+    if (get().loading) return false
+    if (sameProjectPathKey(get().currentProject?.path, projectPath) && !await get().closeProject()) return false
+    try {
+      const result = await ipc.invoke('project:archive', projectPath)
+      if (!result.success) throw new Error(result.error)
+      // 使归档前发出的列表读取失效，防止旧响应把小说放回书架。
+      ++recentProjectsRequestSequence
+      set(state => ({ recentProjects: state.recentProjects.filter(project => !sameProjectPathKey(project.path, projectPath)) }))
+      return true
+    } catch (error) {
+      alertError(projectError(error), { title: projectText('归档小说失败', 'Failed to archive book') })
       return false
     }
   },

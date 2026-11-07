@@ -114,13 +114,16 @@ afterEach(async () => {
 describe('合并后的架构页面', () => {
   it('架构仅保留参考作品与基本选项，移出的项目不再重复展示', async () => {
     await act(async () => root!.render(<StageSetup projectKey={session.projectPath} />))
-    expect(host!.querySelectorAll('.arch-section')).toHaveLength(1)
-    expect(host!.querySelector('.arch-section')?.getAttribute('data-section')).toBe('referenceWorks')
+    expect(host!.querySelectorAll('[data-section]')).toHaveLength(1)
+    expect(host!.querySelector('[data-section]')?.getAttribute('data-section')).toBe('referenceWorks')
     for (const id of ['coreOutline', 'worldbuilding', 'characters', 'writingStyle', 'globalGuidance', 'premise', 'goldenFinger']) expect(host!.querySelector(`[data-section="${id}"]`)).toBeNull()
     expect(host!.textContent).not.toContain('更多设定')
     expect(host!.textContent).not.toContain('恢复默认')
-    expect(host!.querySelectorAll('.stage-setup-option')).toHaveLength(7)
-    expect([...host!.querySelectorAll('.stage-setup-basics')].map(section => section.getAttribute('aria-label'))).toEqual(['基本信息', '叙事与提醒', '参考作品'])
+    expect([...host!.querySelectorAll('select, input')].map(control => control.getAttribute('aria-label'))).toEqual([
+      '类型', '目标读者', '细分类型', '总章数', '每章字数', '叙事视角', '故事结构', '伏笔沉寂提醒（章）',
+    ])
+    expect(host!.querySelector('[aria-label="基本信息"]')).not.toBeNull()
+    expect(host!.querySelector('[aria-label="叙事与提醒"]')).not.toBeNull()
     expect(host!.querySelector('h1')?.textContent).toBe('写作选项')
   })
 

@@ -97,6 +97,55 @@ afterEach(async () => {
 })
 
 describe('设置页', () => {
+  it('已归档的小说可以恢复到书架，恢复后显示空列表', async () => {
+    const book = { name: '灯塔', path: 'C:/books/lighthouse', updatedAt: '', archivedAt: '2026-11-07T00:00:00Z' }
+    const invoke = vi.fn(async (channel: string): Promise<unknown> => {
+      if (channel === 'project:archived-list') return [book]
+      if (channel === 'project:unarchive') return { success: true }
+      if (channel === 'project:recent-list') return [book]
+      return undefined
+    })
+    win.aiNovelAPI = { invoke, on: () => () => undefined }
+    useLayoutStore.setState({ settingsSection: 'archived' })
+    await mount(true)
+    expect(heading()).toBe('已归档的小说')
+    expect(host!.textContent).toContain(book.path)
+    await click(byName('恢复'))
+    expect(invoke).toHaveBeenCalledWith('project:unarchive', book.path)
+    expect(host!.textContent).toContain('暂无已归档的小说')
+    expect(useProjectStore.getState().recentProjects[0].name).toBe('灯塔')
+  })
+
+  it('删除归档小说需要输入完整作品名，失败时保留列表记录', async () => {
+    const book = { name: '雾岛', path: 'C:/books/island', updatedAt: '', archivedAt: '2026-11-07T00:00:00Z' }
+    const invoke = vi.fn(async (channel: string): Promise<unknown> => {
+      if (channel === 'project:archived-list') return [book]
+      if (channel === 'project:archived-delete') return { success: false, error: 'EBUSY' }
+      return undefined
+    })
+    win.aiNovelAPI = { invoke, on: () => () => undefined }
+    useLayoutStore.setState({ settingsSection: 'archived' })
+    await mount(true)
+    await click(byName('删除'))
+    const remove = byName('删除作品')!
+    expect(remove.disabled).toBe(true)
+    const input = document.querySelector<HTMLInputElement>('[role="dialog"] input')!
+    await type(input, '雾')
+    expect(remove.disabled).toBe(true)
+    await type(input, book.name)
+    expect(remove.disabled).toBe(false)
+    await click(remove)
+    expect(invoke).toHaveBeenCalledWith('project:archived-delete', book.path)
+    expect(host!.querySelectorAll('.stage-archived-book')).toHaveLength(1)
+    expect(invoke).not.toHaveBeenCalledWith('project:open', book.path)
+
+    invoke.mockImplementation(async channel => channel === 'project:recent-list' ? [] : { success: true })
+    await click(byName('删除'))
+    await type(document.querySelector<HTMLInputElement>('[role="dialog"] input')!, book.name)
+    await click(byName('删除作品'))
+    expect(host!.textContent).toContain('暂无已归档的小说')
+  })
+
   it('按常用、高级、其他三组排列，按参数打开对应分组', async () => {
     useLayoutStore.setState({ settingsSection: 'backup' })
     await mount()
@@ -107,7 +156,7 @@ describe('设置页', () => {
     expect(groups).toEqual([
       { group: '常用', pages: ['AI 模型', '检索模型', '外观'] },
       { group: '高级', pages: ['分工模型', '网络代理', '提示词模板', '写作 Skills'] },
-      { group: '其他', pages: ['项目备份', '关于与更新'] },
+      { group: '其他', pages: ['已归档的小说', '项目备份', '关于与更新'] },
     ])
     expect(heading()).toBe('项目备份')
     expect(host!.querySelector('[aria-current="page"]')?.textContent).toBe('项目备份')

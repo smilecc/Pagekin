@@ -127,6 +127,32 @@ beforeEach(() => {
 })
 
 describe('project close lifecycle', () => {
+  it('closes the current project before archiving and removes it from the shelf', async () => {
+    useProjectStore.setState({ recentProjects: [project('A'), project('B')] })
+    mocks.invoke.mockResolvedValue({ success: true })
+    await expect(useProjectStore.getState().archiveProject(project('A').path)).resolves.toBe(true)
+    expect(mocks.invoke.mock.calls.map(([channel]) => channel)).toEqual(['db:close', 'project:archive'])
+    expect(useProjectStore.getState().currentProject).toBeNull()
+    expect(useProjectStore.getState().recentProjects.map(p => p.name)).toEqual(['B'])
+  })
+
+  it('does not archive when the unsaved-changes close flow is cancelled', async () => {
+    useEditorStore.setState(state => ({ tabs: state.tabs.map(tab => ({ ...tab, dirty: true })) }))
+    mocks.confirm.mockResolvedValueOnce(false).mockResolvedValueOnce(false)
+    await expect(useProjectStore.getState().archiveProject(project('A').path)).resolves.toBe(false)
+    expect(mocks.invoke).not.toHaveBeenCalled()
+    expect(useProjectStore.getState().currentProject?.id).toBe('A')
+  })
+
+  it('keeps another book open and preserves the shelf if archiving fails', async () => {
+    useProjectStore.setState({ recentProjects: [project('B')] })
+    mocks.invoke.mockResolvedValue({ success: false, error: 'disk full' })
+    await expect(useProjectStore.getState().archiveProject(project('B').path)).resolves.toBe(false)
+    expect(mocks.invoke).toHaveBeenCalledExactlyOnceWith('project:archive', project('B').path)
+    expect(useProjectStore.getState().currentProject?.id).toBe('A')
+    expect(useProjectStore.getState().recentProjects).toHaveLength(1)
+  })
+
   it('imports a recognized shelf project through its source grant and opens only the new copy', async () => {
     mocks.confirm.mockResolvedValueOnce(true)
     mocks.invoke.mockImplementation(async (channel: string, ...args: unknown[]) => {

@@ -105,6 +105,7 @@ beforeEach(async () => {
     openProject: vi.fn(async () => true),
     removeRecentProject: vi.fn(async () => true),
     deleteProject: vi.fn(async () => true),
+    archiveProject: vi.fn(async () => true),
   } as never)
 })
 
@@ -270,6 +271,16 @@ describe('书房', () => {
     await click(button('移除记录'))
     expect(useProjectStore.getState().removeRecentProject).toHaveBeenCalledWith(ISLAND.path)
     expect(document.scrollingElement!.scrollLeft, '对话框关闭后焦点回到菜单按钮，不横向滚动页面').toBe(0)
+  })
+
+  it('小说菜单在删除上方提供归档，未打开的小说也能归档', async () => {
+    useProjectStore.setState({ recentProjects: [LIGHTHOUSE, ISLAND] })
+    await mount()
+    const archive = await chooseFromBookMenu('雾岛', '归档')
+    expect(archive?.disabled).toBe(false)
+    await click(archive)
+    expect(useProjectStore.getState().archiveProject).toHaveBeenCalledWith(ISLAND.path)
+    expect(useProjectStore.getState().deleteProject).not.toHaveBeenCalled()
   })
 
   it('删除作品只对打开的作品可用，要输入完整作品名才能确认', async () => {

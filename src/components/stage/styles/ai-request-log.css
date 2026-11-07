@@ -1,0 +1,45 @@
+.pi-dialog.ai-log-dialog {
+  width: min(1100px, calc(100vw - 32px));
+  max-width: 1100px;
+  height: min(780px, calc(100dvh - 48px));
+  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ai-log-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); flex: 1; min-height: 0; }
+.ai-log-list { overflow: auto; border-right: 1px solid var(--rule); padding: 12px; }
+.ai-log-list > p, .ai-log-placeholder { color: var(--ink-3); padding: 12px; }
+.ai-log-row {
+  display: flex; flex-direction: column; gap: 7px; width: 100%; padding: 12px;
+  margin-bottom: 8px; border: 1px solid var(--rule); border-radius: 8px;
+  background: var(--paper); color: var(--ink-3); text-align: left; font: 12px/1.5 var(--font-ui);
+  cursor: pointer; overflow-wrap: anywhere;
+}
+.ai-log-row:hover, .ai-log-row[aria-pressed='true'] { background: var(--wash); border-color: var(--ink-3); }
+.ai-log-row:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.ai-log-row-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ai-log-row-heading strong { color: var(--ink); }
+.ai-log-row-heading > span { flex-shrink: 0; }
+.ai-log-row [data-status='failed'], .ai-log-error { color: var(--danger); }
+.ai-log-detail { overflow: auto; min-width: 0; padding: 20px; user-select: text; }
+.ai-log-detail h3 { margin: 0 0 16px; color: var(--ink); font-size: 16px; }
+.ai-log-metadata { display: grid; gap: 8px; margin: 0 0 24px; font-size: 12px; }
+.ai-log-metadata > div { display: grid; grid-template-columns: minmax(100px, 150px) minmax(0, 1fr); gap: 12px; }
+.ai-log-metadata dt { color: var(--ink-3); }
+.ai-log-metadata dd { margin: 0; overflow-wrap: anywhere; }
+.ai-log-message { margin-bottom: 20px; }
+.ai-log-detail h4 { margin: 0 0 8px; font-size: 13px; }
+.ai-log-message h4 span { font-weight: normal; color: var(--ink-3); }
+.ai-log-detail pre {
+  margin: 0; padding: 12px; border: 1px solid var(--rule); border-radius: 8px;
+  background: var(--paper); white-space: pre-wrap; overflow-wrap: anywhere;
+  font: 13px/1.7 var(--font-mono, monospace);
+}
+.ai-log-dialog > .ai-log-error { margin: 8px 20px; font-size: 13px; }
+@media (max-width: 700px) {
+  .ai-log-layout { grid-template-columns: 1fr; grid-template-rows: minmax(100px, 30%) minmax(0, 1fr); }
+  .ai-log-list { border-right: 0; border-bottom: 1px solid var(--rule); }
+  .ai-log-detail { padding: 12px; }
+}

@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StoreApi } from 'zustand'
 import { act } from 'react'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { createRoot, type Root } from 'react-dom/client'
 
 import type { NovelConfig, ProjectData } from '../../../../shared/ipc-channels'
@@ -10,11 +10,13 @@ import { setActiveProjectSessionContext } from '../../../../shared/project-sessi
 import { useEditorStore } from '../../../../stores/editor-store'
 import { useLayoutStore } from '../../../../stores/layout-store'
 import { useLLMStore } from '../../../../stores/llm-store'
+import { useLocaleStore } from '../../../../stores/locale-store'
 import { useProjectStore } from '../../../../stores/project-store'
 import { useWorkflowStore } from '../../../../stores/workflow-store'
 import { IS_MAC } from '../../shortcut-keys'
 import { useStageShortcuts } from '../../use-stage-shortcuts'
 import StageSetup from '../StageSetup'
+import '../../../../index.css'
 
 const COMMAND = IS_MAC ? { metaKey: true } : { ctrlKey: true }
 
@@ -24,7 +26,7 @@ function snapshot<T>(store: StoreApi<T>): () => void {
   const state = store.getState()
   return () => store.setState(state, true)
 }
-const restores = [snapshot(useLayoutStore), snapshot(useProjectStore), snapshot(useLLMStore), snapshot(useEditorStore), snapshot(useWorkflowStore)]
+const restores = [snapshot(useLayoutStore), snapshot(useProjectStore), snapshot(useLLMStore), snapshot(useEditorStore), snapshot(useWorkflowStore), snapshot(useLocaleStore)]
 
 const PATH = 'C:\\novels\\island'
 const SESSION = { projectId: 'island', leaseId: 'lease-1', projectPath: PATH }
@@ -107,6 +109,107 @@ afterEach(async () => {
 })
 
 describe('设定页', () => {
+  it('参考作品保留编辑入口和清空确认，取消不丢内容，清空后不留空菜单', async () => {
+    project({ referenceWorks: '保留这段参考说明。' })
+    await page.viewport(1040, 900)
+    await mount()
+    const references = () => useProjectStore.getState().currentProject!.novelConfig.referenceWorks
+    await click(byName('编辑参考作品'))
+    expect(useEditorStore.getState().tabs.some(tab => tab.configField === 'referenceWorks' && tab.projectKey === PATH)).toBe(true)
+    await act(async () => host!.querySelector<HTMLElement>('.stage-setup-scroll')!.scrollTo(0, 10000))
+    await click(byName('「参考作品」的更多操作'))
+    await act(async () => page.getByRole('menuitem', { name: '清空此节…' }).click())
+    await act(async () => page.getByRole('button', { name: '取消', exact: true }).click())
+    expect(references()).toBe('保留这段参考说明。')
+    await click(byName('「参考作品」的更多操作'))
+    await act(async () => page.getByRole('menuitem', { name: '清空此节…' }).click())
+    await act(async () => page.getByRole('button', { name: '清空此节', exact: true }).click())
+    expect(references()).toBe('')
+    expect(byName('「参考作品」的更多操作')).toBeUndefined()
+    expect(host!.querySelector('.writing-options-references')!.textContent).toContain('未填写')
+  })
+
+  it('篇幅预估随输入更新，空值和不安全的字数不显示误导性总数', async () => {
+    project({ genre: '悬疑', targetAudience: '全龄' })
+    await mount()
+    const estimate = () => host!.querySelector('.writing-options-estimate')!.textContent
+    expect(estimate()).toContain('72,000 字')
+    await write(field(/^总章数/) as HTMLInputElement, '30')
+    expect(estimate()).toContain('90,000 字')
+    await write(field(/^每章字数/) as HTMLInputElement, '')
+    expect(estimate()).toContain('填写篇幅后显示全书预估字数')
+    expect(next().disabled).toBe(true)
+    await write(field(/^每章字数/) as HTMLInputElement, '9007199254740992')
+    expect(estimate()).not.toContain('预计全书')
+  })
+
+  it('可见标签聚焦对应输入，说明与控件关联，AI 不可用原因直接展示', async () => {
+    project({})
+    await mount()
+    const genre = field(/^类型/) as HTMLSelectElement
+    await click(genre.labels![0])
+    expect(document.activeElement).toBe(genre)
+    expect(genre.getAttribute('aria-required')).toBe('true')
+    expect(document.getElementById(genre.getAttribute('aria-describedby')!)?.textContent).toContain('选择作品的主要类型')
+    const reason = document.getElementById(byName('AI 补全其余设定')!.getAttribute('aria-describedby')!)!
+    expect(reason.textContent).toBe('先写大纲，AI 按它补全其余设定')
+    expect(getComputedStyle(reason).position).not.toBe('absolute')
+  })
+
+  it.each([
+    { width: 1040, theme: 'light', locale: 'zh-CN', filled: true },
+    { width: 1040, theme: 'light', locale: 'zh-CN', filled: false },
+    { width: 600, theme: 'dark', locale: 'zh-CN', filled: true },
+    { width: 600, theme: 'dark', locale: 'zh-CN', filled: false },
+    { width: 360, theme: 'light', locale: 'zh-CN', filled: false },
+    { width: 360, theme: 'dark', locale: 'en-US', filled: true },
+  ] as const)('$width / $theme / $locale / filled=$filled：区块对齐，输入与操作栏不溢出', async ({ width, theme, locale, filled }) => {
+    useLocaleStore.setState({ locale })
+    project({ genre: '悬疑', targetAudience: '全龄', referenceWorks: filled ? '参考《雾岛来信》的悬疑氛围与多线叙事。' : '' })
+    await page.viewport(width, 900)
+    await mount()
+    host!.style.cssText = `width: ${width}px; height: 900px;`
+    host!.dataset.theme = theme
+    const scroll = host!.querySelector<HTMLElement>('.stage-setup-scroll')!
+    await expect.poll(() => scroll.clientWidth).toBe(width)
+    expect(scroll.scrollWidth).toBeLessThanOrEqual(scroll.clientWidth + 1)
+    const bounds = host!.getBoundingClientRect()
+    for (const control of host!.querySelectorAll('input, select, button')) {
+      const box = control.getBoundingClientRect()
+      expect(box.left).toBeGreaterThanOrEqual(bounds.left)
+      expect(box.right).toBeLessThanOrEqual(bounds.right + 1)
+    }
+    const genre = field(locale === 'zh-CN' ? /^类型/ : /^Genre/).getBoundingClientRect()
+    const audience = field(locale === 'zh-CN' ? /^目标读者/ : /^Target readers/).getBoundingClientRect()
+    expect(width > 440 ? genre.top === audience.top : audience.top > genre.bottom).toBe(true)
+    const cards = [...host!.querySelectorAll<HTMLElement>('.writing-options-card')]
+    const headers = cards.map(card => card.querySelector<HTMLElement>('.writing-options-section-head')!)
+    expect(cards).toHaveLength(3)
+    for (const header of headers) {
+      expect(header.getBoundingClientRect().left).toBe(headers[0].getBoundingClientRect().left)
+      expect(getComputedStyle(header.querySelector('h2')!).font).toBe(getComputedStyle(headers[0].querySelector('h2')!).font)
+      expect(header.querySelector('p')!.getBoundingClientRect().left).toBe(headers[0].querySelector('p')!.getBoundingClientRect().left)
+    }
+    const reference = cards[2]
+    expect(reference.querySelectorAll('section, .arch-section, .writing-options-card')).toHaveLength(0)
+    const actions = reference.querySelector<HTMLElement>('.writing-options-reference-actions')!
+    const buttons = actions.querySelectorAll<HTMLButtonElement>('button')
+    await act(async () => buttons[0].focus())
+    expect(getComputedStyle(reference).boxShadow).toBe('none')
+    expect(getComputedStyle(actions).justifyContent).toBe('flex-end')
+    expect(buttons[buttons.length - 1].getBoundingClientRect().right).toBeCloseTo(headers[2].getBoundingClientRect().right, 0)
+    if (!filled) expect(buttons).toHaveLength(1)
+    scroll.scrollTop = 0
+    const screenshot = (part: string) => page.screenshot({ element: host!, path: `../../../../../.runtime/writing-options-${width}-${theme}-${locale}-${filled ? 'filled' : 'empty'}-${part}.png` })
+    await screenshot('top')
+    scroll.scrollTop = scroll.scrollHeight
+    const assist = host!.querySelector('.writing-options-assist')!.getBoundingClientRect()
+    const footer = host!.querySelector('.stage-setup-foot')!.getBoundingClientRect()
+    expect(assist.bottom).toBeLessThanOrEqual(footer.top)
+    expect(footer.bottom).toBeLessThanOrEqual(bounds.bottom + 1)
+    await screenshot('bottom')
+  })
+
   it('必填未齐时下一步不可用，提示写明还缺哪几项；补齐后才能往下走', async () => {
     project({})
     await mount()

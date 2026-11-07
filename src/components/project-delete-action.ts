@@ -11,6 +11,13 @@ export async function deleteCurrentProject(project: { name: string; path: string
   }
 }
 
+export async function archiveProject(project: { name: string; path: string }) {
+  const text = useLocaleStore.getState().text
+  if (await useProjectStore.getState().archiveProject(project.path)) {
+    toast.success(text(`已归档「${project.name}」，可在设置中恢复`, `Archived “${project.name}”. Restore it in Settings.`))
+  }
+}
+
 export async function confirmRemoveRecentProject(project: { name: string; path: string }) {
   const text = useLocaleStore.getState().text
   const ok = await confirm(

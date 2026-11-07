@@ -14,6 +14,7 @@ import { isReasoningMapping, reasoningAdapterFitsProtocol } from '../../src/shar
 import { isLocalModelEndpoint } from '../../src/shared/provider-presets'
 import { assignStageModel, availableGenerationModelId, isModelStage, parseStageModelIds, removeModelFromStages } from '../../src/shared/model-stage-routing'
 import { LLMFactory } from '../llm/llm-factory'
+import { aiRequestLog } from '../llm/request-log'
 import { getMainLocale, mainT, mainText } from '../i18n'
 import { resolveGenerationParameters } from '../llm/generation-parameter-policy'
 import { getCurrentProjectPath } from '../database'
@@ -170,6 +171,8 @@ function providerConnectionFailure(response: Extract<LLMResponse, { success: fal
 }
 
 export function registerLLMController() {
+  ipcMain.handle('llm:request-log-list', () => aiRequestLog.list())
+  ipcMain.handle('llm:request-log-detail', (_event, id: string) => aiRequestLog.get(id))
   const modelExecutionLeases = new ModelExecutionLeaseRegistry({ loadModel: getModelConfig })
   const modelDiscovery = new ModelDiscoveryService()
   const closedExecutionLeaseTombstones = new Map<string, number>()

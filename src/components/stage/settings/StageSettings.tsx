@@ -13,6 +13,7 @@ import { ErrorBoundary } from '../../ErrorBoundary'
 import KnowledgeIndexSection from '../knowledge/KnowledgeIndexSection'
 import { isComposing, isModalOpen } from '../shortcut-keys'
 import AboutSection from './AboutSection'
+import ArchivedBooksSection from './ArchivedBooksSection'
 import AppearanceSection from './AppearanceSection'
 import ModelsSection from './ModelsSection'
 import ProxySection from './ProxySection'
@@ -102,6 +103,8 @@ function PageBody({ page }: { page: SettingsSection }) {
       return <><PageHeader page={page} /><Legacy><ProjectBackupPanel /></Legacy></>
     case 'about':
       return <><PageHeader page={page} /><AboutSection /></>
+    case 'archived':
+      return <><PageHeader page={page} /><ArchivedBooksSection /></>
   }
 }
 

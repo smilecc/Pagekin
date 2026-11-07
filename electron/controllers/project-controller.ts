@@ -12,7 +12,7 @@ import {
   type ProjectDirectoryGrant,
 } from '../../src/shared/ipc-channels'
 import { DIR_PROMPTS } from '../../src/shared/project-paths'
-import { sameProjectPathKey } from '../../src/shared/project-session-context'
+import { projectPathKey, sameProjectPathKey } from '../../src/shared/project-session-context'
 import {
   resolveWritingLanguage,
 } from '../../src/shared/writing-language'
@@ -92,6 +92,7 @@ export interface RecentProject {
   path: string
   updatedAt: string
   projectId?: string
+  archivedAt?: string
 }
 
 let latestProjectOpenRequestToken: string | null = null
@@ -337,7 +338,7 @@ export function registerRecentProject(project: RecentProject): void {
   const list = loadRecentProjects()
   const filtered = list.filter((p) => !sameRecentProjectPath(p.path, project.path))
   filtered.unshift(project)
-  const trimmed = filtered.slice(0, 20)
+  const trimmed = [...filtered.filter(p => !p.archivedAt).slice(0, 20), ...filtered.filter(p => p.archivedAt)]
   writeJsonFile(RECENT_PROJECTS_PATH, trimmed)
 }
 
@@ -865,7 +866,7 @@ export function registerProjectController(options: ProjectControllerOptions = {}
 
   ipcMain.handle('project:recent-list', async () => {
     revokeRecentPreviewCapabilities()
-    return loadRecentProjects().map(project => {
+    return loadRecentProjects().filter(project => !project.archivedAt).map(project => {
       const capability = projectPeekService.issueCapability(project.path)
       if (!capability) return project
       recentPreviewCapabilities.set(capability.capabilityId, project.path)
@@ -902,6 +903,88 @@ export function registerProjectController(options: ProjectControllerOptions = {}
       return { success: false, error: String(error) }
     }
   })
+
+  ipcMain.handle('project:archived-list', async () => loadRecentProjects()
+    .filter((project): project is RecentProject & { archivedAt: string } => Boolean(project.archivedAt))
+    .sort((a, b) => b.archivedAt.localeCompare(a.archivedAt))
+    .map(({ name, path, updatedAt, archivedAt }) => ({ name, path, updatedAt, archivedAt })))
+
+  ipcMain.handle('project:archive', async (_event, projectPath: string) => serializeProjectOpen(async () => {
+    try {
+      const currentPath = getCurrentProjectPath()
+      if (currentPath && sameRecentProjectPath(currentPath, projectPath)) {
+        throw new Error(text('请先关闭这部小说再归档。', 'Close this book before archiving it.'))
+      }
+      const list = loadRecentProjects()
+      const entry = list.find(project => sameRecentProjectPath(project.path, projectPath))
+      if (!entry) throw new Error(text('找不到这部小说的记录。', 'This book entry was not found.'))
+      if (entry.archivedAt) return { success: true }
+      const trusted = projectAccess.probeExistingProject(entry.path)
+      if (trusted.kind !== 'manifest' || (entry.projectId && trusted.projectId !== entry.projectId)) {
+        throw new Error('PROJECT_DELETE_IDENTITY_MISMATCH')
+      }
+      // 固定归档时验证的规范路径和身份，删除时不能跟随被替换的目录或链接。
+      writeJsonFile(RECENT_PROJECTS_PATH, list.map(project => project === entry
+        ? { ...entry, path: trusted.rootPath, projectId: trusted.projectId, archivedAt: new Date().toISOString() }
+        : project))
+      revokeRecentPreviewCapabilities(projectPath)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  }))
+
+  ipcMain.handle('project:unarchive', async (_event, projectPath: string) => serializeProjectOpen(async () => {
+    try {
+      const entry = loadRecentProjects().find(project => project.archivedAt && sameRecentProjectPath(project.path, projectPath))
+      if (!entry) throw new Error(text('找不到这部已归档的小说。', 'This archived book was not found.'))
+      registerRecentProject({ name: entry.name, path: entry.path, projectId: entry.projectId, updatedAt: entry.updatedAt })
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  }))
+
+  ipcMain.handle('project:archived-delete', async (_event, projectPath: string) => serializeProjectOpen(async () => {
+    let entry: RecentProject
+    let resolvedPath: string
+    try {
+      // 仅允许删除主进程保存的归档记录，不能把任意 renderer 路径当作删除授权。
+      const archived = loadRecentProjects().find(project => project.archivedAt && sameProjectPathKey(project.path, projectPath))
+      if (!archived?.projectId) throw new Error('PROJECT_DELETE_IDENTITY_MISMATCH')
+      entry = archived
+      const trusted = projectAccess.probeExistingProject(entry.path)
+      if (trusted.kind !== 'manifest' || trusted.projectId !== entry.projectId
+        || projectPathKey(trusted.rootPath) !== projectPathKey(entry.path)) {
+        throw new Error('PROJECT_DELETE_IDENTITY_MISMATCH')
+      }
+      resolvedPath = trusted.rootPath
+      const currentPath = getCurrentProjectPath()
+      if (currentPath) {
+        const relative = path.relative(resolvedPath, currentPath)
+        if (sameProjectPath(currentPath, resolvedPath)
+          || (!path.isAbsolute(relative) && relative !== '..' && !relative.startsWith(`..${path.sep}`))) {
+          throw new Error('PROJECT_DELETE_TARGET_MISMATCH')
+        }
+      }
+      closeVectorConnection(resolvedPath)
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+    let deletionError: unknown
+    try { await removeDirectoryWithWindowsRetry(resolvedPath) } catch (error) { deletionError = error }
+    if (fs.existsSync(resolvedPath)) {
+      return { success: false, error: String(deletionError ?? 'PROJECT_DELETE_FAILED') }
+    }
+    try {
+      removeRecentProject(resolvedPath)
+      revokeRecentPreviewCapabilities(resolvedPath)
+      options.removeDeletedProjectBinding?.(entry.projectId!)
+      return { success: true }
+    } catch (error) {
+      return { success: true, warning: text(`小说已删除，但记录清理失败：${String(error)}`, `The book was deleted, but entry cleanup failed: ${String(error)}`) }
+    }
+  }))
 
   ipcMain.handle(
     'project:delete',

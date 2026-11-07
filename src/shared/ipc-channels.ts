@@ -1,3 +1,4 @@
+import type { AIRequestRecord, AIRequestSummary } from './ai-request-log'
 import type { GenerationOwnerChannels, GenerationOwnerEvents } from './generation-owner-contract'
 import type { CharacterProposalChannels } from './character-proposal'
 import type { FinalizedCharacterGenerationChannels } from './finalized-character-generation'
@@ -406,6 +407,22 @@ export interface ProjectChannels {
     args: [projectPath: string]
     return: { success: boolean; error?: string }
   }
+  'project:archived-list': {
+    args: []
+    return: Array<{ name: string; path: string; updatedAt: string; archivedAt: string }>
+  }
+  'project:archive': {
+    args: [projectPath: string]
+    return: { success: boolean; error?: string }
+  }
+  'project:unarchive': {
+    args: [projectPath: string]
+    return: { success: boolean; error?: string }
+  }
+  'project:archived-delete': {
+    args: [projectPath: string]
+    return: { success: boolean; error?: string; warning?: string }
+  }
   'project:archive-export': {
     args: [request: PortableProjectExportRequest]
     return: { success: true; receipt: PortableProjectExportReceipt } | PortableProjectOperationFailure
@@ -555,6 +572,14 @@ export interface LLMChannels {
   'llm:generate': {
     args: [request: LLMRequest]
     return: LLMResponse
+  }
+  'llm:request-log-list': {
+    args: []
+    return: AIRequestSummary[]
+  }
+  'llm:request-log-detail': {
+    args: [id: string]
+    return: AIRequestRecord | null
   }
   'llm:generate-stream': {
     args: [requestId: string, request: LLMRequest]

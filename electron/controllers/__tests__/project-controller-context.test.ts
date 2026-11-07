@@ -20,7 +20,7 @@ const mocks = vi.hoisted(() => ({
   closeProjectDatabase: vi.fn(),
   transaction: vi.fn((operation: () => void) => operation),
   writeJsonFile: vi.fn(),
-  recentProjects: [] as Array<{ name: string; path: string; updatedAt: string; projectId?: string }>,
+  recentProjects: [] as Array<{ name: string; path: string; updatedAt: string; projectId?: string; archivedAt?: string }>,
   rmSync: vi.fn(),
   removeDirectoryWithWindowsRetry: vi.fn(),
   showMessageBox: vi.fn(),
@@ -200,6 +200,66 @@ import { registerProjectController } from '../project-controller'
 function selectedProject(projectPath: string) {
   return { grantId: `selected:${projectPath}`, displayName: path.basename(projectPath) }
 }
+
+describe('archived book lifecycle', () => {
+  const archivedAt = '2026-11-07T00:00:00.000Z'
+  const archivedB = () => ({ name: 'B', path: projectB, projectId: 'project-B', updatedAt: '', archivedAt })
+
+  it('persists archive state, excludes it from recent projects, and restores it', async () => {
+    mocks.recentProjects = [{ ...archivedB(), archivedAt: undefined }]
+    await expect(handler('project:archive')({}, projectB)).resolves.toEqual({ success: true })
+    expect(mocks.recentProjects[0].archivedAt).toBeTruthy()
+    await expect(handler('project:recent-list')()).resolves.toEqual([])
+    await expect(handler('project:archived-list')()).resolves.toMatchObject([{ name: 'B', path: projectB }])
+    await expect(handler('project:unarchive')({}, projectB)).resolves.toEqual({ success: true })
+    await expect(handler('project:archived-list')()).resolves.toEqual([])
+    expect(mocks.recentProjects[0].archivedAt).toBeUndefined()
+    expect(mocks.currentProjectPath).toBe(projectA)
+  })
+
+  it('retains every archive when restoring into a full recent-project list', async () => {
+    mocks.recentProjects = [archivedB(), ...Array.from({ length: 25 }, (_, index) => ({
+      name: String(index), path: path.resolve(`C:/books/${index}`), updatedAt: '', archivedAt,
+    })), ...Array.from({ length: 20 }, (_, index) => ({ name: String(index), path: path.resolve(`C:/recent/${index}`), updatedAt: '' }))]
+    await handler('project:unarchive')({}, projectB)
+    expect(mocks.recentProjects.filter(project => project.archivedAt)).toHaveLength(25)
+    expect(mocks.recentProjects.filter(project => !project.archivedAt)).toHaveLength(20)
+    expect(mocks.recentProjects[0].path).toBe(projectB)
+  })
+
+  it('rejects archiving an open book or an unknown path', async () => {
+    await expect(handler('project:archive')({}, projectA)).resolves.toMatchObject({ success: false })
+    await expect(handler('project:archive')({}, projectB)).resolves.toMatchObject({ success: false })
+    expect(mocks.writeJsonFile).not.toHaveBeenCalled()
+  })
+
+  it('deletes an archived book without closing or switching the current database', async () => {
+    mocks.recentProjects = [archivedB()]
+    mocks.removeDirectoryWithWindowsRetry.mockImplementation(async (target: string) => mocks.existingPaths.delete(target))
+    await expect(handler('project:archived-delete')({}, projectB)).resolves.toEqual({ success: true })
+    expect(mocks.removeDirectoryWithWindowsRetry).toHaveBeenCalledWith(projectB)
+    expect(mocks.closeProjectDatabase).not.toHaveBeenCalled()
+    expect(mocks.currentProjectPath).toBe(projectA)
+    expect(mocks.recentProjects).toEqual([])
+  })
+
+  it('retains the archive after a failed directory deletion', async () => {
+    mocks.recentProjects = [archivedB()]
+    mocks.removeDirectoryWithWindowsRetry.mockRejectedValue(new Error('EBUSY'))
+    await expect(handler('project:archived-delete')({}, projectB)).resolves.toMatchObject({ success: false })
+    expect(mocks.recentProjects).toEqual([archivedB()])
+  })
+
+  it.each(['unknown', 'identity', 'redirected', 'active', 'active-child'])('rejects unsafe archived deletion: %s', async scenario => {
+    mocks.recentProjects = scenario === 'unknown' ? [] : [archivedB()]
+    if (scenario === 'identity') mocks.projectAccess.probeExistingProject.mockReturnValue({ kind: 'manifest', projectId: 'replacement', rootPath: projectB })
+    if (scenario === 'redirected') mocks.projectAccess.probeExistingProject.mockReturnValue({ kind: 'manifest', projectId: 'project-B', rootPath: projectD })
+    if (scenario === 'active') mocks.currentProjectPath = projectB
+    if (scenario === 'active-child') mocks.currentProjectPath = path.join(projectB, 'child-book')
+    await expect(handler('project:archived-delete')({}, projectB)).resolves.toMatchObject({ success: false })
+    expect(mocks.removeDirectoryWithWindowsRetry).not.toHaveBeenCalled()
+  })
+})
 
 function handler(channel: string): IpcHandler {
   const registered = mocks.handlers.get(channel)

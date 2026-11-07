@@ -10,6 +10,7 @@ import { useProjectStore } from '../../stores/project-store'
 import { Button } from '../ui/Button'
 import { Menu, type MenuGroupSpec } from '../ui/Menu'
 import RunCapsule from './RunCapsule'
+import AIRequestLogDialog from './AIRequestLogDialog'
 import { commandLabel } from './shortcut-keys'
 
 
@@ -103,6 +104,7 @@ export default function StageTopBar({ crumbs, library, focus, focusTitle, workMe
           {dirty ? text('未保存', 'Unsaved') : text('已保存', 'Saved')}
         </span>
       )}
+      <AIRequestLogDialog />
       {!library && (
         <Button variant="icon" size="sm" aria-label={text('进入沉浸写作', 'Enter focus mode')} onClick={onToggleFocus}>
           <Maximize2 size={15} aria-hidden="true" />

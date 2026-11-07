@@ -9,6 +9,7 @@ import { openBuiltinEditor } from '../../stores/open-builtin-editor'
 import { chapterLabel } from '../../shared/chapter-label'
 import type { Theme } from '../../stores/theme-store'
 import ClearProjectDataDialog from '../dialogs/ClearProjectDataDialog'
+import { archiveProject } from '../project-delete-action'
 import { leaveSettingsThen, openProjectFolder } from '../settings/unsaved-settings'
 import type { MenuGroupSpec } from '../ui/Menu'
 import NewWorkDialog from './library/NewWorkDialog'
@@ -90,6 +91,10 @@ export default function StageShell({ theme }: { theme: Theme }) {
       { id: 'export', label: text('导出…', 'Export…'), onSelect: () => useLayoutStore.getState().openExport() },
       { id: 'backup', label: text('项目备份', 'Project backup'), onSelect: () => navigate({ kind: 'settings', section: 'backup' }) },
       { id: 'import', label: text('小说拆解与仿写…', 'Novel breakdown & imitation…'), onSelect: importNovel },
+      { id: 'archive', label: text('归档', 'Archive'), onSelect: () => leaveSettingsThen(() => {
+        const project = useProjectStore.getState().currentProject
+        if (project) void archiveProject(project)
+      }) },
     ] },
     { id: 'danger', tone: 'danger', items: [
       { id: 'clear', label: text('清除生成内容…', 'Clear generated content…'), onSelect: () => setClearOpen(true) },

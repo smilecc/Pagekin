@@ -5,7 +5,7 @@ import { useLayoutStore } from '../../../stores/layout-store'
 import { useLocaleStore } from '../../../stores/locale-store'
 import { navigate } from '../../../stores/navigation/navigation-intents'
 import { useProjectStore } from '../../../stores/project-store'
-import { deleteCurrentProject, removeRecentProject } from '../../project-delete-action'
+import { archiveProject, deleteCurrentProject, removeRecentProject } from '../../project-delete-action'
 import { Button } from '../../ui/Button'
 import { DangerConfirm } from '../../ui/DangerConfirm'
 import { Menu, type MenuGroupSpec } from '../../ui/Menu'
@@ -136,6 +136,7 @@ export default function StageLibrary() {
         : { id: 'open', label: text('打开作品', 'Open book'), onSelect: book.onOpen },
       { id: 'copy-path', label: text('复制路径', 'Copy path'), onSelect: () => copyBookPath(book) },
       { id: 'remove', label: text('从最近项目移除…', 'Remove from recent…'), onSelect: () => setRemoving(book) },
+      { id: 'archive', label: text('归档', 'Archive'), onSelect: () => { void archiveProject(book) } },
     ] },
     { id: 'danger', tone: 'danger', items: [book.current && currentProject
       ? { id: 'delete', label: text('删除作品…', 'Delete book…'), onSelect: () => setDeleting({ name: currentProject.name, path: currentProject.path }) }

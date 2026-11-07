@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode } from 'react'
-import { ArrowRight, LoaderCircle, Sparkles } from 'lucide-react'
+import { ArrowRight, BookOpen, Check, LoaderCircle, Sparkles } from 'lucide-react'
 import type { NovelConfig } from '../../../shared/ipc-channels'
 import {
   DEFAULT_NARRATIVE_THREAD_DORMANT_THRESHOLD,
@@ -8,6 +8,7 @@ import {
   resolveNarrativeThreadDormantThreshold,
 } from '../../../shared/narrative-thread'
 import { sameProjectPathKey } from '../../../shared/project-session-context'
+import { pluralEn } from '../../../shared/plural-en'
 import { useEditorStore } from '../../../stores/editor-store'
 import { useLayoutStore } from '../../../stores/layout-store'
 import { useLocaleStore } from '../../../stores/locale-store'
@@ -25,7 +26,8 @@ import ModelMissingNotice from '../ModelMissingNotice'
 import { commandLabel } from '../shortcut-keys'
 import { useModelMissing } from '../use-model-missing'
 import { ONE_MISSING_HINT, POV_OPTIONS, REQUIRED_NAMES, STRUCTURE_OPTIONS } from './setup-fields'
-import { ConfigSection } from './ConfigFieldDocument'
+import ReferenceWorksSection from './ReferenceWorksSection'
+import { WritingOptionsSectionHeader } from './WritingOptionsSectionHeader'
 import { TEXT_FIELDS, openConfigField } from './config-fields'
 
 type Form = ReturnType<typeof useNovelConfigForm>
@@ -43,13 +45,14 @@ export default function StageSetup({ projectKey }: { projectKey: string }) {
 }
 
 /** 数字框允许暂时为空，失焦时回退到默认值。 */
-function NumberInput({ id, value, fallback, min, max, label, onChange }: {
+function NumberInput({ id, value, fallback, min, max, label, describedBy, onChange }: {
   id?: string
   value: number | ''
   fallback: number
   min: number
   max?: number
   label: string
+  describedBy?: string
   onChange: (value: number | '') => void
 }) {
   return (
@@ -61,6 +64,7 @@ function NumberInput({ id, value, fallback, min, max, label, onChange }: {
       min={min}
       max={max}
       aria-label={label}
+      aria-describedby={describedBy}
       value={value}
       onChange={event => onChange(event.target.value === '' ? '' : Number.parseInt(event.target.value, 10))}
       onBlur={() => { if (!(Number(value) >= min)) onChange(fallback) }}
@@ -68,17 +72,18 @@ function NumberInput({ id, value, fallback, min, max, label, onChange }: {
   )
 }
 
-/** 不可用按钮的原因藏在旁边，读屏用户聚焦按钮时能听到；看得见的原因在页面别处（缺模型提示条、必填标记）。 */
-function DisabledReason({ id, reason }: { id: string; reason: string | null }) {
-  return reason ? <span id={id} className="stage-visually-hidden">{reason}</span> : null
-}
-
-function SettingRow({ label, description, children }: { label: string; description: string; children: ReactNode }) {
-  return <div className="stage-setup-panel stage-setup-option">
-    <div className="stage-setup-adv-row">
-      <div><div className="stage-setup-label">{label}</div><p className="stage-setup-panel-desc">{description}</p></div>
-      <div className="stage-setup-adv-ctl">{children}</div>
-    </div>
+function SettingField({ label, description, required, children }: {
+  label: string
+  description: string
+  required?: boolean
+  children: (props: { id: string; 'aria-describedby': string; 'aria-required'?: boolean }) => ReactNode
+}) {
+  const id = useId()
+  const text = useLocaleStore(s => s.text)
+  return <div className="writing-options-field">
+    <label htmlFor={id}>{label}{required && <span className="writing-options-required">{text('必填', 'Required')}</span>}</label>
+    {children({ id, 'aria-describedby': `${id}-help`, 'aria-required': required || undefined })}
+    <p id={`${id}-help`}>{description}</p>
   </div>
 }
 
@@ -87,20 +92,20 @@ function AdvancedPanel({ config, form }: { config: NovelConfig; form: Form }) {
   const inputId = useId()
   const threshold = resolveNarrativeThreadDormantThreshold(config.narrativeThreadDormantChapterThreshold)
   return (
-    <section className="stage-setup-panel" aria-label={text('伏笔提醒', 'Thread reminder')}>
+    <section className="writing-options-reminder" aria-label={text('伏笔提醒', 'Thread reminder')}>
       <div className="stage-setup-adv-row">
         <div>
           <label className="stage-setup-label" htmlFor={inputId}>{text('伏笔沉寂提醒（章）', 'Dormant thread reminder (chapters)')}</label>
-          <p className="stage-setup-panel-desc">{text(
+          <p id={`${inputId}-help`} className="stage-setup-panel-desc">{text(
             `一条伏笔连续这么多章没有推进，剧情页会提醒你。默认 ${DEFAULT_NARRATIVE_THREAD_DORMANT_THRESHOLD} 章。`,
             `The plot page flags a thread that has not moved for this many chapters. Default ${DEFAULT_NARRATIVE_THREAD_DORMANT_THRESHOLD}.`,
           )}</p>
         </div>
         <div className="stage-setup-adv-ctl">
-          <NumberInput id={inputId} value={config.narrativeThreadDormantChapterThreshold as unknown === '' ? '' : threshold}
+          <NumberInput id={inputId} describedBy={`${inputId}-help`} value={config.narrativeThreadDormantChapterThreshold as unknown === '' ? '' : threshold}
             fallback={DEFAULT_NARRATIVE_THREAD_DORMANT_THRESHOLD} min={MIN_NARRATIVE_THREAD_DORMANT_THRESHOLD} max={MAX_NARRATIVE_THREAD_DORMANT_THRESHOLD} label={text('伏笔沉寂提醒（章）', 'Dormant thread reminder (chapters)')}
             onChange={value => form.update('narrativeThreadDormantChapterThreshold', (value === '' ? '' : resolveNarrativeThreadDormantThreshold(value)) as number)} />
-
+          <span>{text('章', 'chapters')}</span>
         </div>
       </div>
     </section>
@@ -163,81 +168,111 @@ function SetupSession({ projectKey }: { projectKey: string }) {
 
   const genre = config.genre
   const audience = config.targetAudience
+  const estimatedLength = config.totalChapters * config.wordsPerChapter
+  const lengthSummary = !missing.includes('length') && Number.isSafeInteger(estimatedLength)
+    ? text(`预计全书 ${estimatedLength.toLocaleString('zh-CN')} 字`, `Estimated total: ${estimatedLength.toLocaleString('en-US')} ${pluralEn(estimatedLength, 'word')}`)
+    : text('填写篇幅后显示全书预估字数', 'Set the length to see the estimated total')
   return (
-    <div className="stage-setup">
+    <div className="stage-setup stage-setup--options">
       <div className="stage-setup-scroll">
         <div className="stage-setup-inner">
           {modelMissing && <ModelMissingNotice />}
-          <header className="stage-setup-group-head"><h1>{text('写作选项', 'Writing options')}</h1><p>{text('配置作品的基本信息、写作选项与参考作品。', 'Set book details, writing options and references.')}</p></header>
-          <section className="stage-setup-basics" aria-label={text('基本信息', 'Book details')}>
-            <header className="stage-setup-group-head"><h2>{text('基本信息', 'Book details')}</h2><p>{text('确定作品的类型、规模与读者。', 'Define the genre, length and audience of this book.')}</p></header>
-            <SettingRow label={text('类型', 'Genre')} description={text('作品所属的主要类型。', 'The main genre of this book.')}>
-              <select aria-label={text('类型', 'Genre')} className="stage-select" value={genre} onChange={event => form.update('genre', event.target.value)}>
-                <option value="" disabled>{text('请选择', 'Choose')}</option>
-                {genre && !NOVEL_GENRES.includes(genre) && <option value={genre}>{genre}</option>}
-                {NOVEL_GENRES.map(value => <option key={value} value={value}>{text(value, GENRE_EN[value] ?? value)}</option>)}
-              </select>
-            </SettingRow>
-            <SettingRow label={text('细分类型', 'Subgenre')} description={text('更具体的题材，如修仙、重生或末世。', 'A more specific category, such as rebirth or post-apocalyptic fiction.')}>
-              <input aria-label={text('细分类型', 'Subgenre')} className="pi-input" value={config.subGenre ?? ''} onChange={event => form.update('subGenre', event.target.value)} />
-            </SettingRow>
-            <SettingRow label={text('篇幅', 'Length')} description={text('计划的总章数及每章目标字数。', 'Planned chapter count and target length per chapter.')}>
-              <div className="stage-setup-length">
-                <NumberInput value={config.totalChapters as number | ''} fallback={100} min={1} label={text('总章数', 'Total chapters')} onChange={value => form.update('totalChapters', value as number)} />
-                <span>{text('章 · 每章约', 'ch. ·')}</span>
-                <NumberInput value={config.wordsPerChapter as number | ''} fallback={3000} min={100} label={text('每章字数', 'Words per chapter')} onChange={value => form.update('wordsPerChapter', value as number)} />
-                <span>{text('字', 'words')}</span>
+          <header className="stage-setup-group-head writing-options-head">
+            <span className="writing-options-eyebrow"><BookOpen size={14} aria-hidden />{text('作品设定', 'BOOK SETUP')}</span>
+            <h1>{text('写作选项', 'Writing options')}</h1>
+            <p>{text('让故事有方向，让创作有章法。这里的选项将用于这部作品的规划与写作。', 'Give your story direction. These choices guide planning and writing for this book.')}</p>
+          </header>
+          <section className="writing-options-card" aria-label={text('基本信息', 'Book details')}>
+            <WritingOptionsSectionHeader numeral="01" title={text('基本信息', 'Book details')}
+              description={text('先确定写什么、写给谁，以及写多长。', 'Start with the genre, readers and length.')}
+              status={<span className="writing-options-progress" data-ready={missing.length === 0 || undefined}>
+                {missing.length === 0 && <Check size={13} aria-hidden />}
+                {text(`${3 - missing.length} / 3 项就绪`, `${3 - missing.length} / 3 ready`)}
+              </span>} />
+            <div className="writing-options-grid">
+              <SettingField label={text('类型', 'Genre')} required description={text('选择作品的主要类型。', 'Choose the main genre of your book.')}>
+                {props => <select {...props} aria-label={text('类型', 'Genre')} className="stage-select" value={genre} onChange={event => form.update('genre', event.target.value)}>
+                  <option value="" disabled>{text('请选择', 'Choose')}</option>
+                  {genre && !NOVEL_GENRES.includes(genre) && <option value={genre}>{genre}</option>}
+                  {NOVEL_GENRES.map(value => <option key={value} value={value}>{text(value, GENRE_EN[value] ?? value)}</option>)}
+                </select>}
+              </SettingField>
+              <SettingField label={text('目标读者', 'Target readers')} required description={text('帮助 AI 把握表达方式与内容尺度。', 'Helps AI tailor the tone and content to your readers.')}>
+                {props => <select {...props} aria-label={text('目标读者', 'Target readers')} className="stage-select" value={audience} onChange={event => form.update('targetAudience', event.target.value)}>
+                  <option value="" disabled>{text('请选择', 'Choose')}</option>
+                  {audience && !Object.hasOwn(AUDIENCE_EN, audience) && <option value={audience}>{audience}</option>}
+                  {Object.entries(AUDIENCE_EN).map(([value, labelEn]) => <option key={value} value={value}>{text(value, labelEn)}</option>)}
+                </select>}
+              </SettingField>
+              <div className="writing-options-wide">
+                <SettingField label={text('细分类型', 'Subgenre')} description={text('可选。用更具体的题材补充主要类型。', 'Optional. Add a more specific category to your genre.')}>
+                  {props => <input {...props} aria-label={text('细分类型', 'Subgenre')} className="pi-input" placeholder={text('例如：都市悬疑、修仙、末世生存', 'e.g. urban mystery, cultivation, survival')} value={config.subGenre ?? ''} onChange={event => form.update('subGenre', event.target.value)} />}
+                </SettingField>
               </div>
-            </SettingRow>
-            <SettingRow label={text('目标读者', 'Target readers')} description={text('这部作品主要写给谁。', 'Who this book is written for.')}>
-              <select aria-label={text('目标读者', 'Target readers')} className="stage-select" value={audience} onChange={event => form.update('targetAudience', event.target.value)}>
-                <option value="" disabled>{text('请选择', 'Choose')}</option>
-                {audience && !Object.hasOwn(AUDIENCE_EN, audience) && <option value={audience}>{audience}</option>}
-                {Object.entries(AUDIENCE_EN).map(([value, labelEn]) => <option key={value} value={value}>{text(value, labelEn)}</option>)}
-              </select>
-            </SettingRow>
+            </div>
+            <fieldset className="writing-options-length">
+              <legend>{text('篇幅计划', 'Length plan')}<span className="writing-options-required">{text('必填', 'Required')}</span></legend>
+              <div className="writing-options-grid">
+                <SettingField label={text('总章数', 'Total chapters')} description={text('计划全书包含多少章。', 'How many chapters you plan to write.')}>
+                  {props => <div className="writing-options-number"><NumberInput id={props.id} describedBy={props['aria-describedby']} value={config.totalChapters as number | ''} fallback={100} min={1} label={text('总章数', 'Total chapters')} onChange={value => form.update('totalChapters', value as number)} /><span>{text('章', 'chapters')}</span></div>}
+                </SettingField>
+                <SettingField label={text('每章字数', 'Words per chapter')} description={text('AI 写作时的目标篇幅。', 'Target length for AI-generated chapters.')}>
+                  {props => <div className="writing-options-number"><NumberInput id={props.id} describedBy={props['aria-describedby']} value={config.wordsPerChapter as number | ''} fallback={3000} min={100} label={text('每章字数', 'Words per chapter')} onChange={value => form.update('wordsPerChapter', value as number)} /><span>{text('字', 'words')}</span></div>}
+                </SettingField>
+              </div>
+              <p className="writing-options-estimate" role="status">{lengthSummary}<span>{text('目标可随创作进度调整', 'You can adjust this as your story grows')}</span></p>
+            </fieldset>
           </section>
-          <section className="stage-setup-basics" aria-label={text('叙事与提醒', 'Narration and reminders')}>
-            <header className="stage-setup-group-head"><h2>{text('叙事与提醒', 'Narration and reminders')}</h2><p>{text('设置叙事方式与伏笔提醒。', 'Set narration and thread reminders.')}</p></header>
-            <SettingRow label={text('叙事视角', 'Point of view')} description={text('故事从谁的视角展开。', 'The perspective used to tell the story.')}>
-              <select aria-label={text('叙事视角', 'Point of view')} className="stage-select" value={config.narrativePOV || 'third_limited'} onChange={event => form.update('narrativePOV', event.target.value as NovelConfig['narrativePOV'])}>
-                {POV_OPTIONS.map(([value, label]) => <option key={value} value={value}>{text(...label)}</option>)}
-              </select>
-            </SettingRow>
-            <SettingRow label={text('故事结构', 'Story structure')} description={text('组织情节推进的整体方式。', 'The overall structure of the plot.')}>
-              <select aria-label={text('故事结构', 'Story structure')} className="stage-select" value={config.plotStructure || 'three_act'} onChange={event => form.update('plotStructure', event.target.value as NovelConfig['plotStructure'])}>
-                {STRUCTURE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{text(...label)}</option>)}
-              </select>
-            </SettingRow>
-            <SettingRow label={text('写作语言', 'Writing language')} description={text('AI 生成正文时使用的语言。', 'The language used for generated prose.')}>
-              <span className="stage-setup-fixed-value">{text('简体中文', 'Simplified Chinese')}</span>
-            </SettingRow>
+          <section className="writing-options-card" aria-label={text('叙事与提醒', 'Narration and reminders')}>
+            <WritingOptionsSectionHeader numeral="02" title={text('叙事与提醒', 'Narration and reminders')}
+              description={text('决定故事如何讲述，及时照看未推进的伏笔。', 'Shape how the story is told and keep track of dormant threads.')} />
+            <div className="writing-options-grid">
+              <SettingField label={text('叙事视角', 'Point of view')} description={text('故事从谁的视角展开。', 'The perspective used to tell the story.')}>
+                {props => <select {...props} aria-label={text('叙事视角', 'Point of view')} className="stage-select" value={config.narrativePOV || 'third_limited'} onChange={event => form.update('narrativePOV', event.target.value as NovelConfig['narrativePOV'])}>
+                  {POV_OPTIONS.map(([value, label]) => <option key={value} value={value}>{text(...label)}</option>)}
+                </select>}
+              </SettingField>
+              <SettingField label={text('故事结构', 'Story structure')} description={text('组织情节推进的整体方式。', 'The overall structure of the plot.')}>
+                {props => <select {...props} aria-label={text('故事结构', 'Story structure')} className="stage-select" value={config.plotStructure || 'three_act'} onChange={event => form.update('plotStructure', event.target.value as NovelConfig['plotStructure'])}>
+                  {STRUCTURE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{text(...label)}</option>)}
+                </select>}
+              </SettingField>
+            </div>
             <AdvancedPanel config={config} form={form} />
+            <div className="writing-options-language"><span>{text('写作语言', 'Writing language')}</span><strong>{text('简体中文', 'Simplified Chinese')}</strong><span>{text('用于 AI 生成正文', 'Used for generated prose')}</span></div>
           </section>
-          <section className="stage-setup-basics" aria-label={text('参考作品', 'Reference works')}>
-          {TEXT_FIELDS.filter(field => field.id === 'referenceWorks').map(field => <ConfigSection key={field.id} field={field} numeral="" config={config} form={form} aiReason={aiReason} onEdit={() => openConfigField(field, projectKey)} />)}
-          </section>
+          <ReferenceWorksSection content={config.referenceWorks}
+            onEdit={() => openConfigField(TEXT_FIELDS.find(field => field.id === 'referenceWorks')!, projectKey)}
+            onClear={() => form.update('referenceWorks', '')} />
+          <aside className="writing-options-assist" aria-label={text('AI 辅助设定', 'AI setup assistance')}>
+            <Sparkles size={18} className="stage-setup-spark" aria-hidden />
+            <div><h2>{text('从大纲出发，补充创作设定', 'Build on your outline')}</h2>
+              <p id={fillReasonId}>{fillReason ?? text('AI 将依据大纲补全设定；已有内容会先请你确认扩写。', 'AI fills in the setup from your outline and asks before expanding existing content.')}</p>
+            </div>
+            <Button variant="secondary" disabled={fillReason !== null || filling} aria-describedby={fillReasonId} onClick={requestFill}>
+              {filling && <LoaderCircle size={15} className="stage-update-spin" aria-hidden />}
+              {filling ? text('AI 正在补全…', 'AI is filling in…') : text('AI 补全其余设定', 'Fill the rest with AI')}
+            </Button>
+          </aside>
         </div>
       </div>
 
       <footer className="stage-setup-foot">
-        <Button variant="secondary" disabled={fillReason !== null || filling} aria-describedby={fillReason ? fillReasonId : undefined} onClick={requestFill}>
-          {filling ? <LoaderCircle size={15} className="stage-update-spin" aria-hidden="true" /> : <Sparkles size={15} className="stage-setup-spark" aria-hidden="true" />}
-          {filling ? text('AI 正在补全…', 'AI is filling in…') : text('AI 补全其余设定', 'Fill the rest with AI')}
-        </Button>
-        <DisabledReason id={fillReasonId} reason={fillReason} />
-        {form.saveOutcome === 'failed'
-          ? <span className="stage-setup-hint" id={hintId} data-tone="danger" role="alert">{text('没能保存。设定还在这一页，没有丢，可以再保存一次。', 'Could not save. Your setup is still on this page; try saving again.')}</span>
-          : <span className="stage-setup-hint" id={hintId} data-ready={missing.length === 0 || undefined} role="status">{hint}</span>}
-        {form.dirty && (
-          <Button variant="text" disabled={form.saving} onClick={() => void form.save()}>
+        <div className="writing-options-feedback">
+          {form.saveOutcome === 'failed'
+            ? <span className="stage-setup-hint" id={hintId} data-tone="danger" role="alert">{text('没能保存。设定还在这一页，没有丢，可以再保存一次。', 'Could not save. Your setup is still on this page; try saving again.')}</span>
+            : <span className="stage-setup-hint" id={hintId} data-ready={missing.length === 0 || undefined} role="status">{hint}</span>}
+          <span className="writing-options-save-state" role="status">{form.saving ? text('正在保存修改…', 'Saving changes…') : form.dirty ? text('有未保存的修改', 'Unsaved changes') : form.saveOutcome === 'saved' ? text('修改已保存', 'Changes saved') : text('仅用于当前作品', 'Applies to this book only')}</span>
+        </div>
+        <div className="writing-options-actions">
+          <Button variant="secondary" disabled={!form.dirty || form.saving} onClick={() => void form.save()}>
             {form.saving ? text('正在保存…', 'Saving…') : text('保存', 'Save')}<kbd>{commandLabel('s')}</kbd>
           </Button>
-        )}
-        <Button variant="primary" disabled={missing.length > 0 || form.saving} aria-describedby={hintId} onClick={() => void goNext()}>
-          {text('下一步：故事规划', 'Next: story planning')}
-          <ArrowRight size={15} aria-hidden="true" />
-        </Button>
+          <Button variant="primary" disabled={missing.length > 0 || form.saving} aria-describedby={hintId} onClick={() => void goNext()}>
+            {text('下一步：故事规划', 'Next: story planning')}
+            <ArrowRight size={15} aria-hidden="true" />
+          </Button>
+        </div>
       </footer>
 
       <InkDialog
