@@ -5,6 +5,7 @@ import { useLLMStore } from '../../../stores/llm-store'
 import { useLocaleStore } from '../../../stores/locale-store'
 import ProjectBackupPanel from '../../backups/ProjectBackupPanel'
 import PromptSettings from '../../settings/PromptSettings'
+import SillyTavernSettings from '../../settings/SillyTavernSettings'
 import SkillSettings from '../../settings/SkillSettings'
 import { leaveSettings, settleSettingsLeave, useSettingsLeave, useSettingsLeaveHost } from '../../settings/unsaved-settings'
 import { Button } from '../../ui/Button'
@@ -97,6 +98,8 @@ function PageBody({ page }: { page: SettingsSection }) {
       return <><PageHeader page={page} /><ProxySection /></>
     case 'prompts':
       return <><PageHeader page={page} /><Legacy><PromptSettings /></Legacy></>
+    case 'prompt-presets':
+      return <><PageHeader page={page} /><SillyTavernSettings /></>
     case 'skills':
       return <><PageHeader page={page} /><Legacy><SkillSettings /></Legacy></>
     case 'backup':
@@ -158,7 +161,7 @@ export default function StageSettings({ library }: { library: boolean }) {
         ))}
       </nav>
       <div className="stage-set-body" ref={bodyRef}>
-        <div className="stage-set-inner">
+        <div className="stage-set-inner" data-wide={page === 'prompt-presets' || undefined}>
           <ErrorBoundary key={page} fallbackLabel={text('设置页渲染失败', 'Settings failed to render')}>
             <PageBody page={page} />
           </ErrorBoundary>

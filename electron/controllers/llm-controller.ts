@@ -25,6 +25,7 @@ import {
   ModelExecutionLeaseRegistry,
 } from '../services/model-execution-lease'
 import { ModelDiscoveryService } from '../services/model-discovery-service'
+import { applyTavernPreset } from '../services/sillytavern-presets'
 
 interface ActiveStream {
   controller: AbortController
@@ -221,7 +222,7 @@ export function registerLLMController() {
       const provider = LLMFactory.getProvider(model)
       const result = await provider.generate(
         model,
-        request.messages,
+        applyTavernPreset(request.messages, request.responseFormat?.type === 'json_object'),
         {
           ...resolveGenerationParameters(model, request),
           // One execution lease spans one logical generation run; its id is the
@@ -240,10 +241,12 @@ export function registerLLMController() {
   ipcMain.handle('llm:generate-stream', async (event, requestId: string, request: LLMRequest) => {
     applyProxyConfig()
     let model: ModelProfile | null
+    let messages: LLMRequest['messages']
     try {
       model = request.modelExecutionLeaseId
         ? modelExecutionLeases.resolve(request.modelExecutionLeaseId)
         : getModelConfig(request.modelId)
+      messages = applyTavernPreset(request.messages, request.responseFormat?.type === 'json_object')
     } catch (error) {
       return { requestId, started: false, error: String(error) }
     }
@@ -272,7 +275,7 @@ export function registerLLMController() {
     const provider = LLMFactory.getProvider(model)
     
     // We do not await this globally since it's streaming independently
-    provider.generateStream(model, request.messages, {
+    provider.generateStream(model, messages, {
       ...generationParameters,
       signal: abortController.signal,
       onChunk: (chunk: string) => win?.webContents.send('llm:stream-chunk', { requestId, chunk }),

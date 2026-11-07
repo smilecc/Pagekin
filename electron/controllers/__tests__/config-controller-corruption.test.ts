@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { importTavernPreset } from '../../../src/shared/sillytavern-preset'
 
 type IpcHandler = (...args: unknown[]) => Promise<unknown>
 
@@ -45,6 +46,18 @@ afterEach(() => {
 })
 
 describe('global configuration corruption boundary', () => {
+  it('persists imported presets and overrides, and rejects invalid updates without losing unrelated settings', async () => {
+    const entry = importTavernPreset(JSON.stringify({ prompts: [{ identifier: 'main', content: '{{getvar::字数}}' }],
+      prompt_order: [{ character_id: 100001, order: [{ identifier: 'main', enabled: true }] }] }), 'test.json', 'id')
+    entry.variables['字数'] = '2000'
+    const sillyTavern = { presets: [entry], activePresetId: entry.id, scope: 'text' }
+    await handler('config:set')({}, { theme: 'light' })
+    await expect(handler('config:set')({}, { sillyTavern })).resolves.toEqual({ success: true })
+    await expect(handler('config:get')()).resolves.toMatchObject({ theme: 'light', sillyTavern })
+    const file = path.join(velaHome, 'config.json'), bytes = fs.readFileSync(file)
+    await expect(handler('config:set')({}, { sillyTavern: { ...sillyTavern, activePresetId: 'missing' } })).resolves.toMatchObject({ success: false })
+    expect(fs.readFileSync(file)).toEqual(bytes)
+  })
   it('refuses to overwrite an existing malformed config file', async () => {
     const configPath = path.join(velaHome, 'config.json')
     const originalBytes = Buffer.from('{BROKEN_CONFIG_SECRET_MARKER', 'utf8')

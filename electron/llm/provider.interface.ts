@@ -20,7 +20,7 @@ export interface LLMGenerateOptions {
   reasoning?: ProviderReasoningDirective
   /**
    * Caller-scoped logical session identity, forwarded verbatim to gateways
-   * that require per-conversation routing affinity (opencode Go). Providers
+   * that require per-conversation routing affinity (OpenCode). Providers
    * must treat a missing value as a single-request scope, never a shared
    * process default.
    */

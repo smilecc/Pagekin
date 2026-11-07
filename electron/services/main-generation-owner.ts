@@ -56,6 +56,8 @@ import { buildLegacyRosterJsonRepairTask, buildLegacyRosterReplacementTask, pars
 import { validateGraphGenerationInput, readGraphGenerationContext } from './graph-generation-source'
 import { planningTargetInstruction, parsePlanningTargetUnits, renderPlotOutlineRange, plotOutlineRecoveryDraft, plotOutlineSourceInvalid, validPlotOutlineAuthorPrefix, type PlotOutlineSource, type PlotOutlineProgress, type PlotOutlineRecovery, type PlotOutlineAuthorEditReceipt } from '../../src/shared/plot-outline-contract'
 import { ProjectCoreRepository, type ProjectCoreSynopsisExpected, type ProjectCoreSynopsisCommitRequest } from '../repositories/project-core-repository'
+import { applyTavernTask } from './sillytavern-presets'
+import { parseTavernSettings } from '../../src/shared/sillytavern-preset'
 // 尝试 id 都由 randomUUID 生成；recoverFrom 还拼进 nonce，只收 UUID，免得拼出别的尝试的 nonce。
 const ATTEMPT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu
 const graphOperations = { plot: 'plot-tree-snapshot', plan: 'narrative-thread-plan-candidate', event: 'narrative-thread-event-candidate' } as const
@@ -658,11 +660,12 @@ export function createMainGenerationOwner(deps: MainGenerationOwnerDependencies)
     if (!leaseId) throw new Error('GENERATION_RESUME_REQUIRED')
     const model = deps.leases.resolve(leaseId)
     const creativeStrategy = deps.database.prepare("SELECT creative_strategy FROM project_core WHERE id='main'").pluck().get() as CreativeStrategy | undefined
-    const plan = buildMainGenerationPlan(model, modelReceipt(run.binding), task, repository.budget(run.rootActionId), creativeStrategy)
+    const providerTask = applyTavernTask(task, parseTavernSettings(run.binding.sourceManifest.sillyTavern))
+    const plan = buildMainGenerationPlan(model, modelReceipt(run.binding), providerTask, repository.budget(run.rootActionId), creativeStrategy)
     deps.beforeDispatch?.()
     assertCurrent()
     const receipt = await service.execute({ runId: run.runId, invocationNonce: request.invocationNonce, requestHash,
-      providerRequest: { model, task, plan, conversationId: run.rootActionId } satisfies ProviderRequest, reservedTokens: plan.reservedTokens,
+      providerRequest: { model, task: providerTask, plan, conversationId: run.rootActionId } satisfies ProviderRequest, reservedTokens: plan.reservedTokens,
       requestedOutputTokens: plan.requestedOutputTokens, inputUpperBoundTokens: plan.inputUpperBoundTokens,
       reasoningUpperBoundTokens: plan.reasoningUpperBoundTokens, usagePolicy: plan.usagePolicy, purpose: task.purpose,
       ...(plan.budgetDecision ? { budgetDecision: plan.budgetDecision } : {}),

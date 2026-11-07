@@ -124,6 +124,7 @@ export default function ModelsSection({ purposes, header }: { purposes: ModelPro
                     align="end"
                     groups={[
                       ...(isDefault ? [] : [{ id: 'default', items: [{ id: 'default', label: text('设为默认', 'Make default'), onSelect: () => void section.setDefault(model.id) }] }]),
+                      { id: 'duplicate', items: [{ id: 'duplicate', label: text('复制模型', 'Duplicate model'), onSelect: () => section.duplicate(model) }] },
                       { id: 'danger', tone: 'danger' as const, items: [{ id: 'delete', label: text('删除模型…', 'Delete model…'), onSelect: () => setDeleting(model) }] },
                     ]}
                   />

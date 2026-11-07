@@ -68,6 +68,15 @@ export function useModelSection(purposes: ModelProfile['purposes']) {
       purposes: [...purposes],
     }))
   }
+  const duplicate = (model: ModelProfile) => {
+    const text = useLocaleStore.getState().text
+    const name = model.name || model.modelName
+    startEditing({
+      ...structuredClone(model),
+      id: randomUUID(),
+      name: text(`${name}（副本）`, `${name} (copy)`),
+    })
+  }
 
   const setDefault = (modelId: string) => isEmbeddingSection
     ? setDefaultEmbeddingModel(modelId)
@@ -99,6 +108,7 @@ export function useModelSection(purposes: ModelProfile['purposes']) {
     setEditingModel,
     saving,
     add,
+    duplicate,
     edit: (model: ModelProfile) => startEditing({ ...model }),
     cancelEdit: () => setEditingModel(null),
     save,

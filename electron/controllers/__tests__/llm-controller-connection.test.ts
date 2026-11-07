@@ -1,6 +1,8 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ModelProfile } from '../../../src/shared/ipc-channels'
+import { importTavernPreset } from '../../../src/shared/sillytavern-preset'
+import { tryReadJsonFile } from '../../utils/config-utils'
 
 type IpcHandler = (...args: unknown[]) => Promise<unknown>
 
@@ -121,6 +123,18 @@ beforeEach(() => {
 })
 
 describe('llm connection test', () => {
+  it.each(['llm:generate', 'llm:generate-stream'])('applies saved presets to %s provider messages', async channel => {
+    const entry = importTavernPreset(JSON.stringify({ prompts: [{ identifier: 'main', content: 'style {{getvar::文风}}' }],
+      prompt_order: [{ character_id: 100001, order: [{ identifier: 'main', enabled: true }] }] }), 'test.json', 'id')
+    entry.variables['文风'] = '白描'
+    vi.mocked(tryReadJsonFile).mockReturnValueOnce({ status: 'ok', value: { sillyTavern: { presets: [entry], activePresetId: 'id', scope: 'text' } } })
+    const request = { modelId: deepSeekModel.id, messages: [{ role: 'user', content: 'task' }] }
+    if (channel === 'llm:generate') await mocks.handlers.get(channel)!({}, request)
+    else await mocks.handlers.get(channel)!({ sender: {} }, 'preset-test', request)
+    const generate = channel === 'llm:generate' ? mocks.generate : mocks.generateStream
+    expect(generate.mock.calls[0][1]).toEqual([{ role: 'system', content: 'style 白描' }, { role: 'user', content: 'task' }])
+    if (channel === 'llm:generate-stream') await mocks.handlers.get('llm:cancel')!({}, 'preset-test')
+  })
   it('uses the configured profile temperature for a generic connection probe', async () => {
     const genericModel: ModelProfile = {
       ...deepSeekModel,

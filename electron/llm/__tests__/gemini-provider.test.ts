@@ -5,6 +5,7 @@ import { resolveGenerationParameters } from '../generation-parameter-policy'
 import { settleProviderUsage } from '../../services/generation-run-service'
 import type { ModelProfile } from '../../../src/shared/ipc-channels'
 import type { GenerationTransportDiagnostics } from '../../../src/shared/generation-contract'
+import { version as appVersion } from '../../../package.json'
 
 const model: ModelProfile = {
   id: 'gemini-test',
@@ -43,6 +44,50 @@ afterEach(() => {
 })
 
 describe('GeminiProvider', () => {
+  it.each([
+    ['https://opencode.ai/zen', true],
+    ['https://opencode.ai/zen/go', true],
+    ['https://generativelanguage.googleapis.com', false],
+    ['https://opencode.ai.example.com/zen', false],
+    ['http://opencode.ai/zen', false],
+  ])('scopes OpenCode headers for normal and streaming requests to %s', async (baseUrl, isOpenCode) => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ candidates: [{ content: { parts: [{ text: '正文' }] }, finishReason: 'STOP' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        body: { getReader: () => sseReader('data: {"candidates":[{"content":{"parts":[{"text":"正文"}]},"finishReason":"STOP"}]}\n\n') },
+      })
+    vi.stubGlobal('fetch', fetchMock)
+    const options = { temperature: 0.2, maxTokens: 512, conversationId: 'generation-run-1' }
+    const result = await new GeminiProvider().generate({ ...model, baseUrl }, [], options)
+    const onDone = vi.fn()
+    const onError = vi.fn()
+    await new GeminiProvider().generateStream({ ...model, baseUrl }, [], {
+      ...options, signal: new AbortController().signal,
+      onChunk: vi.fn(), onDone, onError,
+    })
+
+    expect(result.success).toBe(true)
+    expect(onDone).toHaveBeenCalled()
+    expect(onError).not.toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    for (const [, request] of fetchMock.mock.calls) {
+      expect(request.headers).toMatchObject({ 'Content-Type': 'application/json', 'x-goog-api-key': model.apiKey })
+      if (isOpenCode) {
+        expect(request.headers).toMatchObject({
+          'x-opencode-session': 'generation-run-1',
+          'User-Agent': `ai-novel-writer/${appVersion}`,
+        })
+      } else {
+        expect(request.headers).not.toHaveProperty('x-opencode-session')
+        expect(request.headers).not.toHaveProperty('User-Agent')
+      }
+    }
+  })
+
   it('applies the same verified thinking budget to normal and streaming requests', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({

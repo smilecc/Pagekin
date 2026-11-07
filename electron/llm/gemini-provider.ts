@@ -3,6 +3,7 @@ import type { LLMFinishReason, ModelProfile, TokenUsage } from '../../src/shared
 import { VisibleStreamFilter } from './visible-stream'
 import { StreamTransportDiagnostics } from './transport-diagnostics'
 import { providerFailureCode } from './provider-context-length'
+import { opencodeHeaders } from './opencode-headers'
 
 function assertVisibleStreamPayload(value: unknown): void {
   const record = (input: unknown): input is Record<string, unknown> =>
@@ -120,6 +121,7 @@ export class GeminiProvider implements ILLMProvider {
         headers: {
           'Content-Type': 'application/json',
           'x-goog-api-key': model.apiKey,
+          ...opencodeHeaders(model.baseUrl, opts.conversationId),
         },
         body: JSON.stringify(body),
         signal: opts.signal,
@@ -199,6 +201,7 @@ export class GeminiProvider implements ILLMProvider {
         headers: {
           'Content-Type': 'application/json',
           'x-goog-api-key': model.apiKey,
+          ...opencodeHeaders(model.baseUrl, opts.conversationId),
         },
         body: JSON.stringify(body),
         signal: opts.signal,

@@ -184,6 +184,7 @@ export type DialogDirectoryKind =
   | 'project-open'
 
 export interface GlobalConfig {
+  sillyTavern?: import('./sillytavern-preset').TavernSettings
   theme: string
   outlineTargetUnits?: number
   blueprintTargetUnits?: number

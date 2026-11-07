@@ -97,6 +97,18 @@ afterEach(async () => {
 })
 
 describe('设置页', () => {
+  it('提示词预设有独立入口，模板页不显示预设编辑器', async () => {
+    win.aiNovelAPI = { invoke: async channel => channel === 'config:get' ? {} : channel === 'prompt:load-global' ? { templates: [], diagnostics: [] } : undefined, on: () => () => undefined }
+    useLayoutStore.setState({ settingsSection: 'prompt-presets' })
+    await mount(true)
+    expect(heading()).toBe('提示词预设')
+    expect(host!.querySelector('[aria-label="提示词预设管理"]')).not.toBeNull()
+    await click(byName('提示词模板'))
+    expect(heading()).toBe('提示词模板')
+    expect(host!.querySelector('[aria-label="提示词预设管理"]')).toBeNull()
+    await click(byName('提示词预设'))
+    expect(heading()).toBe('提示词预设')
+  })
   it('已归档的小说可以恢复到书架，恢复后显示空列表', async () => {
     const book = { name: '灯塔', path: 'C:/books/lighthouse', updatedAt: '', archivedAt: '2026-11-07T00:00:00Z' }
     const invoke = vi.fn(async (channel: string): Promise<unknown> => {
@@ -155,7 +167,7 @@ describe('设置页', () => {
     }))
     expect(groups).toEqual([
       { group: '常用', pages: ['AI 模型', '检索模型', '外观'] },
-      { group: '高级', pages: ['分工模型', '网络代理', '提示词模板', '写作 Skills'] },
+      { group: '高级', pages: ['分工模型', '网络代理', '提示词模板', '提示词预设', '写作 Skills'] },
       { group: '其他', pages: ['已归档的小说', '项目备份', '关于与更新'] },
     ])
     expect(heading()).toBe('项目备份')

@@ -6,6 +6,7 @@ import { resolveGenerationParameters } from '../generation-parameter-policy'
 import type { ModelProfile } from '../../../src/shared/ipc-channels'
 import { BUILTIN_PRESETS } from '../../../src/shared/provider-presets'
 import type { GenerationTransportDiagnostics } from '../../../src/shared/generation-contract'
+import { version as appVersion } from '../../../package.json'
 
 const novelAIModel: ModelProfile = {
   id: 'novelai-test',
@@ -967,7 +968,7 @@ describe('OpenAIProvider NovelAI compatibility', () => {
   })
 })
 
-describe('OpenAIProvider opencode Go compatibility', () => {
+describe('OpenAIProvider OpenCode compatibility', () => {
   const opencodeGoModel: ModelProfile = {
     ...novelAIModel,
     id: 'opencode-go-test',
@@ -996,19 +997,28 @@ describe('OpenAIProvider opencode Go compatibility', () => {
     )
   }
 
-  it('keeps the caller-supplied conversation id stable across normal, streaming, and separate provider instances', async () => {
+  it.each([
+    'https://opencode.ai',
+    'https://opencode.ai/zen/go/v1',
+    'https://opencode.ai/zen/go/v1///',
+    'https://opencode.ai/zen/v1',
+    'https://opencode.ai/zen/v1/chat/completions',
+    'https://opencode.ai/another-api/v1',
+    ' https://OPENCODE.AI/zen/v1/ ',
+  ])('keeps the conversation stable across normal, streaming, and retried requests to %s', async (baseUrl) => {
+    const model = { ...opencodeGoModel, baseUrl }
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(responseMock())
       .mockResolvedValueOnce(streamMock('data: [DONE]\n\n'))
       .mockResolvedValueOnce(responseMock())
     vi.stubGlobal('fetch', fetchMock)
 
-    await new OpenAIProvider().generate(opencodeGoModel, [{ role: 'user', content: '普通正文' }], {
+    await new OpenAIProvider().generate(model, [{ role: 'user', content: '普通正文' }], {
       temperature: 0.2,
       maxTokens: 512,
       conversationId: 'generation-run-1',
     })
-    await new OpenAIProvider().generateStream(opencodeGoModel, [{ role: 'user', content: '流式正文' }], {
+    await new OpenAIProvider().generateStream(model, [{ role: 'user', content: '流式正文' }], {
       temperature: 0.2,
       maxTokens: 512,
       conversationId: 'generation-run-1',
@@ -1017,7 +1027,7 @@ describe('OpenAIProvider opencode Go compatibility', () => {
       onDone: vi.fn(),
       onError: vi.fn(),
     })
-    await new OpenAIProvider().generate(opencodeGoModel, [{ role: 'user', content: '重试正文' }], {
+    await new OpenAIProvider().generate(model, [{ role: 'user', content: '重试正文' }], {
       temperature: 0.2,
       maxTokens: 512,
       conversationId: 'generation-run-1',
@@ -1025,7 +1035,7 @@ describe('OpenAIProvider opencode Go compatibility', () => {
 
     expect(sessionIdsOf(fetchMock)).toEqual(['generation-run-1', 'generation-run-1', 'generation-run-1'])
     for (const [, request] of fetchMock.mock.calls) {
-      expect((request.headers as Record<string, string>)['User-Agent']).toMatch(/^ai-novel-writer\//u)
+      expect((request.headers as Record<string, string>)['User-Agent']).toBe(`ai-novel-writer/${appVersion}`)
       expect((request.headers as Record<string, string>)['Authorization']).toBe('Bearer pst-test-token')
       expect((request.headers as Record<string, string>)['Content-Type']).toBe('application/json')
     }
@@ -1069,26 +1079,16 @@ describe('OpenAIProvider opencode Go compatibility', () => {
     expect(new Set(sessionIds).size).toBe(2)
   })
 
-  it('sends the Go session header for the trailing-slash Go base URL', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(responseMock())
-    vi.stubGlobal('fetch', fetchMock)
-
-    await new OpenAIProvider().generate(
-      { ...opencodeGoModel, baseUrl: 'https://opencode.ai/zen/go/v1///' },
-      [{ role: 'user', content: '正文' }],
-      { temperature: 0.2, maxTokens: 512, conversationId: 'generation-run-1' },
-    )
-
-    expect(sessionIdsOf(fetchMock)).toEqual(['generation-run-1'])
-  })
-
   it.each([
-    ['the pay-per-token Zen gateway', 'https://opencode.ai/zen/v1'],
-    ['a non-Go opencode path segment', 'https://opencode.ai/zen/good/v1'],
     ['a plain-HTTP opencode endpoint', 'http://opencode.ai/zen/go/v1'],
     ['another OpenAI-compatible gateway', 'https://gateway.example/v1'],
-  ])('does not send the Go session header or app user agent to %s', async (_case, baseUrl) => {
-    const fetchMock = vi.fn().mockResolvedValue(responseMock())
+    ['a hostname with an opencode prefix', 'https://opencode.ai.example.com/zen/go/v1'],
+    ['a hostname with opencode in userinfo', 'https://opencode.ai@gateway.example/v1'],
+    ['an opencode subdomain', 'https://api.opencode.ai/v1'],
+  ])('does not send the OpenCode session header or app user agent to %s', async (_case, baseUrl) => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(responseMock())
+      .mockResolvedValueOnce(streamMock('data: [DONE]\n\n'))
     vi.stubGlobal('fetch', fetchMock)
 
     await new OpenAIProvider().generate(
@@ -1097,8 +1097,16 @@ describe('OpenAIProvider opencode Go compatibility', () => {
       { temperature: 0.2, maxTokens: 512, conversationId: 'generation-run-1' },
     )
 
-    const headers = fetchMock.mock.calls[0][1].headers as Record<string, string>
-    expect(headers).not.toHaveProperty('x-opencode-session')
-    expect(headers).not.toHaveProperty('User-Agent')
+    await new OpenAIProvider().generateStream({ ...opencodeGoModel, baseUrl }, [], {
+      temperature: 0.2, maxTokens: 512, conversationId: 'generation-run-1',
+      signal: new AbortController().signal,
+      onChunk: vi.fn(), onDone: vi.fn(), onError: vi.fn(),
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    for (const [, request] of fetchMock.mock.calls) {
+      expect(request.headers).not.toHaveProperty('x-opencode-session')
+      expect(request.headers).not.toHaveProperty('User-Agent')
+    }
   })
 })

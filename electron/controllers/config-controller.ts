@@ -7,6 +7,7 @@ import {
 } from '../utils/config-utils'
 import { GlobalConfig } from '../../src/shared/ipc-channels'
 import { mainText } from '../i18n'
+import { parseTavernSettings } from '../../src/shared/sillytavern-preset'
 
 export function registerConfigController() {
   /** 读取全局配置 */
@@ -17,6 +18,7 @@ export function registerConfigController() {
   /** 保存全局配置 */
   ipcMain.handle('config:set', async (_event, config: Partial<GlobalConfig>) => {
     try {
+      if (Object.hasOwn(config, 'sillyTavern')) config = { ...config, sillyTavern: parseTavernSettings(config.sillyTavern) }
       if (updateGlobalConfig(existing => ({ ...existing, ...config, stageModelIds: existing.stageModelIds }))) return { success: true }
       return {
         success: false,

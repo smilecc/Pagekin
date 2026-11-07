@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { activeTavernPreset, parseTavernSettings, tavernExecutionSettings } from '../../src/shared/sillytavern-preset';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
@@ -454,6 +455,10 @@ export function buildGenerationSourceBinding(deps: GenerationSourceBindingDepend
         bytes: Buffer | null;
     }[] = [];
     const observe = (root: string, relative: string, optional = false) => { const bytes = readFile(root, relative, optional); observed.push({ root, relative, bytes }); return bytes; };
+    const configBytes = observe(deps.globalDataRoot, 'config.json', true);
+    const tavern = tavernExecutionSettings(parseTavernSettings(configBytes ? JSON.parse(configBytes.toString('utf8')).sillyTavern : undefined));
+    const activePreset = activeTavernPreset(tavern);
+    if (activePreset) assets.push({ scope: 'global', identity: 'sillytavern-preset', hash: hash(stable({ entry: activePreset, scope: tavern.scope })) });
     const guidanceNames = (): string[] => {
         const directory = path.join(deps.projectStorageRoot, 'prompts');
         if (!fs.existsSync(directory)) return [];
@@ -570,6 +575,7 @@ export function buildGenerationSourceBinding(deps: GenerationSourceBindingDepend
     if (deps.db.pragma('data_version', { simple: true }) !== dataVersion || deps.db.prepare('SELECT total_changes()').pluck().get() !== changes)
         fail('GENERATION_SOURCE_CHANGED_DURING_SNAPSHOT');
     const sourceManifest = { version: 1, ...(input.finalizedCharacterContextHash ? { finalizedCharacterContextHash: input.finalizedCharacterContextHash } : {}), operation: input.operation, ...(input.knowledgeSnapshot ? { knowledgeSnapshot: structuredClone(input.knowledgeSnapshot) } : {}), ...(input.batchId ? { batchId: input.batchId } : {}), ...(input.batchIntent ? { batchIntent: structuredClone(input.batchIntent) } : {}), ...(input.chapterNumber !== undefined ? { chapterNumber: input.chapterNumber } : {}), selectedDraftIds: [...input.selectedDraftIds], selectedFinalizedDraftIds: [...input.selectedFinalizedDraftIds], ...(blueprintChapters.length ? { selectedBlueprintChapterNumbers: [...blueprintChapters] } : {}), promptKeys: [...input.promptKeys], skillStages: [...input.skillStages], ...(authorInputs.length ? { authorInputs } : {}), ...(materialDecision ? { materialDecision, materialDecisionHash } : {}), modelReceipt, policy: input.policy, outputContract: input.outputContract };
+    if (activePreset) Object.assign(sourceManifest, { sillyTavern: tavern });
     if (transferAuthority) Object.assign(sourceManifest, { portableTransferAuthority: transferAuthority });
     if (plotOutlineSource) Object.assign(sourceManifest, { plotOutlineSource: structuredClone(plotOutlineSource) });
     if (input.reviewRevisionContext) Object.assign(sourceManifest, { reviewRevisionContext: structuredClone(input.reviewRevisionContext), reviewRevisionContextHash: hash(JSON.stringify(input.reviewRevisionContext)) });

@@ -3,28 +3,9 @@ import type { LLMFinishReason, ModelProfile, TokenUsage } from '../../src/shared
 import { resolveOpenAIChatCompletionsUrl } from './openai-compatible-endpoint'
 import { VisibleStreamFilter } from './visible-stream'
 import { resolveModelProfileReasoningMapping } from '../../src/shared/provider-presets'
-import { version as appVersion } from '../../package.json'
+import { opencodeHeaders } from './opencode-headers'
 import { StreamTransportDiagnostics } from './transport-diagnostics'
 import { providerFailureCode } from './provider-context-length'
-
-const OPENCODE_GO_USER_AGENT = `ai-novel-writer/${appVersion}`
-
-function isOpencodeGoBaseUrl(baseUrl: string): boolean {
-  try {
-    const endpoint = new URL(baseUrl.trim())
-    const configuredPath = endpoint.pathname.replace(/\/+$/u, '')
-    return endpoint.protocol === 'https:'
-      && endpoint.hostname === 'opencode.ai'
-      && (configuredPath === '/zen/go' || configuredPath.startsWith('/zen/go/'))
-  } catch {
-    return false
-  }
-}
-
-// opencode Go requires a stable per-conversation session id for routing and
-// prompt caching. The caller supplies that conversation scope; a missing scope
-// degrades to a per-request id so one-off operations never share session
-// affinity with creative runs.
 
 export class OpenAIProvider implements ILLMProvider {
   private normalizeFinishReason(reason: string | null | undefined): LLMFinishReason {
@@ -105,15 +86,11 @@ export class OpenAIProvider implements ILLMProvider {
   }
 
   private buildRequestHeaders(model: ModelProfile, conversationId?: string): Record<string, string> {
-    const headers: Record<string, string> = {
+    return {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${model.apiKey}`,
+      ...opencodeHeaders(model.baseUrl, conversationId),
     }
-    if (isOpencodeGoBaseUrl(model.baseUrl)) {
-      headers['x-opencode-session'] = conversationId || crypto.randomUUID()
-      headers['User-Agent'] = OPENCODE_GO_USER_AGENT
-    }
-    return headers
   }
 
   async generate(model: ModelProfile, messages: Array<{ role: string; content: string }>, opts: LLMGenerateOptions): Promise<LLMResponse> {

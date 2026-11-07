@@ -7,6 +7,9 @@ import type { Locale } from './types'
  * 要么在 generation-error-codes.test.ts 里写明不登记的理由。
  */
 const ERROR_KEYS = {
+  SILLYTAVERN_PRESET_INVALID: 'error.sillyTavernPresetInvalid',
+  SILLYTAVERN_MACRO_LIMIT: 'error.sillyTavernMacroLimit',
+  SILLYTAVERN_CONFIG_UNREADABLE: 'error.sillyTavernConfigUnreadable',
   KNOWLEDGE_BASE_NATIVE_UNAVAILABLE: 'error.knowledgeBaseNativeUnavailable',
   LEGACY_VECTOR_MIGRATION_BLOCKED: 'error.legacyVectorMigrationBlocked',
   PROJECT_NOT_OPEN: 'error.projectNotOpen',

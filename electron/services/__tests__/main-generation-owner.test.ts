@@ -1,4 +1,5 @@
 import { planBlueprintGenerationCost } from '../../../src/services/workflows/blueprint-batch-policy'
+import { importTavernPreset } from '../../../src/shared/sillytavern-preset'
 import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
@@ -101,6 +102,32 @@ function syntheticStream(includeUsage = true) {
   vi.stubGlobal('fetch', fetch)
   return fetch
 }
+
+it('freezes a SillyTavern preset, includes it in provider input and budget, and rejects changed settings', async () => {
+  const dispatch = vi.fn<GenerationRunServiceDependencies['dispatch']>(async (_request, options) => {
+    options.onVisible({ kind: 'delta', text: '正文' }); return { usage: null, finishReason: 'stop' }
+  })
+  const f = fixture(dispatch)
+  const entry = importTavernPreset(JSON.stringify({ prompts: [{ identifier: 'main', content: '导入文风 {{getvar::style}}' }],
+    extensions: { privateExtensionField: 'not-a-runtime-input' }, temperature: 0.1,
+    prompt_order: [{ character_id: 100001, order: [{ identifier: 'main', enabled: true }] }] }), 'test.json', 'preset')
+  entry.variables.style = '白描'
+  const config = path.join(f.root, 'global', 'config.json')
+  const settings = { presets: [entry], activePresetId: entry.id, scope: 'text' }
+  fs.writeFileSync(config, JSON.stringify({ sillyTavern: settings }))
+  const run = f.owner.begin(f.begin)
+  const frozen = new GenerationRunRepository(() => f.db).get(run.handle.runId).binding
+  expect(JSON.stringify(frozen.sourceManifest.sillyTavern)).not.toContain('privateExtensionField')
+  await f.owner.execute({ handle: run.handle, invocationNonce: 'first', task })
+  const request = dispatch.mock.calls[0][0] as { task: GenerationTask; plan: { inputUpperBoundTokens: number } }
+  expect(request.task.messages[0]).toEqual({ role: 'system', content: '导入文风 白描' })
+  expect(request.task.messages[1]).toEqual(task.messages[0])
+  expect(request.plan.inputUpperBoundTokens).toBe(request.task.messages.reduce((sum, m) => sum + Buffer.byteLength(m.content) + Buffer.byteLength(m.role) + 32, 32))
+  entry.variables.style = '写实'
+  fs.writeFileSync(config, JSON.stringify({ sillyTavern: settings }))
+  await expect(f.owner.execute({ handle: run.handle, invocationNonce: 'second', task })).rejects.toThrow('GENERATION_SOURCE_CHANGED')
+  expect(dispatch).toHaveBeenCalledTimes(1)
+})
 
 function openAggregateRun(f: ReturnType<typeof fixture>, selection: BeginGenerationRequest) {
   const inputs = selection.authorInputs!
